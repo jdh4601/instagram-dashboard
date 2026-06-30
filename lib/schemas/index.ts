@@ -12,6 +12,7 @@ export const TranscriptInsightItemSchema = z.object({
   title: z.string(),
   detail: z.string(),
   metric: z.string().optional(), // 연결된 지표 키(예: skipRate, shareRate)
+  rewrite: z.string().optional(), // 약점일 때만: 바로 쓸 수 있는 새 자막 대사 제안
 });
 export type TranscriptInsightItem = z.infer<typeof TranscriptInsightItemSchema>;
 

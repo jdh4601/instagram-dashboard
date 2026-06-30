@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
-import { Captions, Upload, ThumbsUp, AlertTriangle, Trash2, Sparkles } from "lucide-react";
+import { Captions, Upload, ThumbsUp, AlertTriangle, Trash2, Sparkles, Pencil } from "lucide-react";
 import type { TranscriptAnalysis } from "@/lib/analysis/transcriptAnalysis";
 import type { TranscriptInsights } from "@/lib/schemas";
 import { Card, CardHeader, CardBody } from "@/components/ui";
@@ -248,10 +248,37 @@ function AiColumn({ title, items, icon, tone }: AiColumnProps) {
             <li key={i}>
               <p className="text-sm font-medium text-neutral-800">{it.title}</p>
               <p className="mt-0.5 text-xs leading-relaxed text-neutral-600">{it.detail}</p>
+              {it.rewrite && <RewriteSuggestion text={it.rewrite} />}
             </li>
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+// 새 자막 제안은 전체가 아니라 일부(첫 줄 · 약 40자)만 미리보기로 노출한다.
+const REWRITE_PREVIEW_MAX = 40;
+
+function previewRewrite(text: string): { preview: string; truncated: boolean } {
+  const firstLine = text.split("\n")[0].trim();
+  if (firstLine.length <= REWRITE_PREVIEW_MAX && firstLine === text.trim()) {
+    return { preview: firstLine, truncated: false };
+  }
+  const clipped = firstLine.slice(0, REWRITE_PREVIEW_MAX).trim();
+  return { preview: clipped, truncated: true };
+}
+
+function RewriteSuggestion({ text }: { text: string }) {
+  const { preview, truncated } = previewRewrite(text);
+  return (
+    <div className="mt-1.5 rounded-card border border-brand-200 bg-brand-50/70 px-2.5 py-1.5">
+      <p className="flex items-center gap-1 text-[11px] font-semibold text-brand-700">
+        <Pencil size={11} /> 이렇게 바꿔보세요
+      </p>
+      <p className="mt-0.5 text-xs leading-relaxed text-neutral-700">
+        “{preview}{truncated ? "…" : ""}”
+      </p>
     </div>
   );
 }
