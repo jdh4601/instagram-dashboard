@@ -24,14 +24,16 @@ interface MaskedProvider {
   model: string;
 }
 interface MaskedSettings {
-  activeProvider: ProviderId;
+  textProvider: ProviderId;
+  visionProvider: ProviderId;
   providers: Record<ProviderId, MaskedProvider>;
   instagram: { configured: boolean; maskedKey: string | null };
 }
 
 export default function SettingsPage() {
   const [data, setData] = useState<MaskedSettings | null>(null);
-  const [active, setActive] = useState<ProviderId>("anthropic");
+  const [textProvider, setTextProvider] = useState<ProviderId>("anthropic");
+  const [visionProvider, setVisionProvider] = useState<ProviderId>("anthropic");
   const [keyInputs, setKeyInputs] = useState<Record<string, string>>({});
   const [modelInputs, setModelInputs] = useState<Record<string, string>>({});
   const [igToken, setIgToken] = useState("");
@@ -39,7 +41,8 @@ export default function SettingsPage() {
 
   function load(d: MaskedSettings) {
     setData(d);
-    setActive(d.activeProvider);
+    setTextProvider(d.textProvider);
+    setVisionProvider(d.visionProvider);
     const models: Record<string, string> = {};
     for (const id of PROVIDER_ORDER) models[id] = d.providers[id].model;
     setModelInputs(models);
@@ -61,7 +64,7 @@ export default function SettingsPage() {
     const res = await fetch("/api/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ activeProvider: active, providers, instagram: { accessToken: igToken } }),
+      body: JSON.stringify({ textProvider, visionProvider, providers, instagram: { accessToken: igToken } }),
     });
     if (!res.ok) {
       setStatus("저장 실패");
@@ -87,7 +90,8 @@ export default function SettingsPage() {
       </div>
       <p className="text-sm text-neutral-500">
         키는 이 PC의 <code>data/settings.json</code>에만 저장되며 화면에는 마스킹되어 표시됩니다.
-        스크린샷 파싱은 vision 지원 모델에서만 동작합니다.
+        <strong>자막 분석</strong>(텍스트)과 <strong>이미지 추출</strong>(비전)에 쓸 제공자를 따로 고를 수 있어요 —
+        예: 분석은 고품질 모델, 이미지 추출은 저렴한 모델. 스크린샷 파싱은 vision 지원 모델에서만 동작합니다.
       </p>
 
       <form onSubmit={onSave} className="space-y-3">
@@ -95,16 +99,30 @@ export default function SettingsPage() {
           const p = data.providers[id];
           return (
             <div key={id} className="rounded-lg border border-neutral-200 p-4 space-y-2">
-              <label className="flex items-center gap-2 font-semibold">
-                <input
-                  type="radio"
-                  name="active"
-                  checked={active === id}
-                  onChange={() => setActive(id)}
-                />
-                {PROVIDER_LABELS[id]}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <span className="font-semibold">{PROVIDER_LABELS[id]}</span>
                 {p.configured && <span className="text-xs text-green-600">● 키 등록됨</span>}
-              </label>
+                <span className="ml-auto flex items-center gap-3 text-sm">
+                  <label className="flex items-center gap-1">
+                    <input
+                      type="radio"
+                      name="textProvider"
+                      checked={textProvider === id}
+                      onChange={() => setTextProvider(id)}
+                    />
+                    자막 분석
+                  </label>
+                  <label className="flex items-center gap-1">
+                    <input
+                      type="radio"
+                      name="visionProvider"
+                      checked={visionProvider === id}
+                      onChange={() => setVisionProvider(id)}
+                    />
+                    이미지 추출
+                  </label>
+                </span>
+              </div>
               <input
                 type="password"
                 className="border rounded px-2 py-1 w-full text-sm"
