@@ -2,8 +2,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Settings as SettingsIcon, ArrowLeft, Camera } from "lucide-react";
 import { Button } from "@/components/ui";
-
-type ProviderId = "anthropic" | "openai" | "kimi" | "gemini";
+import { PROVIDER_PRESETS, type ProviderId } from "@/lib/llm/providers";
 
 const PROVIDER_LABELS: Record<ProviderId, string> = {
   anthropic: "Anthropic (Claude)",
@@ -12,6 +11,12 @@ const PROVIDER_LABELS: Record<ProviderId, string> = {
   gemini: "Google Gemini",
 };
 const PROVIDER_ORDER: ProviderId[] = ["anthropic", "openai", "kimi", "gemini"];
+
+// 드롭다운 옵션: 프리셋 모델 목록 + 저장돼 있던 현재 모델(목록에 없으면 보존).
+function modelOptions(id: ProviderId, current: string): string[] {
+  const preset = PROVIDER_PRESETS[id].models;
+  return preset.includes(current) ? preset : [current, ...preset];
+}
 
 interface MaskedProvider {
   configured: boolean;
@@ -107,13 +112,20 @@ export default function SettingsPage() {
                 value={keyInputs[id] ?? ""}
                 onChange={(e) => setKeyInputs({ ...keyInputs, [id]: e.target.value })}
               />
-              <input
-                type="text"
-                className="border rounded px-2 py-1 w-full text-sm"
-                placeholder="모델명"
-                value={modelInputs[id] ?? ""}
-                onChange={(e) => setModelInputs({ ...modelInputs, [id]: e.target.value })}
-              />
+              <label className="block text-xs text-neutral-500">
+                모델
+                <select
+                  className="mt-0.5 border rounded px-2 py-1 w-full text-sm bg-white"
+                  value={modelInputs[id] ?? p.model}
+                  onChange={(e) => setModelInputs({ ...modelInputs, [id]: e.target.value })}
+                >
+                  {modelOptions(id, modelInputs[id] ?? p.model).map((m) => (
+                    <option key={m} value={m}>
+                      {m === PROVIDER_PRESETS[id].defaultModel ? `${m} (기본)` : m}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
           );
         })}
