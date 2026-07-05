@@ -41,8 +41,31 @@ test("프로필 팔로워/릴스 수와 평균 인게이지먼트를 집계", ()
   expect(o.followers).toBe(238);
   expect(o.followerDelta).toBe(8);
   expect(o.reachLast7d).toBe(4200);
+  expect(o.reachAvailable).toBe(true);
   expect(o.reelCount).toBe(12); // 프로필 우선
   expect(o.avgEngagementRate).toBeCloseTo(3, 5);
+  expect(o.viewsLast7d).toBeNull();
+});
+
+test("최신 계정 인사이트를 상단 개요로 전달", () => {
+  const o = buildAccountOverview([], [{
+    date: "2026-07-05",
+    followerCount: 250,
+    reachLast7d: 5000,
+    viewsLast7d: 7000,
+    accountsEngagedLast7d: 400,
+    totalInteractionsLast7d: 600,
+    followsLast7d: 30,
+    unfollowsLast7d: 8,
+    profileLinksTapsLast7d: 12,
+  }], null);
+  expect(o).toMatchObject({
+    viewsLast7d: 7000,
+    accountsEngagedLast7d: 400,
+    totalInteractionsLast7d: 600,
+    netFollowersLast7d: 22,
+    profileLinksTapsLast7d: 12,
+  });
 });
 
 test("프로필이 없으면 스냅샷/릴스에서 추론", () => {
@@ -60,6 +83,18 @@ test("데이터가 비면 0/null로 안전 처리", () => {
   expect(o.followers).toBe(0);
   expect(o.followerDelta).toBeNull();
   expect(o.reachLast7d).toBe(0);
+  expect(o.reachAvailable).toBe(false);
   expect(o.reelCount).toBe(0);
   expect(o.avgEngagementRate).toBe(0);
+});
+
+test("API가 reach를 지원하면 실제 0도 수집값으로 구분", () => {
+  const o = buildAccountOverview([], [{
+    date: "2026-07-05",
+    followerCount: 0,
+    reachLast7d: 0,
+    availableMetrics: ["reach"],
+  }], null);
+  expect(o.reachLast7d).toBe(0);
+  expect(o.reachAvailable).toBe(true);
 });

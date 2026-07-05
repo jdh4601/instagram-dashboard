@@ -9,6 +9,7 @@ export function mergeScreenshotParse(reel: Reel, parse: ScreenshotParse): Reel {
     ...reel,
     hookRetention3s: parse.hookRetention3s ?? hookFromSkip ?? reel.hookRetention3s,
     skipRate: parse.skipRate ?? reel.skipRate,
+    skipRateSource: parse.skipRate !== undefined ? "EDIT" : reel.skipRateSource,
     retentionCurve: parse.retentionCurve ?? reel.retentionCurve,
     reachSources: parse.reachSources ?? reel.reachSources,
     audienceBreakdown: parse.audienceBreakdown ?? reel.audienceBreakdown,

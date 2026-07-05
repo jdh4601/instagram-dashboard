@@ -130,7 +130,7 @@ function analyzeCoverage(
   out.push({
     kind: "weakness",
     title: "후반부 자막 비어있음",
-    detail: `영상 ${Math.round(reel.durationSec)}초 중 자막이 ${Math.round(lastEndSec)}초까지만 있어 후반부가 비어 있습니다. 완주율이 ${round1(derived.completionRate)}%로 낮아요 — 끝까지 자막으로 끌고 가면 완주율을 올릴 수 있습니다.`,
+    detail: `영상 ${Math.round(reel.durationSec)}초 중 자막이 ${Math.round(lastEndSec)}초까지만 있어 후반부가 비어 있습니다. 평균 시청 비율이 ${round1(derived.completionRate)}%로 낮아요 — 끝까지 자막으로 끌고 가면 시청 지속을 높일 수 있습니다.`,
   });
 }
 

@@ -14,6 +14,8 @@ import { FollowerGrowthChart } from "@/components/FollowerGrowthChart";
 import { EngagementPieChart } from "@/components/EngagementPieChart";
 import { RecentInsightCards } from "@/components/RecentInsightCards";
 import { DashboardMetrics } from "@/components/DashboardMetrics";
+import { InsightList } from "@/components/InsightList";
+import { buildAccountInsights } from "@/lib/analysis/accountInsights";
 
 export default function Page() {
   const [reels, setReels] = useState<Reel[]>([]);
@@ -42,7 +44,11 @@ export default function Page() {
       setReels(reelsRes.reels);
       setSnapshots(snapsRes.snapshots);
       setProfile(profileRes.profile);
-      setSyncStatus(`동기화 완료: 릴스 ${data.syncedReels}개 · @${data.username}`);
+      const unsupported = Array.isArray(data.unavailableMetrics) ? data.unavailableMetrics.length : 0;
+      setSyncStatus(
+        `동기화 완료: 릴스 ${data.syncedReels}개 · @${data.username}` +
+          (unsupported > 0 ? ` · 선택 지표 ${unsupported}개 미지원` : ""),
+      );
     } finally {
       setSyncing(false);
     }
@@ -83,6 +89,7 @@ export default function Page() {
   const followerDelta = latestFollowerDelta(snapshots);
   const recent = diagnoseRecent(reels);
   const dashboardMetrics = computeDashboardMetrics(reels);
+  const accountInsights = buildAccountInsights(snapshots);
 
   return (
     <>
@@ -90,6 +97,7 @@ export default function Page() {
       <main className="mx-auto max-w-5xl space-y-5 px-4 pb-4 sm:px-6 sm:pb-6">
         <AccountHeader profile={profile} followerDelta={followerDelta} />
         <AccountOverview overview={overview} />
+        <InsightList title="계정 인사이트" insights={accountInsights} />
 
         <RecentInsightCards
           strengths={recent.strengths}

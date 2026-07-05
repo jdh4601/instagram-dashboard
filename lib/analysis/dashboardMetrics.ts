@@ -33,7 +33,7 @@ export interface TopFollowReel {
 export interface DashboardMetrics {
   /** 평균 시청 시간(초) */
   avgWatchTimeSec: number | null;
-  /** 평균 완시율(%) */
+  /** 평균 시청 비율(%): 평균 시청시간 / 영상 길이 */
   completionRate: number | null;
   /** 평균 영상 길이(초). 상대적 해석용 */
   avgDurationSec: number | null;
@@ -68,7 +68,7 @@ export function computeDashboardMetrics(reels: Reel[]): DashboardMetrics {
       title: reelTitle(r),
       avgWatchTimeSec: r.avgWatchTimeSec,
       durationSec: r.durationSec,
-      completionRate: r.durationSec > 0 ? d.completionRate : null,
+      completionRate: r.durationSec > 0 ? (d.averageWatchPercentage ?? null) : null,
       skipRate,
       followConversionRate: r.followsFromReel !== undefined ? (d.followConversionRate ?? 0) : null,
       profileVisitRate: r.profileVisits !== undefined ? (d.profileVisitRate ?? 0) : null,

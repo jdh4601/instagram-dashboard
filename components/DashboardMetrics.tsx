@@ -227,7 +227,7 @@ function Retention3sChart({
           <EmptyState
             icon={<Activity size={26} />}
             title="릴스 2개 이상부터 표시됩니다"
-            hint="첫 3초 잔존율(=100−스킵)입니다. API skip rate 또는 스크린샷이 있으면 채워집니다."
+            hint="첫 3초 잔존율(=100−스킵)입니다. Graph API 또는 EDIT 인사이트 데이터가 있을 때 표시됩니다."
           />
         ) : (
           <>

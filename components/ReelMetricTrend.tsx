@@ -6,6 +6,14 @@ import { Card, CardHeader, CardBody, EmptyState } from "@/components/ui";
 import { fmtCount } from "@/lib/ui/format";
 
 export function ReelMetricTrend({ history }: { history: ReelMetricSnapshot[] }) {
+  const first = history[0];
+  const latest = history[history.length - 1];
+  const extraChanges = first && latest ? [
+    change("재시청", first.replays, latest.replays),
+    change("팔로우", first.followsFromReel, latest.followsFromReel),
+    change("프로필 방문", first.profileVisits, latest.profileVisits),
+    change("총 시청 시간", first.totalWatchTimeSec, latest.totalWatchTimeSec, "초"),
+  ].filter((item): item is { label: string; value: string } => item !== null) : [];
   return (
     <Card>
       <CardHeader title="조회수 추이" icon={<TrendingUp size={16} className="text-brand-600" />} />
@@ -41,7 +49,23 @@ export function ReelMetricTrend({ history }: { history: ReelMetricSnapshot[] }) 
             </AreaChart>
           </ResponsiveContainer>
         )}
+        {history.length >= 2 && extraChanges.length > 0 && (
+          <div className="mt-4 grid grid-cols-2 gap-2 border-t border-border-subtle pt-4 sm:grid-cols-4">
+            {extraChanges.map((item) => (
+              <div key={item.label} className="rounded-lg bg-surface-muted p-2.5">
+                <p className="text-[11px] text-neutral-500">기간 중 {item.label}</p>
+                <p className="mt-0.5 font-semibold tabular-nums text-neutral-800">{item.value}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </CardBody>
     </Card>
   );
+}
+
+function change(label: string, first: number | undefined, latest: number | undefined, unit = ""): { label: string; value: string } | null {
+  if (first === undefined || latest === undefined) return null;
+  const delta = latest - first;
+  return { label, value: `${delta >= 0 ? "+" : ""}${fmtCount(delta)}${unit}` };
 }

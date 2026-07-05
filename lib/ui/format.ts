@@ -32,3 +32,10 @@ export function fmtCount(n: number): string {
 export function fmtSec(n: number): string {
   return `${n.toFixed(1)}초`;
 }
+
+export function fmtDuration(totalSeconds: number): string {
+  if (totalSeconds < 60) return fmtSec(totalSeconds);
+  const totalMinutes = totalSeconds / 60;
+  if (totalMinutes < 60) return `${totalMinutes.toFixed(1)}분`;
+  return `${(totalMinutes / 60).toFixed(1)}시간`;
+}

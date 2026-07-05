@@ -57,6 +57,7 @@ test("profileVisits를 보존/병합", () => {
 test("skipRate가 주어지면 3초 후 잔존율을 100 - skipRate로 환산", () => {
   const merged = mergeScreenshotParse(reel({}), { skipRate: 68.56 });
   expect(merged.skipRate).toBe(68.56);
+  expect(merged.skipRateSource).toBe("EDIT");
   expect(merged.hookRetention3s).toBeCloseTo(31.44, 5);
 });
 

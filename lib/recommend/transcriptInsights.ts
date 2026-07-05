@@ -24,7 +24,7 @@ const SYSTEM_PROMPT = `너는 인스타그램 릴스의 자막(대본)과 성과
   "strengths": [{"title":"짧은 제목","detail":"자막 인용 + 연결 지표로 원인","metric":"지표 키(선택)"}],
   "weaknesses": [{"title":"짧은 제목","detail":"자막 인용 + 연결 지표로 원인","metric":"지표 키(선택)","rewrite":"바로 쓸 새 자막 대사"}]
 }
-metric 키 예: skipRate(스킵률), completionRate(완주율), shareRate(공유율), saveRate(저장율),
+metric 키 예: skipRate(스킵률), completionRate(평균 시청 비율), shareRate(공유율), saveRate(저장율),
 commentRate(댓글율), followRate(팔로우전환율).`;
 
 // 지표값을 계정 벤치마크에 비춰 약점권/중간/강점권으로 라벨링. 모델이 직접 "좋다/나쁘다"를 판단하지 않게 한다.
@@ -56,7 +56,7 @@ function metricsBlock(reel: Reel): string {
     `평균 시청: ${reel.avgWatchTimeSec}초`,
     `3초 스킵/이탈: ${skipTxt}${hookRet != null ? ` ${band(hookRet, "hookRetention3s")}` : ""}`,
     reel.durationSec > 0
-      ? `완주율: ${d.completionRate.toFixed(1)}% ${band(d.completionRate, "completionRate")}`
+      ? `평균 시청 비율: ${d.completionRate.toFixed(1)}% ${band(d.completionRate, "completionRate")}`
       : `완주율: 미상(길이 없음)`,
     ``,
     `참여 지표(계정 기준 대비 — 이 판정을 신뢰할 것):`,

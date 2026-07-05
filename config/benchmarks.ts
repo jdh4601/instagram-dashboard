@@ -18,7 +18,7 @@ export interface Threshold {
 // 스펙 5절 임계값 표 — 여기가 유일한 출처. 튜닝은 이 파일에서만.
 export const BENCHMARKS: Record<MetricKey, Threshold> = {
   hookRetention3s: { weakBelow: 45, strongAbove: 55, weight: 5, label: "3초 훅 잔존" },
-  completionRate:  { weakBelow: 30, strongAbove: 50, weight: 3, label: "완료율" },
+  completionRate:  { weakBelow: 30, strongAbove: 50, weight: 3, label: "평균 시청 비율" },
   shareRate:       { weakBelow: 0.4, strongAbove: 0.8, weight: 4, label: "공유율" },
   saveRate:        { weakBelow: 0.3, strongAbove: 0.6, weight: 3, label: "저장율" },
   likeRate:        { weakBelow: 1.5, strongAbove: 3, weight: 1, label: "좋아요율" },

@@ -28,6 +28,7 @@ export function AccountHeader({ profile, followerDelta }: AccountHeaderProps) {
         <div className="text-base font-semibold text-neutral-900">@{username}</div>
         <div className="flex items-center gap-2 text-sm text-neutral-500">
           <span className="tabular-nums">팔로워 {followers.toLocaleString()}</span>
+          {profile && <span className="tabular-nums">콘텐츠 {profile.mediaCount.toLocaleString()}</span>}
           {followerDelta !== null && followerDelta !== 0 && (
             <span
               className={

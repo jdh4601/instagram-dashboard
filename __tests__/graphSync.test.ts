@@ -24,7 +24,16 @@ const fakeClient: GraphClient = {
   listReels: async () => [
     { id: "media-1", media_product_type: "REELS", caption: "API 캡션", timestamp: "2026-06-01T00:00:00+0000" },
   ],
-  getInsights: async () => ({ views: 12000, reach: 9000, likes: 400, comments: 8, saved: 50, shares: 200, ig_reels_avg_watch_time: 21000 }),
+  getInsights: async () => ({
+    metrics: { views: 12000, reach: 9000, likes: 400, comments: 8, saved: 50, shares: 200, total_interactions: 658, ig_reels_avg_watch_time: 21000, reels_skip_rate: 45, follows: 20, profile_visits: 100 },
+    availableMetrics: ["views", "reach", "reels_skip_rate", "follows", "profile_visits"],
+    unavailableMetrics: ["clips_replays_count"],
+  }),
+  getAccountInsights: async () => ({
+    metrics: { reach: 5000, views: 7000, accounts_engaged: 320, total_interactions: 480, follows: 30, unfollows: 8 },
+    availableMetrics: ["reach", "views", "accounts_engaged", "total_interactions", "follows_and_unfollows"],
+    unavailableMetrics: ["profile_links_taps"],
+  }),
 };
 
 test("동기화는 집계 수치를 갱신하고 스샷 데이터(훅·길이·자막)는 보존한다", async () => {
@@ -37,6 +46,7 @@ test("동기화는 집계 수치를 갱신하고 스샷 데이터(훅·길이·�
     views: 100, reach: 90, likes: 1, comments: 0, saves: 0, shares: 0, avgWatchTimeSec: 5,
     hookRetention3s: 42,
     skipRate: 31,
+    skipRateSource: "EDIT",
     retentionCurve: [{ sec: 0, pct: 100 }, { sec: 3, pct: 42 }],
     reachSources: { reelsTab: 70, explore: 20 },
     audienceBreakdown: { followersPct: 30, nonFollowersPct: 70 },
@@ -55,17 +65,18 @@ test("동기화는 집계 수치를 갱신하고 스샷 데이터(훅·길이·�
   expect(updated?.durationSec).toBe(53); // 스샷 길이 보존
   expect(updated?.hookRetention3s).toBe(42); // 스샷 훅 보존
   expect(updated?.skipRate).toBe(31); // 스킵 비율 보존
+  expect(updated?.skipRateSource).toBe("EDIT");
   expect(updated?.reachSources?.reelsTab).toBe(70); // 유입 소스 보존
   expect(updated?.audienceBreakdown?.nonFollowersPct).toBe(70); // 팔로워 비중 보존
   expect(updated?.watchTimeBuckets?.[0].pct).toBe(40); // 시청 지속 분포 보존
-  expect(updated?.followsFromReel).toBe(12); // 릴스 발 팔로우 보존
-  expect(updated?.profileVisits).toBe(80); // 프로필 방문 보존
+  expect(updated?.followsFromReel).toBe(20); // Graph 값으로 갱신
+  expect(updated?.profileVisits).toBe(100); // Graph 값으로 갱신
   expect(updated?.transcript?.[0].text).toBe("도입"); // 자막 보존
   expect(updated?.derived?.shareRate).toBeCloseTo(200 / 12000 * 100, 5);
 
   expect(result.syncedReels).toBe(1);
   const snaps = await accountRepo.list();
-  expect(snaps[0]).toMatchObject({ date: "2026-06-29", followerCount: 1500 });
+  expect(snaps[0]).toMatchObject({ date: "2026-06-29", followerCount: 1500, reachLast7d: 5000, viewsLast7d: 7000, followsLast7d: 30, unfollowsLast7d: 8 });
 });
 
 test("이력 저장소가 주어지면 동기화 시점 지표를 누적한다", async () => {
@@ -103,7 +114,7 @@ test("신규 릴스는 길이 0(미상)으로 생성된다", async () => {
   expect(created?.views).toBe(12000);
 });
 
-test("동기화 시 skipRate만 있으면 hookRetention3s를 100 - skipRate로 환산해 보존", async () => {
+test("EDIT skipRate는 Graph 동기화보다 우선하며 3초 잔존율로 환산", async () => {
   const reelRepo = createJsonReelRepository(tmpDir());
   const accountRepo = createJsonAccountRepository(tmpDir());
 
@@ -111,6 +122,7 @@ test("동기화 시 skipRate만 있으면 hookRetention3s를 100 - skipRate로 �
     id: "media-1", postedAt: "2026-06-01T00:00:00Z", durationSec: 30,
     views: 100, reach: 90, likes: 1, comments: 0, saves: 0, shares: 0, avgWatchTimeSec: 5,
     skipRate: 68.56,
+    skipRateSource: "EDIT",
   };
   await reelRepo.upsert(existing);
 
@@ -119,4 +131,17 @@ test("동기화 시 skipRate만 있으면 hookRetention3s를 100 - skipRate로 �
   const updated = await reelRepo.get("media-1");
   expect(updated?.hookRetention3s).toBeCloseTo(31.44, 5);
   expect(updated?.skipRate).toBe(68.56);
+  expect(updated?.skipRateSource).toBe("EDIT");
+});
+
+test("Graph skipRate는 API 출처와 함께 신규 릴스에 저장", async () => {
+  const reelRepo = createJsonReelRepository(tmpDir());
+  const accountRepo = createJsonAccountRepository(tmpDir());
+
+  await syncFromGraph(fakeClient, reelRepo, accountRepo, "2026-06-29");
+
+  const updated = await reelRepo.get("media-1");
+  expect(updated?.skipRate).toBe(45);
+  expect(updated?.hookRetention3s).toBe(55);
+  expect(updated?.skipRateSource).toBe("API");
 });

@@ -54,11 +54,12 @@ test("mapMediaToReel은 집계 지표를 Reel로 매핑(평균시청 ms→초)",
   expect(reel.durationSec).toBe(0); // API가 길이를 안 줌
 });
 
-test("mapMediaToReel은 reels_skip_rate를 skipRate와 3초 잔존율(hookRetention3s)로 매핑", () => {
+test("mapMediaToReel은 reels_skip_rate와 출처를 매핑", () => {
   const media = { id: "m4", media_product_type: "REELS", timestamp: "2026-06-04T00:00:00+0000" };
   const reel = mapMediaToReel(media, { reels_skip_rate: 68.56 });
   expect(reel.skipRate).toBeCloseTo(68.56, 5);
-  expect(reel.hookRetention3s).toBeCloseTo(31.44, 5); // 100 - 68.56
+  expect(reel.skipRateSource).toBe("API");
+  expect(reel.hookRetention3s).toBeCloseTo(31.44, 5);
 });
 
 test("mapMediaToReel은 skip 지표가 없으면 skipRate/hookRetention3s를 남기지 않는다", () => {

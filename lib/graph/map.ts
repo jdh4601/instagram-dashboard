@@ -48,7 +48,6 @@ export interface GraphMedia {
 export function mapMediaToReel(media: GraphMedia, insights: Record<string, number>): Reel {
   const num = (k: string) => insights[k] ?? 0;
   const optional = (k: string) => insights[k];
-  // reels_skip_rate: 첫 3초 내 스킵 비율(%). 3초 잔존율 = 100 - skipRate.
   const skipRate = optional("reels_skip_rate");
   return {
     id: media.id,
@@ -69,6 +68,7 @@ export function mapMediaToReel(media: GraphMedia, insights: Record<string, numbe
     replays: optional("clips_replays_count"),
     totalPlays: optional("ig_reels_aggregated_all_plays_count"),
     skipRate,
+    skipRateSource: skipRate === undefined ? undefined : "API",
     hookRetention3s: skipRate === undefined ? undefined : 100 - skipRate,
     followsFromReel: optional("follows"),
     profileActivity: optional("profile_activity"),

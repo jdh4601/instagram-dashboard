@@ -98,7 +98,6 @@ test("getInsights는 reels_skip_rate를 요청하고 반환값을 metrics로 전
       if (metric.includes("views,reach")) {
         return { ok: true, json: async () => ({ data: [{ name: "views", values: [{ value: 10 }] }] }), text: async () => "" };
       }
-      // 선택 지표 묶음 요청에 reels_skip_rate 포함되어야 함
       if (!metric.includes("reels_skip_rate")) throw new Error("reels_skip_rate 미요청");
       return { ok: true, json: async () => ({ data: [{ name: "reels_skip_rate", values: [{ value: 68.56 }] }] }), text: async () => "" };
     }) as unknown as typeof fetch,
