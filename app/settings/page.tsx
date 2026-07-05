@@ -133,7 +133,7 @@ export default function SettingsPage() {
               <label className="block text-xs text-neutral-500">
                 모델
                 <select
-                  className="mt-0.5 border rounded px-2 py-1 w-full text-sm bg-white"
+                  className="mt-0.5 border rounded bg-surface px-2 py-1 w-full text-sm"
                   value={modelInputs[id] ?? p.model}
                   onChange={(e) => setModelInputs({ ...modelInputs, [id]: e.target.value })}
                 >

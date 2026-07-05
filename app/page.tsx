@@ -5,7 +5,7 @@ import { buildAccountOverview } from "@/lib/analysis/accountOverview";
 import { latestFollowerDelta } from "@/lib/analysis/followerTrend";
 import { diagnoseRecent } from "@/lib/analysis/recentDiagnosis";
 import { computeDashboardMetrics } from "@/lib/analysis/dashboardMetrics";
-import { AppBar } from "@/components/AppBar";
+import { DashboardActions } from "@/components/DashboardActions";
 import { AccountHeader } from "@/components/AccountHeader";
 import { AccountOverview } from "@/components/AccountOverview";
 import { Input, Button } from "@/components/ui";
@@ -86,8 +86,8 @@ export default function Page() {
 
   return (
     <>
-      <AppBar onSync={onSync} syncing={syncing} />
-      <main className="mx-auto max-w-5xl space-y-5 p-4 sm:p-6">
+      <DashboardActions onSync={onSync} syncing={syncing} />
+      <main className="mx-auto max-w-5xl space-y-5 px-4 pb-4 sm:px-6 sm:pb-6">
         <AccountHeader profile={profile} followerDelta={followerDelta} />
         <AccountOverview overview={overview} />
 

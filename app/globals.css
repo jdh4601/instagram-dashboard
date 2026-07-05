@@ -36,3 +36,60 @@
   --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
   --shadow-card-hover: 0 4px 12px rgb(16 24 40 / 0.08);
 }
+
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+  --color-brand-50: #1e1b4b;
+  --color-brand-100: #312e81;
+  --color-brand-200: #4338ca;
+  --color-brand-400: #a5b4fc;
+  --color-brand-500: #818cf8;
+  --color-brand-600: #6366f1;
+  --color-brand-700: #818cf8;
+  --color-surface: #151922;
+  --color-surface-muted: #1d2330;
+  --color-border-subtle: #2b3444;
+  --color-neutral-50: #0d1117;
+  --color-neutral-100: #1d2330;
+  --color-neutral-200: #2b3444;
+  --color-neutral-300: #455064;
+  --color-neutral-400: #8491a6;
+  --color-neutral-500: #9ca8ba;
+  --color-neutral-600: #b6c0cf;
+  --color-neutral-700: #d0d7e2;
+  --color-neutral-800: #e2e7ee;
+  --color-neutral-900: #f4f6f8;
+  --color-band-weak: #f87171;
+  --color-band-weak-soft: #351b22;
+  --color-band-weak-border: #6b2934;
+  --color-band-ok: #fbbf24;
+  --color-band-ok-soft: #332814;
+  --color-band-ok-border: #6b4f16;
+  --color-band-strong: #4ade80;
+  --color-band-strong-soft: #142d22;
+  --color-band-strong-border: #24613d;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.24), 0 1px 4px rgb(0 0 0 / 0.18);
+  --shadow-card-hover: 0 6px 18px rgb(0 0 0 / 0.28);
+}
+
+body {
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.dark .recharts-cartesian-grid line {
+  stroke: #2b3444;
+}
+
+.dark .recharts-cartesian-axis-tick text {
+  fill: #8491a6 !important;
+}
+
+.dark .recharts-default-tooltip {
+  border-color: var(--color-border-subtle) !important;
+  background-color: var(--color-surface) !important;
+  color: var(--color-neutral-800) !important;
+}

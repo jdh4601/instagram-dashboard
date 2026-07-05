@@ -38,7 +38,7 @@ export function ScreenshotUploadCard({ reelId }: { reelId: string }) {
         <div className="border-t border-border-subtle pt-4">
           <p className="mb-3 text-sm font-medium text-neutral-700">폰에서 올리기</p>
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
-            <div className="rounded-xl border border-border-subtle bg-white p-3">
+            <div className="rounded-xl border border-border-subtle bg-surface p-3">
               {lanUploadUrl ? (
                 <QRCodeSVG value={lanUploadUrl} size={120} />
               ) : (

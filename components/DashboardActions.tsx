@@ -1,0 +1,42 @@
+import { RefreshCw, Settings, Upload } from "lucide-react";
+import { Button, ThemeToggle } from "@/components/ui";
+
+interface DashboardActionsProps {
+  onSync: () => void;
+  syncing: boolean;
+}
+
+export function DashboardActions({ onSync, syncing }: DashboardActionsProps) {
+  return (
+    <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6">
+      <ThemeToggle />
+      <div className="flex items-center gap-2">
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={onSync}
+          disabled={syncing}
+          icon={<RefreshCw size={14} className={syncing ? "animate-spin" : undefined} />}
+        >
+          {syncing ? "동기화 중…" : "동기화"}
+        </Button>
+        <a
+          href="/upload"
+          title="업로드"
+          aria-label="업로드"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-600 transition-colors hover:bg-surface-muted hover:text-neutral-900"
+        >
+          <Upload size={16} />
+        </a>
+        <a
+          href="/settings"
+          title="설정"
+          aria-label="설정"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-600 transition-colors hover:bg-surface-muted hover:text-neutral-900"
+        >
+          <Settings size={16} />
+        </a>
+      </div>
+    </div>
+  );
+}
