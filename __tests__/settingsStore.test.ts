@@ -1,4 +1,4 @@
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createSettingsStore } from "@/lib/settings/store";
@@ -8,22 +8,42 @@ function tmpStore() {
   return createSettingsStore(dir);
 }
 
-test("기본값: activeProvider=anthropic, 키 없음", async () => {
+test("기본값: text provider=anthropic, 키 없음", async () => {
   const s = await tmpStore().get();
-  expect(s.activeProvider).toBe("anthropic");
+  expect(s.textProvider).toBe("anthropic");
   expect(s.providers.anthropic.apiKey).toBeUndefined();
 });
 
-test("save 후 get으로 키·모델·활성 제공자 조회", async () => {
+test("legacy activeProvider 입력은 text provider로 사용한다", async () => {
   const store = tmpStore();
   await store.save({
     activeProvider: "kimi",
     providers: { kimi: { apiKey: "sk-kimi-secret-9999", model: "moonshot-v1-32k-vision-preview" } },
   });
   const s = await store.get();
-  expect(s.activeProvider).toBe("kimi");
+  expect(s.textProvider).toBe("kimi");
   expect(s.providers.kimi.apiKey).toBe("sk-kimi-secret-9999");
   expect(s.providers.kimi.model).toBe("moonshot-v1-32k-vision-preview");
+});
+
+test("legacy settings.json(activeProvider만 존재)을 읽으면 text provider로 폴백", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "settings-"));
+  writeFileSync(
+    join(dir, "settings.json"),
+    JSON.stringify({
+      activeProvider: "openai",
+      providers: { anthropic: {}, openai: {}, kimi: {}, gemini: {} },
+    }),
+  );
+  const s = await createSettingsStore(dir).get();
+  expect(s.textProvider).toBe("openai");
+});
+
+test("masked()는 text provider를 반환", async () => {
+  const store = tmpStore();
+  await store.save({ textProvider: "openai" });
+  const m = await store.masked();
+  expect(m.textProvider).toBe("openai");
 });
 
 test("빈 apiKey로 save하면 기존 키를 유지(덮어쓰지 않음)", async () => {

@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { VisionModel, TextModel } from "@/lib/llm/types";
+import type { TextModel } from "@/lib/llm/types";
 
 // 테스트 주입용 최소 인터페이스
 export interface AnthropicLike {
@@ -12,35 +12,6 @@ interface Options {
   apiKey: string;
   model: string;
   client?: AnthropicLike;
-}
-
-// Anthropic(Claude) 네이티브 비전 어댑터
-export function createAnthropicVisionModel(opts: Options): VisionModel {
-  const client: AnthropicLike =
-    opts.client ?? (new Anthropic({ apiKey: opts.apiKey }) as unknown as AnthropicLike);
-
-  return {
-    async extractJson({ system, userText, imageBase64, mediaType }) {
-      const response = await client.messages.create({
-        model: opts.model,
-        max_tokens: 1024,
-        thinking: { type: "adaptive" },
-        system,
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "image", source: { type: "base64", media_type: mediaType, data: imageBase64 } },
-              { type: "text", text: userText },
-            ],
-          },
-        ],
-      });
-      const block = response.content.find((b) => b.type === "text" && b.text);
-      if (!block?.text) throw new Error("Vision 응답에 텍스트가 없습니다");
-      return block.text.trim();
-    },
-  };
 }
 
 // Anthropic(Claude) 네이티브 텍스트 생성 어댑터

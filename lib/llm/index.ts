@@ -1,11 +1,8 @@
 import { getSettingsStore } from "@/lib/settings";
 import { PROVIDER_PRESETS, type ProviderId, type ProviderPreset } from "@/lib/llm/providers";
-import { createAnthropicVisionModel, createAnthropicTextModel } from "@/lib/llm/anthropic";
-import {
-  createOpenAICompatibleVisionModel,
-  createOpenAICompatibleTextModel,
-} from "@/lib/llm/openaiCompatible";
-import type { VisionModel, TextModel } from "@/lib/llm/types";
+import { createAnthropicTextModel } from "@/lib/llm/anthropic";
+import { createOpenAICompatibleTextModel } from "@/lib/llm/openaiCompatible";
+import type { TextModel } from "@/lib/llm/types";
 
 interface ResolvedProvider {
   active: ProviderId;
@@ -17,7 +14,7 @@ interface ResolvedProvider {
 // 활성 제공자 + 키 + 모델을 설정에서 해석. 키 없으면 env 폴백(Anthropic만).
 async function resolveActiveProvider(): Promise<ResolvedProvider> {
   const settings = await getSettingsStore().get();
-  const active = settings.activeProvider;
+  const active = settings.textProvider;
   const cfg = settings.providers[active];
   const preset = PROVIDER_PRESETS[active];
   const model = cfg.model && cfg.model.trim() ? cfg.model.trim() : preset.defaultModel;
@@ -31,14 +28,7 @@ async function resolveActiveProvider(): Promise<ResolvedProvider> {
   return { active, apiKey, model, preset };
 }
 
-// 스크린샷 파싱용 비전 모델
-export async function getVisionModel(): Promise<VisionModel> {
-  const { active, apiKey, model, preset } = await resolveActiveProvider();
-  if (active === "anthropic") return createAnthropicVisionModel({ apiKey, model });
-  return createOpenAICompatibleVisionModel({ apiKey, baseURL: preset.baseURL!, model });
-}
-
-// 맞춤 대본 생성용 텍스트 모델 (Phase 3)
+// 자막 분석·맞춤 대본 생성용 텍스트 모델 (textProvider 사용)
 export async function getTextModel(): Promise<TextModel> {
   const { active, apiKey, model, preset } = await resolveActiveProvider();
   if (active === "anthropic") return createAnthropicTextModel({ apiKey, model });

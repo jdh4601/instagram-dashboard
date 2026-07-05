@@ -2,6 +2,7 @@ export { Card, CardHeader, CardBody } from "./Card";
 export { Button } from "./Button";
 export { Badge } from "./Badge";
 export { Input } from "./Input";
+export { ThemeToggle } from "./ThemeToggle";
 export { Select } from "./Select";
 export { Stat } from "./Stat";
 export { Skeleton } from "./Skeleton";

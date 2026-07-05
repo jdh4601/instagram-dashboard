@@ -31,13 +31,7 @@ export function MetricBars({ verdicts, baselineActive = false }: Props) {
           return (
             <div key={v.key}>
               <div className="mb-1 flex items-center justify-between text-sm">
-                {v.key === "hookRetention3s" ? (
-                  <a href="#retention-chart" className="text-brand-600 underline-offset-2 hover:underline">
-                    {v.label} →
-                  </a>
-                ) : (
-                  <span className="text-neutral-700">{v.label}</span>
-                )}
+                <span className="text-neutral-700">{v.label}</span>
                 <span className="flex items-center gap-1.5">
                   <span className="font-semibold tabular-nums text-neutral-900">{fmtPct(v.value)}</span>
                   <Badge band={v.band}>{BAND_LABEL[v.band]}</Badge>

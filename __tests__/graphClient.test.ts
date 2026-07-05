@@ -63,9 +63,49 @@ test("getInsights는 토큰을 URL에 포함하고 flatten된 맵을 반환", as
     }) as unknown as typeof fetch,
   });
   const insights = await client.getInsights("media-1");
-  expect(insights.views).toBe(5000);
+  expect(insights.metrics.views).toBe(5000);
   expect(seenUrl).toContain("media-1/insights");
   expect(seenUrl).toContain("access_token=secret-tok");
+});
+
+test("선택 지표 묶음이 실패하면 개별 지표를 격리하고 기본 지표는 보존", async () => {
+  const client = createGraphClient({
+    accessToken: "tok",
+    fetchImpl: (async (url: string) => {
+      const parsed = new URL(url);
+      const metric = parsed.searchParams.get("metric") ?? "";
+      if (metric.includes("views,reach")) {
+        return { ok: true, json: async () => ({ data: [{ name: "views", values: [{ value: 10 }] }] }), text: async () => "" };
+      }
+      if (metric === "follows") {
+        return { ok: true, json: async () => ({ data: [{ name: "follows", values: [{ value: 2 }] }] }), text: async () => "" };
+      }
+      return { ok: false, json: async () => ({ error: { message: "unsupported" } }), text: async () => "" };
+    }) as unknown as typeof fetch,
+  });
+
+  const result = await client.getInsights("m1");
+  expect(result.metrics).toMatchObject({ views: 10, follows: 2 });
+  expect(result.availableMetrics).toContain("follows");
+  expect(result.unavailableMetrics).toContain("profile_visits");
+});
+
+test("getInsights는 reels_skip_rate를 요청하고 반환값을 metrics로 전달", async () => {
+  const client = createGraphClient({
+    accessToken: "tok",
+    fetchImpl: (async (url: string) => {
+      const metric = new URL(url).searchParams.get("metric") ?? "";
+      if (metric.includes("views,reach")) {
+        return { ok: true, json: async () => ({ data: [{ name: "views", values: [{ value: 10 }] }] }), text: async () => "" };
+      }
+      if (!metric.includes("reels_skip_rate")) throw new Error("reels_skip_rate 미요청");
+      return { ok: true, json: async () => ({ data: [{ name: "reels_skip_rate", values: [{ value: 68.56 }] }] }), text: async () => "" };
+    }) as unknown as typeof fetch,
+  });
+
+  const result = await client.getInsights("m1");
+  expect(result.metrics.reels_skip_rate).toBeCloseTo(68.56, 5);
+  expect(result.availableMetrics).toContain("reels_skip_rate");
 });
 
 test("API 오류(ok=false)면 throw", async () => {

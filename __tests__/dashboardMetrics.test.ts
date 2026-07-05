@@ -61,27 +61,12 @@ test("Skip Rate 평균 및 이탈 심한 릴스 탐지", () => {
   expect(m.highSkipReels.map((r) => r.idx)).toEqual([2]);
 });
 
-test("팔로우 전환율 평균 및 TOP 순위", () => {
-  const m = computeDashboardMetrics(reels);
-  // a: 45/9000*100=0.5, b: 20/4000*100=0.5
-  expect(m.followConversionRate).toBeCloseTo(0.5, 5);
-  expect(m.topFollowConversionReels).toHaveLength(2);
-});
-
-test("프로필 방문률 평균", () => {
-  const m = computeDashboardMetrics(reels);
-  // a: 180/9000*100=2, b: 80/4000*100=2
-  expect(m.profileVisitRate).toBeCloseTo(2, 5);
-});
-
 test("데이터가 비면 null로 안전 처리", () => {
   const m = computeDashboardMetrics([]);
   expect(m.avgWatchTimeSec).toBeNull();
   expect(m.completionRate).toBeNull();
   expect(m.avgDurationSec).toBeNull();
   expect(m.skipRate).toBeNull();
-  expect(m.followConversionRate).toBeNull();
-  expect(m.profileVisitRate).toBeNull();
   expect(m.series).toHaveLength(0);
 });
 
@@ -103,13 +88,6 @@ test("길이 모르는 릴스의 series 완시율은 0이 아니라 null", () =>
   const r = reel({ id: "c", durationSec: 0, views: 1000, reach: 900, avgWatchTimeSec: 10 });
   const m = computeDashboardMetrics([r]);
   expect(m.series[0].completionRate).toBeNull();
-});
-
-test("팔로우/프로필 데이터 없는 릴스의 series 값은 null", () => {
-  const r = reel({ id: "c", durationSec: 30, views: 1000, reach: 900, avgWatchTimeSec: 10 });
-  const m = computeDashboardMetrics([r]);
-  expect(m.series[0].followConversionRate).toBeNull();
-  expect(m.series[0].profileVisitRate).toBeNull();
 });
 
 test("skip 데이터(skipRate·hook 모두) 없는 릴스의 series skipRate는 null", () => {

@@ -18,3 +18,11 @@ test("모든 제공자는 vision 지원으로 표시된다", () => {
     expect(PROVIDER_PRESETS[id].vision).toBe(true);
   }
 });
+
+test("모든 제공자는 선택 가능한 모델 목록을 가지며 기본 모델을 포함한다", () => {
+  for (const id of PROVIDER_IDS) {
+    const preset = PROVIDER_PRESETS[id];
+    expect(preset.models.length).toBeGreaterThan(0);
+    expect(preset.models).toContain(preset.defaultModel);
+  }
+});

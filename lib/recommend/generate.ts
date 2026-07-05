@@ -20,7 +20,7 @@ export const GenerationSchema = z.object({
 export type Generation = z.infer<typeof GenerationSchema>;
 
 const SYSTEM_PROMPT = `너는 창업가 인터뷰 릴스를 코칭하는 대본 전문가다.
-진단·잔존 곡선·자막을 근거로 실제로 쓸 수 있는 한국어 대본을 만든다.
+진단·성과 지표·자막을 근거로 실제로 쓸 수 있는 한국어 대본을 만든다.
 반드시 아래 형태의 JSON으로만 답하라(설명·코드펜스 금지):
 {
   "hooks": ["0~3초 콜드 오픈 후킹 문장 3안"],

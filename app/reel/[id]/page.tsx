@@ -1,25 +1,23 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, ExternalLink, Film, Eye, Users, Heart, MessageCircle, Bookmark, Share2, Clock } from "lucide-react";
+import { ArrowLeft, ArrowRight, ExternalLink, Film } from "lucide-react";
 import type { Reel, ReelMetricSnapshot } from "@/lib/schemas";
 import type { AnalyzeResult } from "@/lib/analysis/analyze";
-import type { ReelKpiDeltas, ReelKpiKey } from "@/lib/analysis/reelKpiDeltas";
+import type { ReelKpiDeltas } from "@/lib/analysis/reelKpiDeltas";
 import { reelTitle } from "@/lib/ui/reelTitle";
-import { fmtCount } from "@/lib/ui/format";
-import { Stat, Skeleton, EmptyState } from "@/components/ui";
+import { Skeleton, EmptyState } from "@/components/ui";
 import { BottleneckBanner } from "@/components/BottleneckBanner";
 import { DiagnosisCards } from "@/components/DiagnosisCards";
 import { MetricBars } from "@/components/MetricBars";
-import { RetentionChart } from "@/components/RetentionChart";
 import { ReelMetricTrend } from "@/components/ReelMetricTrend";
-import { ScreenshotUploadCard } from "@/components/ScreenshotUploadCard";
 import { SrtUploadCard } from "@/components/SrtUploadCard";
-import { ReachSourcesCard } from "@/components/ReachSourcesCard";
-import { AudienceBreakdownCard } from "@/components/AudienceBreakdownCard";
-import { WatchTimeBucketsChart } from "@/components/WatchTimeBucketsChart";
 import { SolutionsPanel } from "@/components/SolutionsPanel";
 import { AiGenerationPanel } from "@/components/AiGenerationPanel";
+import { ReelDerivedMetrics } from "@/components/ReelDerivedMetrics";
+import { ReelConversionFunnel } from "@/components/ReelConversionFunnel";
+import { InsightList } from "@/components/InsightList";
+import { ReelPerformanceDashboard } from "@/components/ReelPerformanceDashboard";
 
 interface ReelNav {
   prevId: string | null;
@@ -32,19 +30,6 @@ interface DetailResponse {
   metricHistory: ReelMetricSnapshot[];
   kpiDeltas?: ReelKpiDeltas;
   nav?: ReelNav;
-}
-
-// 평균 대비 변화율 힌트: +12% 초록 / -8% 빨강 / 데이터 없으면 표시 안 함
-function DeltaHint({ pct }: { pct: number | null | undefined }) {
-  if (pct == null) return null;
-  const rounded = Math.round(pct);
-  if (rounded === 0) return <span className="text-neutral-400">평균 수준</span>;
-  const up = rounded > 0;
-  return (
-    <span className={up ? "text-band-strong" : "text-band-weak"}>
-      평균 대비 {up ? "+" : ""}{rounded}%
-    </span>
-  );
 }
 
 export default function ReelDetailPage() {
@@ -93,7 +78,6 @@ export default function ReelDetailPage() {
 }
 
 function ReelDetail({ reel, analysis, metricHistory, kpiDeltas, nav, onChange }: DetailResponse & { onChange: () => void }) {
-  const delta = (key: ReelKpiKey) => <DeltaHint pct={kpiDeltas?.[key]} />;
   return (
     <>
       {/* 이전·다음 릴스 이동 */}
@@ -144,51 +128,20 @@ function ReelDetail({ reel, analysis, metricHistory, kpiDeltas, nav, onChange }:
         </div>
       </div>
 
-      {/* 캡션 원문 */}
+      <ReelPerformanceDashboard reel={reel} deltas={kpiDeltas} />
+
+      <ReelDerivedMetrics reel={reel} />
+      <ReelConversionFunnel reel={reel} />
+      <InsightList title="이 릴스의 핵심 인사이트" insights={analysis.reelInsights} />
+      {/* 캡션은 핵심 성과와 인사이트 다음에 둬 긴 본문이 분석을 밀어내지 않게 한다. */}
       {reel.caption && (
         <p className="whitespace-pre-line rounded-card border border-border-subtle bg-surface-muted/50 p-3 text-sm leading-relaxed text-neutral-700">
           {reel.caption}
         </p>
       )}
-
-      {/* 전체 지표 */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="조회수" value={fmtCount(reel.views)} icon={<Eye size={16} />} hint={delta("views")} />
-        <Stat
-          label="도달"
-          value={fmtCount(reel.reach)}
-          icon={<Users size={16} />}
-          hint={
-            reel.reach < reel.views ? (
-              <span className="text-neutral-400">고유 시청자 · 조회수는 반복 시청 포함</span>
-            ) : (
-              delta("reach")
-            )
-          }
-        />
-        <Stat label="좋아요" value={fmtCount(reel.likes)} icon={<Heart size={16} />} hint={delta("likes")} />
-        <Stat label="댓글" value={fmtCount(reel.comments)} icon={<MessageCircle size={16} />} hint={delta("comments")} />
-        <Stat label="저장" value={fmtCount(reel.saves)} icon={<Bookmark size={16} />} hint={delta("saves")} />
-        <Stat label="공유" value={fmtCount(reel.shares)} icon={<Share2 size={16} />} hint={delta("shares")} />
-        <Stat label="평균 시청" value={`${reel.avgWatchTimeSec.toFixed(1)}초`} icon={<Clock size={16} />} hint={delta("avgWatchTimeSec")} />
-        {typeof reel.followsFromReel === "number" && (
-          <Stat label="이 릴스로 팔로우" value={fmtCount(reel.followsFromReel)} icon={<Users size={16} />} />
-        )}
-      </div>
-
       <BottleneckBanner bottleneck={analysis.diagnosis.bottleneck} delta={analysis.bottleneckDelta} />
       <ReelMetricTrend history={metricHistory} />
-      <div id="retention-chart" className="scroll-mt-4">
-        <RetentionChart curve={reel.retentionCurve ?? []} drops={analysis.drops} />
-      </div>
       <SrtUploadCard reelId={reel.id} analysis={analysis.transcript} insights={reel.transcriptInsights} onChange={onChange} />
-      {/* 보조 카드 — 넓은 화면에서 2열로 우측 여백 활용 */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <AudienceBreakdownCard breakdown={reel.audienceBreakdown} />
-        <ReachSourcesCard sources={reel.reachSources} />
-        <WatchTimeBucketsChart buckets={reel.watchTimeBuckets} />
-      </div>
-      <ScreenshotUploadCard reelId={reel.id} />
       <DiagnosisCards
         strengths={analysis.diagnosis.strengths}
         weaknesses={analysis.diagnosis.weaknesses}

@@ -50,3 +50,29 @@ test("followsFromReel, profileVisits 누락 시 해당 derived 필드는 undefin
   expect(d.followConversionRate).toBeUndefined();
   expect(d.profileVisitRate).toBeUndefined();
 });
+
+test("도달 기반 참여·고의도·재생 지표를 계산", () => {
+  const d = computeDerivedRates({ ...base, totalInteractions: 600, replays: 1000 });
+  expect(d.interactionRateByReach).toBeCloseTo(600 / 9000 * 100, 5);
+  expect(d.highIntentRate).toBeCloseTo((40 + 170) / 9000 * 100, 5);
+  expect(d.playsPerReachedAccount).toBeCloseTo(10000 / 9000, 5);
+  expect(d.replayRate).toBeCloseTo(10, 5);
+});
+
+test("총 시청시간과 프로필 퍼널을 계산", () => {
+  const d = computeDerivedRates({ ...base, totalWatchTimeSec: 200000, profileVisits: 180, followsFromReel: 45 });
+  expect(d.watchTimePerView).toBe(20);
+  expect(d.profileToFollowRate).toBe(25);
+  expect(d.averageWatchPercentage).toBe(40);
+});
+
+test("평균 시청 비율은 반복 시청을 숨기지 않고 100% 초과를 보존", () => {
+  expect(computeDerivedRates({ ...base, avgWatchTimeSec: 75 }).averageWatchPercentage).toBe(150);
+});
+
+test("분모가 0이면 선택 파생 지표는 undefined", () => {
+  const d = computeDerivedRates({ ...base, views: 0, reach: 0, totalInteractions: 0, replays: 0 });
+  expect(d.interactionRateByReach).toBeUndefined();
+  expect(d.playsPerReachedAccount).toBeUndefined();
+  expect(d.replayRate).toBeUndefined();
+});

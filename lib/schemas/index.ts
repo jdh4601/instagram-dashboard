@@ -12,6 +12,7 @@ export const TranscriptInsightItemSchema = z.object({
   title: z.string(),
   detail: z.string(),
   metric: z.string().optional(), // 연결된 지표 키(예: skipRate, shareRate)
+  rewrite: z.string().optional(), // 약점일 때만: 바로 쓸 수 있는 새 자막 대사 제안
 });
 export type TranscriptInsightItem = z.infer<typeof TranscriptInsightItemSchema>;
 
@@ -48,17 +49,29 @@ export const DerivedRatesSchema = z.object({
   followRate: z.number().optional(),
   followConversionRate: z.number().optional(), // followsFromReel / reach × 100
   profileVisitRate: z.number().optional(), // profileVisits / reach × 100
+  interactionRateByReach: z.number().optional(),
+  interactionRateByView: z.number().optional(),
+  saveRateByReach: z.number().optional(),
+  shareRateByReach: z.number().optional(),
+  commentRateByReach: z.number().optional(),
+  likeRateByReach: z.number().optional(),
+  highIntentRate: z.number().optional(),
+  profileToFollowRate: z.number().optional(),
+  playsPerReachedAccount: z.number().optional(),
+  replayRate: z.number().optional(),
+  watchTimePerView: z.number().optional(),
+  averageWatchPercentage: z.number().optional(),
 });
 export type DerivedRates = z.infer<typeof DerivedRatesSchema>;
 
-// 팔로워 / 논팔로워 비중 (계정 상태 스크린샷)
+// 과거 저장 데이터와의 호환을 위한 팔로워 / 논팔로워 비중
 export const AudienceBreakdownSchema = z.object({
   followersPct: z.number().min(0).max(100),
   nonFollowersPct: z.number().min(0).max(100),
 });
 export type AudienceBreakdown = z.infer<typeof AudienceBreakdownSchema>;
 
-// 시청 지속 시간 분포 (시청 지속 그래프 스크린샷)
+// 과거 저장 데이터와의 호환을 위한 시청 지속 시간 분포
 export const WatchTimeBucketSchema = z.object({
   label: z.string(), // 예: "0~3초", "3~10초", "10초~"
   pct: z.number().min(0).max(100),
@@ -76,8 +89,14 @@ export const ReelSchema = z.object({
   saves: z.number().nonnegative(),
   shares: z.number().nonnegative(),
   avgWatchTimeSec: z.number().nonnegative(),
+  totalInteractions: z.number().nonnegative().optional(),
+  totalWatchTimeSec: z.number().nonnegative().optional(),
+  replays: z.number().nonnegative().optional(),
+  totalPlays: z.number().nonnegative().optional(),
+  profileActivity: z.number().nonnegative().optional(),
   hookRetention3s: z.number().min(0).max(100).optional(),
   skipRate: z.number().min(0).max(100).optional(), // Instagram 스킵 비율(%). 3초 후 잔존률 = 100 - skipRate
+  skipRateSource: z.enum(["API", "EDIT"]).optional(),
   retentionCurve: z.array(RetentionPointSchema).optional(),
   reachSources: ReachSourcesSchema.optional(),
   followsFromReel: z.number().nonnegative().optional(),
@@ -103,6 +122,12 @@ export const ReelMetricSnapshotSchema = z.object({
   comments: z.number().nonnegative(),
   saves: z.number().nonnegative(),
   shares: z.number().nonnegative(),
+  totalInteractions: z.number().nonnegative().optional(),
+  totalWatchTimeSec: z.number().nonnegative().optional(),
+  replays: z.number().nonnegative().optional(),
+  totalPlays: z.number().nonnegative().optional(),
+  followsFromReel: z.number().nonnegative().optional(),
+  profileVisits: z.number().nonnegative().optional(),
 });
 export type ReelMetricSnapshot = z.infer<typeof ReelMetricSnapshotSchema>;
 
@@ -120,17 +145,13 @@ export const AccountSnapshotSchema = z.object({
   date: z.string(),
   followerCount: z.number().nonnegative(),
   reachLast7d: z.number().nonnegative(),
+  viewsLast7d: z.number().nonnegative().optional(),
+  accountsEngagedLast7d: z.number().nonnegative().optional(),
+  totalInteractionsLast7d: z.number().nonnegative().optional(),
+  followsLast7d: z.number().nonnegative().optional(),
+  unfollowsLast7d: z.number().nonnegative().optional(),
+  profileLinksTapsLast7d: z.number().nonnegative().optional(),
+  availableMetrics: z.array(z.string()).optional(),
+  unavailableMetrics: z.array(z.string()).optional(),
 });
 export type AccountSnapshot = z.infer<typeof AccountSnapshotSchema>;
-
-// Claude Vision 스크린샷 파싱 결과
-export const ScreenshotParseSchema = z.object({
-  hookRetention3s: z.number().min(0).max(100).optional(),
-  skipRate: z.number().min(0).max(100).optional(),
-  retentionCurve: z.array(RetentionPointSchema).optional(),
-  reachSources: ReachSourcesSchema.optional(),
-  audienceBreakdown: AudienceBreakdownSchema.optional(),
-  watchTimeBuckets: z.array(WatchTimeBucketSchema).optional(),
-  profileVisits: z.number().nonnegative().optional(),
-});
-export type ScreenshotParse = z.infer<typeof ScreenshotParseSchema>;

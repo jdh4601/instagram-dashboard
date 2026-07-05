@@ -13,6 +13,19 @@ test("flattenInsights는 Graph 인사이트 배열을 metric→value 맵으로 �
   expect(m.ig_reels_avg_watch_time).toBe(20000);
 });
 
+test("flattenInsights는 total_value와 팔로우 breakdown을 정규화", () => {
+  const data = {
+    data: [
+      { name: "reach", total_value: { value: 900 } },
+      { name: "follows_and_unfollows", total_value: { breakdowns: [{ results: [
+        { dimension_values: ["FOLLOWER"], value: 12 },
+        { dimension_values: ["UNFOLLOWER"], value: 3 },
+      ] }] } },
+    ],
+  };
+  expect(flattenInsights(data)).toMatchObject({ reach: 900, follows: 12, unfollows: 3 });
+});
+
 test("mapMediaToReel은 집계 지표를 Reel로 매핑(평균시청 ms→초)", () => {
   const media = {
     id: "media-1",
@@ -24,14 +37,36 @@ test("mapMediaToReel은 집계 지표를 Reel로 매핑(평균시청 ms→초)",
   const insights = {
     views: 10000, reach: 9000, likes: 300, comments: 12, saved: 40, shares: 170,
     ig_reels_avg_watch_time: 20000,
+    ig_reels_video_view_total_time: 200000000,
+    clips_replays_count: 1100,
+    follows: 45,
+    profile_visits: 180,
   };
   const reel = mapMediaToReel(media, insights);
   expect(reel.id).toBe("media-1");
   expect(reel.views).toBe(10000);
   expect(reel.saves).toBe(40); // saved → saves
   expect(reel.avgWatchTimeSec).toBeCloseTo(20, 5); // 20000ms → 20s
+  expect(reel.totalWatchTimeSec).toBe(200000);
+  expect(reel.replays).toBe(1100);
+  expect(reel.followsFromReel).toBe(45);
   expect(reel.caption).toBe("창업 인터뷰");
   expect(reel.durationSec).toBe(0); // API가 길이를 안 줌
+});
+
+test("mapMediaToReel은 reels_skip_rate와 출처를 매핑", () => {
+  const media = { id: "m4", media_product_type: "REELS", timestamp: "2026-06-04T00:00:00+0000" };
+  const reel = mapMediaToReel(media, { reels_skip_rate: 68.56 });
+  expect(reel.skipRate).toBeCloseTo(68.56, 5);
+  expect(reel.skipRateSource).toBe("API");
+  expect(reel.hookRetention3s).toBeCloseTo(31.44, 5);
+});
+
+test("mapMediaToReel은 skip 지표가 없으면 skipRate/hookRetention3s를 남기지 않는다", () => {
+  const media = { id: "m5", media_product_type: "REELS", timestamp: "2026-06-05T00:00:00+0000" };
+  const reel = mapMediaToReel(media, {});
+  expect(reel.skipRate).toBeUndefined();
+  expect(reel.hookRetention3s).toBeUndefined();
 });
 
 test("mapMediaToReel은 썸네일/퍼머링크를 매핑", () => {

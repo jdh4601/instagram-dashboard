@@ -5,6 +5,8 @@ import { z } from "zod";
 import { PROVIDER_IDS, PROVIDER_PRESETS, type ProviderId } from "@/lib/llm/providers";
 import { maskApiKey } from "@/lib/settings/mask";
 
+const ProviderEnum = z.enum(["anthropic", "openai", "kimi", "gemini"]);
+
 const ProviderConfigSchema = z.object({
   apiKey: z.string().optional(),
   model: z.string().optional(),
@@ -19,16 +21,25 @@ const ProvidersSchema = z.object({
 
 const InstagramSchema = z.object({ accessToken: z.string().optional() });
 
-export const SettingsSchema = z.object({
-  activeProvider: z.enum(["anthropic", "openai", "kimi", "gemini"]),
+// 디스크에 저장된 형태(관대): activeProvider는 구버전 단일 필드다.
+const StoredSettingsSchema = z.object({
+  activeProvider: ProviderEnum.optional(),
+  textProvider: ProviderEnum.optional(),
   providers: ProvidersSchema,
   instagram: InstagramSchema.optional(),
 });
-export type Settings = z.infer<typeof SettingsSchema>;
+
+// 정규화된 런타임 설정: 자막 분석과 생성에 사용할 텍스트 제공자.
+export interface Settings {
+  textProvider: ProviderId;
+  providers: z.infer<typeof ProvidersSchema>;
+  instagram?: z.infer<typeof InstagramSchema>;
+}
 
 // 클라이언트가 보내는 부분 업데이트 (apiKey 비우면 기존 유지)
 export const SettingsInputSchema = z.object({
-  activeProvider: z.enum(["anthropic", "openai", "kimi", "gemini"]).optional(),
+  activeProvider: ProviderEnum.optional(),
+  textProvider: ProviderEnum.optional(),
   providers: z
     .object({
       anthropic: ProviderConfigSchema.optional(),
@@ -47,15 +58,25 @@ export interface MaskedProvider {
   model: string;
 }
 export interface MaskedSettings {
-  activeProvider: ProviderId;
+  textProvider: ProviderId;
   providers: Record<ProviderId, MaskedProvider>;
   instagram: { configured: boolean; maskedKey: string | null };
 }
 
 function defaultSettings(): Settings {
   return {
-    activeProvider: "anthropic",
+    textProvider: "anthropic",
     providers: { anthropic: {}, openai: {}, kimi: {}, gemini: {} },
+  };
+}
+
+// 저장 형태 → 런타임 형태. 레거시 activeProvider를 textProvider 폴백으로 사용한다.
+function normalize(raw: z.infer<typeof StoredSettingsSchema>): Settings {
+  const fallback = raw.activeProvider ?? "anthropic";
+  return {
+    textProvider: raw.textProvider ?? fallback,
+    providers: raw.providers,
+    instagram: raw.instagram,
   };
 }
 
@@ -72,7 +93,7 @@ export function createSettingsStore(dataDir: string): SettingsStore {
     if (!existsSync(file)) return defaultSettings();
     const raw = await readFile(file, "utf8");
     if (!raw.trim()) return defaultSettings();
-    return SettingsSchema.parse(JSON.parse(raw));
+    return normalize(StoredSettingsSchema.parse(JSON.parse(raw)));
   }
 
   async function write(settings: Settings): Promise<void> {
@@ -82,8 +103,9 @@ export function createSettingsStore(dataDir: string): SettingsStore {
 
   async function save(incoming: SettingsInput): Promise<Settings> {
     const cur = await get();
+    const legacy = incoming.activeProvider;
     const next: Settings = {
-      activeProvider: incoming.activeProvider ?? cur.activeProvider,
+      textProvider: incoming.textProvider ?? legacy ?? cur.textProvider,
       providers: { ...cur.providers },
       instagram: { ...cur.instagram },
     };
@@ -118,7 +140,7 @@ export function createSettingsStore(dataDir: string): SettingsStore {
     }
     const igToken = s.instagram?.accessToken;
     return {
-      activeProvider: s.activeProvider,
+      textProvider: s.textProvider,
       providers,
       instagram: {
         configured: Boolean(igToken),
