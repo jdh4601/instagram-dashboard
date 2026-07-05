@@ -11,7 +11,6 @@ import {
   Tooltip,
   CartesianGrid,
   ReferenceLine,
-  ReferenceDot,
   BarChart,
   Cell,
 } from "recharts";
@@ -21,7 +20,6 @@ import {
   SkipForward,
   UserPlus,
   UserCircle,
-  AlertTriangle,
   TrendingUp,
 } from "lucide-react";
 import { Card, CardHeader, CardBody, EmptyState, Stat } from "@/components/ui";
@@ -34,8 +32,7 @@ interface Props {
 }
 
 export function DashboardMetrics({ metrics }: Props) {
-  const { series, highSkipReels, topFollowConversionReels } = metrics;
-  const hasReels = series.length > 0;
+  const { series, topFollowConversionReels } = metrics;
 
   return (
     <section className="space-y-5">
@@ -43,7 +40,6 @@ export function DashboardMetrics({ metrics }: Props) {
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <WatchTimeCompletionChart series={series} />
-        <SkipRateChart series={series} highSkipReels={highSkipReels} />
         <FollowConversionRankChart reels={topFollowConversionReels} />
         <ProfileVisitRateChart series={series} />
       </div>
@@ -54,7 +50,7 @@ export function DashboardMetrics({ metrics }: Props) {
 function DashboardMetricsKpiCards({ metrics }: Props) {
   const completionHint =
     metrics.completionRate === null
-      ? "일부 릴스의 영상 길이를 몰라 완시율에서 제외됐어요"
+      ? "일부 릴스의 영상 길이를 몰라 평균 시청 비율에서 제외됐어요"
       : undefined;
 
   const watchTimeHint =
@@ -76,7 +72,7 @@ function DashboardMetricsKpiCards({ metrics }: Props) {
         hint={watchTimeHint}
       />
       <Stat
-        label="평균 완시율"
+        label="평균 시청 비율"
         value={metrics.completionRate === null ? "-" : fmtPct(metrics.completionRate)}
         icon={<Gauge size={16} />}
         hint={completionHint}
@@ -110,12 +106,12 @@ function WatchTimeCompletionChart({
 }: {
   series: Metrics["series"];
 }) {
-  // 완시율 데이터가 전혀 없으면 죽은 라인/우측 축을 숨겨 단일 축으로 깔끔하게
+  // 평균 시청 비율 데이터가 전혀 없으면 죽은 라인/우측 축을 숨긴다.
   const hasCompletion = series.some((s) => s.completionRate !== null);
   return (
     <Card>
       <CardHeader
-        title="시청 / 완시율 추이"
+        title="시청 시간 / 평균 시청 비율"
         icon={<TrendingUp size={16} className="text-brand-600" />}
       />
       <CardBody>
@@ -123,7 +119,7 @@ function WatchTimeCompletionChart({
           <EmptyState
             icon={<Clock size={26} />}
             title="릴스 2개 이상부터 표시됩니다"
-            hint="평균 시청 시간(막대)과 완시율(선)을 함께 봅니다."
+            hint="평균 시청 시간(막대)과 영상 길이 대비 시청 비율(선)을 함께 봅니다."
           />
         ) : (
           <ResponsiveContainer width="100%" height={220}>
@@ -152,7 +148,7 @@ function WatchTimeCompletionChart({
               <Tooltip
                 formatter={(v, name) => {
                   if (name === "avgWatchTimeSec") return [fmtSec(Number(v)), "평균 시청"];
-                  if (name === "completionRate") return [fmtPct(Number(v)), "완시율"];
+                  if (name === "completionRate") return [fmtPct(Number(v)), "평균 시청 비율"];
                   return [Number(v), name];
                 }}
                 labelFormatter={(l, p) => {
@@ -196,118 +192,6 @@ function WatchTimeCompletionChart({
               )}
             </ComposedChart>
           </ResponsiveContainer>
-        )}
-      </CardBody>
-    </Card>
-  );
-}
-
-function SkipRateChart({
-  series,
-  highSkipReels,
-}: {
-  series: Metrics["series"];
-  highSkipReels: Metrics["highSkipReels"];
-}) {
-  // 결손은 null 유지 → 차트에서 갭(데이터없음)으로 그린다. 0으로 채우면 거짓 급락처럼 보임
-  const data = series.map((s) => ({ ...s, skip: s.skipRate }));
-  const skipWeakAbove = 100 - BENCHMARKS.hookRetention3s.weakBelow;
-
-  return (
-    <Card>
-      <CardHeader
-        title="Skip Rate 추이"
-        icon={<SkipForward size={16} className="text-brand-600" />}
-      />
-      <CardBody>
-        {series.length < 2 ? (
-          <EmptyState
-            icon={<SkipForward size={26} />}
-            title="릴스 2개 이상부터 표시됩니다"
-            hint="스크린샷을 등록하면 Skip Rate 데이터가 채워집니다."
-          />
-        ) : (
-          <>
-            <ResponsiveContainer width="100%" height={180}>
-              <ComposedChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: -16 }}>
-                <defs>
-                  <linearGradient id="skipFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.22} />
-                    <stop offset="100%" stopColor="#f59e0b" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" vertical={false} />
-                <XAxis dataKey="idx" tick={{ fontSize: 11, fill: "#94a3b8" }} />
-                <YAxis domain={[0, 100]} unit="%" tick={{ fontSize: 11, fill: "#94a3b8" }} />
-                <Tooltip
-                  formatter={(v) => [fmtPct(Number(v)), "Skip Rate"]}
-                  labelFormatter={(l, p) => {
-                  const d = (p?.[0]?.payload ?? {}) as { title?: string; postedAt?: string };
-                  return d.title ? `${d.title} · ${d.postedAt ?? ""}` : `${l}번째 릴스`;
-                }}
-                  contentStyle={{ borderRadius: 8, border: "1px solid #e9edf3", fontSize: 12 }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="skip"
-                  stroke="#f59e0b"
-                  strokeWidth={2}
-                  fill="url(#skipFill)"
-                  connectNulls={false}
-                />
-                {highSkipReels.map((r) => (
-                  <ReferenceDot
-                    key={r.idx}
-                    x={r.idx}
-                    y={r.skipRate}
-                    r={5}
-                    fill="#dc2626"
-                    stroke="#fff"
-                    strokeWidth={2}
-                    label={{
-                      value: "이탈",
-                      position: "top",
-                      fontSize: 10,
-                      fill: "#dc2626",
-                    }}
-                  />
-                ))}
-                <ReferenceLine
-                  y={skipWeakAbove}
-                  stroke="#dc2626"
-                  strokeDasharray="4 4"
-                  label={{
-                    value: `이탈 심함 >${skipWeakAbove}%`,
-                    position: "insideBottomRight",
-                    fontSize: 10,
-                    fill: "#dc2626",
-                  }}
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
-
-            {highSkipReels.length > 0 && (
-              <div className="mt-3 space-y-1.5">
-                <div className="flex items-center gap-1 text-xs font-medium text-band-weak">
-                  <AlertTriangle size={12} />
-                  훅 이탈이 심한 릴스
-                </div>
-                <ul className="space-y-1">
-                  {highSkipReels.slice(0, 3).map((r) => (
-                    <li
-                      key={r.idx}
-                      className="flex items-center justify-between rounded-md border border-band-weak-border bg-band-weak-soft px-2.5 py-1.5 text-xs"
-                    >
-                      <span className="truncate pr-2">{r.title}</span>
-                      <span className="shrink-0 tabular-nums font-medium">
-                        {fmtPct(r.skipRate)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </>
         )}
       </CardBody>
     </Card>

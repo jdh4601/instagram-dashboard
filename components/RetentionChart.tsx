@@ -17,9 +17,11 @@ import { Card, CardHeader, CardBody, EmptyState } from "@/components/ui";
 interface Props {
   curve: RetentionPoint[];
   drops: DropSegment[];
+  /** true면 API skip rate 기반 2점 추정 곡선(실측 스크린샷 없음) */
+  estimated?: boolean;
 }
 
-export function RetentionChart({ curve, drops }: Props) {
+export function RetentionChart({ curve, drops, estimated = false }: Props) {
   return (
     <Card>
       <CardHeader title="잔존 곡선 + 텐션 저하" icon={<Activity size={16} className="text-brand-600" />} />
@@ -28,10 +30,15 @@ export function RetentionChart({ curve, drops }: Props) {
           <EmptyState
             icon={<Activity size={26} />}
             title="잔존 곡선 데이터가 없습니다"
-            hint="EDIT 인사이트 스크린샷을 업로드하면 곡선이 그려집니다."
+            hint="EDIT 스크린샷을 업로드하면 실측 곡선이, API skip rate가 있으면 3초 훅 추정 곡선이 그려집니다."
           />
         ) : (
           <>
+            {estimated && (
+              <p className="mb-2 inline-flex items-center gap-1 rounded-md bg-surface-muted px-2 py-1 text-[11px] text-neutral-500">
+                추정 · 3초 훅 기준 (API skip rate) — 초당 실측 곡선은 스크린샷 업로드 시 표시
+              </p>
+            )}
             <ResponsiveContainer width="100%" height={240}>
               <AreaChart data={curve} margin={{ top: 6, right: 8, bottom: 0, left: -16 }}>
                 <defs>
