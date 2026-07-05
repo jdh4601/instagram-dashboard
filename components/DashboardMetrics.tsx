@@ -11,13 +11,11 @@ import {
   Tooltip,
   CartesianGrid,
   ReferenceLine,
-  ReferenceDot,
 } from "recharts";
 import {
   Clock,
   TrendingUp,
   Activity,
-  AlertTriangle,
 } from "lucide-react";
 import { Card, CardHeader, CardBody, EmptyState } from "@/components/ui";
 import { fmtPct, fmtSec } from "@/lib/ui/format";
@@ -29,13 +27,13 @@ interface Props {
 }
 
 export function DashboardMetrics({ metrics }: Props) {
-  const { series, highSkipReels } = metrics;
+  const { series } = metrics;
 
   return (
     <section className="space-y-5">
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <WatchTimeCompletionChart series={series} />
-        <Retention3sChart series={series} lowRetentionReels={highSkipReels} />
+        <Retention3sChart series={series} />
       </div>
     </section>
   );
@@ -140,10 +138,8 @@ function WatchTimeCompletionChart({
 
 function Retention3sChart({
   series,
-  lowRetentionReels,
 }: {
   series: Metrics["series"];
-  lowRetentionReels: Metrics["highSkipReels"];
 }) {
   // 3초 잔존율 = 100 - skipRate. 결손은 null 유지 → 차트에서 갭으로 그린다(0으로 채우면 거짓 급락).
   const data = series.map((s) => ({
@@ -166,82 +162,58 @@ function Retention3sChart({
             hint="첫 3초 잔존율(=100−스킵)입니다. Graph API의 Skip Rate가 있을 때 표시됩니다."
           />
         ) : (
-          <>
-            <ResponsiveContainer width="100%" height={180}>
-              <ComposedChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: -16 }}>
-                <defs>
-                  <linearGradient id="retentionTrendFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#4f46e5" stopOpacity={0.22} />
-                    <stop offset="100%" stopColor="#4f46e5" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" vertical={false} />
-                <XAxis dataKey="idx" tick={{ fontSize: 11, fill: "#94a3b8" }} />
-                <YAxis domain={[0, 100]} unit="%" tick={{ fontSize: 11, fill: "#94a3b8" }} />
-                <Tooltip
-                  formatter={(v) => [fmtPct(Number(v)), "3초 잔존율"]}
-                  labelFormatter={(l, p) => {
-                    const d = (p?.[0]?.payload ?? {}) as { title?: string; postedAt?: string };
-                    return d.title ? `${d.title} · ${d.postedAt ?? ""}` : `${l}번째 릴스`;
-                  }}
-                  contentStyle={{ borderRadius: 8, border: "1px solid #e9edf3", fontSize: 12 }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="retention"
-                  stroke="#4f46e5"
-                  strokeWidth={2}
-                  fill="url(#retentionTrendFill)"
-                  connectNulls={false}
-                />
-                {lowRetentionReels.map((r) => (
-                  <ReferenceDot
-                    key={r.idx}
-                    x={r.idx}
-                    y={100 - r.skipRate}
-                    r={5}
-                    fill="#dc2626"
-                    stroke="#fff"
-                    strokeWidth={2}
-                    label={{ value: "이탈", position: "top", fontSize: 10, fill: "#dc2626" }}
-                  />
-                ))}
-                <ReferenceLine
-                  y={weakBelow}
-                  stroke="#dc2626"
-                  strokeDasharray="4 4"
-                  label={{
-                    value: `약점 <${weakBelow}%`,
-                    position: "insideBottomRight",
-                    fontSize: 10,
-                    fill: "#dc2626",
-                  }}
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
-
-            {lowRetentionReels.length > 0 && (
-              <div className="mt-3 space-y-1.5">
-                <div className="flex items-center gap-1 text-xs font-medium text-band-weak">
-                  <AlertTriangle size={12} />
-                  훅 이탈이 심한 릴스
-                </div>
-                <ul className="space-y-1">
-                  {lowRetentionReels.slice(0, 3).map((r) => (
-                    <li
-                      key={r.idx}
-                      className="flex items-center justify-between rounded-md border border-band-weak-border bg-band-weak-soft px-2.5 py-1.5 text-xs"
-                    >
-                      <span className="truncate pr-2">{r.title}</span>
-                      <span className="shrink-0 tabular-nums font-medium">
-                        {fmtPct(100 - r.skipRate)} 잔존
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </>
+          <ResponsiveContainer width="100%" height={180}>
+            <ComposedChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: -16 }}>
+              <defs>
+                <linearGradient id="retentionTrendFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#4f46e5" stopOpacity={0.22} />
+                  <stop offset="100%" stopColor="#4f46e5" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" vertical={false} />
+              <XAxis
+                dataKey="idx"
+                type="number"
+                domain={[7, "dataMax"]}
+                allowDataOverflow
+                allowDecimals={false}
+                tick={{ fontSize: 11, fill: "#94a3b8" }}
+              />
+              <YAxis
+                domain={[0, 75]}
+                ticks={[0, 25, 50, 75]}
+                unit="%"
+                tick={{ fontSize: 11, fill: "#94a3b8" }}
+              />
+              <Tooltip
+                formatter={(v) => [fmtPct(Number(v)), "3초 잔존율"]}
+                labelFormatter={(l, p) => {
+                  const d = (p?.[0]?.payload ?? {}) as { title?: string; postedAt?: string };
+                  return d.title ? `${d.title} · ${d.postedAt ?? ""}` : `${l}번째 릴스`;
+                }}
+                contentStyle={{ borderRadius: 8, border: "1px solid #e9edf3", fontSize: 12 }}
+              />
+              <Area
+                type="monotone"
+                dataKey="retention"
+                stroke="#4f46e5"
+                strokeWidth={2}
+                fill="url(#retentionTrendFill)"
+                connectNulls={false}
+              />
+              <ReferenceLine
+                y={weakBelow}
+                stroke="#dc2626"
+                strokeDasharray="4 4"
+                label={{
+                  value: `약점 <${weakBelow}%`,
+                  position: "insideBottomRight",
+                  fontSize: 10,
+                  fill: "#dc2626",
+                }}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
         )}
       </CardBody>
     </Card>
