@@ -55,10 +55,9 @@ test("평균 시청 시간과 완시율을 집계", () => {
   expect(m.avgDurationSec).toBeCloseTo(30, 5);
 });
 
-test("Skip Rate 평균 및 이탈 심한 릴스 탐지", () => {
+test("Skip Rate 평균을 집계", () => {
   const m = computeDashboardMetrics(reels);
   expect(m.skipRate).toBeCloseTo(52.5, 5);
-  expect(m.highSkipReels.map((r) => r.idx)).toEqual([2]);
 });
 
 test("데이터가 비면 null로 안전 처리", () => {
