@@ -1,4 +1,4 @@
-import { RefreshCw, Settings, Upload } from "lucide-react";
+import { RefreshCw, Settings } from "lucide-react";
 import { Button, ThemeToggle } from "@/components/ui";
 
 interface DashboardActionsProps {
@@ -20,14 +20,6 @@ export function DashboardActions({ onSync, syncing }: DashboardActionsProps) {
         >
           {syncing ? "동기화 중…" : "동기화"}
         </Button>
-        <a
-          href="/upload"
-          title="업로드"
-          aria-label="업로드"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-600 transition-colors hover:bg-surface-muted hover:text-neutral-900"
-        >
-          <Upload size={16} />
-        </a>
         <a
           href="/settings"
           title="설정"

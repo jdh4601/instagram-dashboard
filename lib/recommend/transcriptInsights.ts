@@ -1,7 +1,6 @@
 import type { Reel, TranscriptInsights } from "@/lib/schemas";
 import { TranscriptInsightsSchema } from "@/lib/schemas";
 import { computeDerivedRates } from "@/lib/analysis/metrics";
-import { detectDrops } from "@/lib/analysis/dropDetection";
 import { BENCHMARKS, type MetricKey } from "@/config/benchmarks";
 import type { TextModel } from "@/lib/llm/types";
 
@@ -72,25 +71,6 @@ function metricsBlock(reel: Reel): string {
   return rows.join("\n");
 }
 
-// 잔존곡선 급락 구간 + 그 시점의 자막을 모델에 제공. "어디서 이탈했는지"를 자막과 매칭한다.
-function dropsBlock(reel: Reel): string {
-  const curve = reel.retentionCurve ?? [];
-  if (curve.length < 2) return "(잔존곡선 데이터 없음 — 급락 구간 분석 불가)";
-  const drops = detectDrops(curve, reel.transcript ?? []);
-  if (drops.length === 0) return "(뚜렷한 급락 구간 없음)";
-  return drops
-    .slice(0, 3)
-    .map((dp) => {
-      const at = `${Math.round(dp.startSec)}~${Math.round(dp.endSec)}초`;
-      const quote =
-        dp.lines.length > 0
-          ? `"${dp.lines.map((l) => l.text).join(" ")}"`
-          : "(이 구간 자막 없음 — 무음·정적)";
-      return `  ${at} 잔존 ${dp.dropPct.toFixed(1)}%p 급락${dp.isHook ? " (훅 구간)" : ""} — 자막: ${quote}`;
-    })
-    .join("\n");
-}
-
 export function buildTranscriptInsightsPrompt(reel: Reel): { system: string; userText: string } {
   const userText = [
     `캡션: ${reel.caption ?? "(없음)"}`,
@@ -98,13 +78,10 @@ export function buildTranscriptInsightsPrompt(reel: Reel): { system: string; use
     `지표:`,
     metricsBlock(reel),
     ``,
-    `급락 구간(잔존이 빠르게 빠진 지점 + 그때 자막):`,
-    dropsBlock(reel),
-    ``,
     `자막(SRT):`,
     transcriptBlock(reel),
     ``,
-    `위 자막의 구체적 문장과 지표 판정·급락 구간을 연결해, 무엇이 성과를 갈랐는지 진단하고`,
+    `위 자막의 구체적 문장과 지표 판정을 연결해, 무엇이 성과를 갈랐는지 진단하고`,
     `약점은 새 자막(rewrite)까지 제안해 JSON으로 답해줘. 주제 요약은 금지.`,
   ].join("\n");
   return { system: SYSTEM_PROMPT, userText };

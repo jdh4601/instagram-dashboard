@@ -1,4 +1,4 @@
-import { Users, Eye, Film, Heart, MousePointerClick, UserRoundCheck } from "lucide-react";
+import { Users, Eye, Film, Heart, UserPlus, UserRoundCheck } from "lucide-react";
 import { Stat } from "@/components/ui";
 import { fmtPct } from "@/lib/ui/format";
 import type { AccountOverview as Overview } from "@/lib/analysis/accountOverview";
@@ -48,10 +48,16 @@ export function AccountOverview({ overview }: AccountOverviewProps) {
         hint={overview.totalInteractionsLast7d === null ? `릴스 평균 ${fmtPct(overview.avgEngagementRate)}` : "최근 7일"}
       />
       <Stat
-        label="프로필 링크 탭"
-        value={overview.profileLinksTapsLast7d === null ? "-" : overview.profileLinksTapsLast7d.toLocaleString()}
-        icon={<MousePointerClick size={16} />}
-        hint={overview.profileLinksTapsLast7d === null ? "API 미지원 또는 미수집" : "최근 7일"}
+        label="팔로우 전환율"
+        value={overview.followConversionRateLast7d === null ? "-" : fmtPct(overview.followConversionRateLast7d)}
+        icon={<UserPlus size={16} />}
+        hint={
+          overview.followConversionRateLast7d === null
+            ? "팔로우 또는 도달 데이터 없음"
+            : overview.followConversionSource === "api"
+              ? "7일 팔로우 ÷ 7일 도달"
+              : "7일 순증 팔로워 ÷ 7일 도달 · 추정"
+        }
       />
     </div>
   );

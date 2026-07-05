@@ -9,10 +9,10 @@ const reel: Reel = {
   transcript: [{ startSec: 3, endSec: 9, text: "늘어지는 설명" }],
 };
 
-test("analyzeReel은 진단/급락/처방을 합성한다", () => {
+test("analyzeReel은 잔존곡선 없이 진단/처방을 합성한다", () => {
   const out = analyzeReel(reel, []);
   expect(out.diagnosis.bottleneck?.key).toBe("hookRetention3s");
-  expect(out.drops.length).toBeGreaterThan(0);
+  expect(out.drops).toEqual([]);
   expect(out.prescriptions.some((p) => p.metric === "hookRetention3s")).toBe(true);
   expect(out.baselineActive).toBe(false); // history 부족
 });

@@ -111,15 +111,5 @@ export function buildReelInsights(reel: Reel, history: Reel[]): MetricInsight[] 
       currentValue: current.profileToFollowRate,
     });
   }
-  if (reel.audienceBreakdown?.nonFollowersPct !== undefined) {
-    insights.push({
-      id: "non-follower-reach",
-      title: "비팔로워 도달",
-      detail: `EDIT 기준 도달의 ${reel.audienceBreakdown.nonFollowersPct.toFixed(1)}%가 비팔로워입니다.`,
-      tone: "info",
-      source: "EDIT",
-      currentValue: reel.audienceBreakdown.nonFollowersPct,
-    });
-  }
   return insights;
 }

@@ -44,7 +44,7 @@ export interface GraphMedia {
   permalink?: string;
 }
 
-// API 집계 지표만 매핑. 영상 길이·3초훅·잔존곡선·유입소스는 API가 안 줘서 비움(스샷 보존 대상).
+// API 집계 지표만 매핑. 영상 길이와 초 단위 잔존곡선은 공개 API가 제공하지 않는다.
 export function mapMediaToReel(media: GraphMedia, insights: Record<string, number>): Reel {
   const num = (k: string) => insights[k] ?? 0;
   const optional = (k: string) => insights[k];

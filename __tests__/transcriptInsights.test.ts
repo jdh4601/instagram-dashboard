@@ -63,7 +63,7 @@ test("buildTranscriptInsightsPrompt는 각 참여 지표에 계정 기준(벤치
   expect(userText).toMatch(/약점권|강점권|중간/);
 });
 
-test("buildTranscriptInsightsPrompt는 잔존곡선이 있으면 급락 구간+해당 자막을 컨텍스트에 담는다", () => {
+test("buildTranscriptInsightsPrompt는 과거 잔존곡선 데이터를 컨텍스트에 넣지 않는다", () => {
   const withCurve: Reel = {
     ...reel,
     durationSec: 12,
@@ -74,8 +74,8 @@ test("buildTranscriptInsightsPrompt는 잔존곡선이 있으면 급락 구간+�
     ],
   };
   const { userText } = buildTranscriptInsightsPrompt(withCurve);
-  expect(userText).toMatch(/급락/);
-  expect(userText).toContain("지금 공부하는게"); // 급락 구간(6~8초)에 걸친 자막
+  expect(userText).not.toMatch(/급락 구간/);
+  expect(userText).not.toMatch(/잔존 40/);
 });
 
 test("시스템 프롬프트는 약점에 rewrite(새 자막) 작성을 요구하고 주제 요약을 금지한다", () => {

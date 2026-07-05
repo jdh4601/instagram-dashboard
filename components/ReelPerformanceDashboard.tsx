@@ -25,7 +25,7 @@ export function ReelPerformanceDashboard({ reel, deltas }: { reel: Reel; deltas?
     { label: "평균 시청", value: `${reel.avgWatchTimeSec.toFixed(1)}초`, source: "API", delta: deltas?.avgWatchTimeSec },
     typeof reel.totalInteractions === "number" ? { label: "총 상호작용", value: fmtCount(reel.totalInteractions), source: "API" } : null,
     typeof reel.totalWatchTimeSec === "number" ? { label: "총 시청 시간", value: fmtDuration(reel.totalWatchTimeSec), source: "API" } : null,
-    typeof reel.skipRate === "number" ? { label: "Skip Rate", value: `${reel.skipRate.toFixed(2)}%`, source: reel.skipRateSource ?? "API" } : null,
+    typeof reel.skipRate === "number" && reel.skipRateSource !== "EDIT" ? { label: "Skip Rate", value: `${reel.skipRate.toFixed(2)}%`, source: "API" } : null,
     typeof reel.replays === "number" ? { label: "재시청", value: fmtCount(reel.replays), source: "API" } : null,
     typeof reel.profileVisits === "number" ? { label: "프로필 방문", value: fmtCount(reel.profileVisits), source: "API" } : null,
     typeof reel.followsFromReel === "number" ? { label: "팔로우", value: fmtCount(reel.followsFromReel), source: "API" } : null,
@@ -35,7 +35,7 @@ export function ReelPerformanceDashboard({ reel, deltas }: { reel: Reel; deltas?
     <Card className="overflow-hidden">
       <div className="flex items-center justify-between border-b border-border-subtle px-4 py-2.5">
         <h2 className="text-sm font-semibold text-neutral-800">릴스 성과</h2>
-        <Badge className="text-[10px]">Instagram API{reel.skipRateSource === "EDIT" ? " + EDIT" : ""}</Badge>
+        <Badge className="text-[10px]">Instagram API</Badge>
       </div>
 
       <div className="grid grid-cols-3 sm:grid-cols-6">

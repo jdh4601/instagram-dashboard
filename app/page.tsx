@@ -3,7 +3,6 @@ import { useEffect, useState, type FormEvent } from "react";
 import type { Reel, AccountSnapshot, AccountProfile } from "@/lib/schemas";
 import { buildAccountOverview } from "@/lib/analysis/accountOverview";
 import { latestFollowerDelta } from "@/lib/analysis/followerTrend";
-import { diagnoseRecent } from "@/lib/analysis/recentDiagnosis";
 import { computeDashboardMetrics } from "@/lib/analysis/dashboardMetrics";
 import { DashboardActions } from "@/components/DashboardActions";
 import { AccountHeader } from "@/components/AccountHeader";
@@ -12,7 +11,6 @@ import { Input, Button } from "@/components/ui";
 import { ReelList } from "@/components/ReelList";
 import { FollowerGrowthChart } from "@/components/FollowerGrowthChart";
 import { EngagementPieChart } from "@/components/EngagementPieChart";
-import { RecentInsightCards } from "@/components/RecentInsightCards";
 import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { InsightList } from "@/components/InsightList";
 import { buildAccountInsights } from "@/lib/analysis/accountInsights";
@@ -87,7 +85,6 @@ export default function Page() {
 
   const overview = buildAccountOverview(reels, snapshots, profile);
   const followerDelta = latestFollowerDelta(snapshots);
-  const recent = diagnoseRecent(reels);
   const dashboardMetrics = computeDashboardMetrics(reels);
   const accountInsights = buildAccountInsights(snapshots);
 
@@ -97,12 +94,10 @@ export default function Page() {
       <main className="mx-auto max-w-5xl space-y-5 px-4 pb-4 sm:px-6 sm:pb-6">
         <AccountHeader profile={profile} followerDelta={followerDelta} />
         <AccountOverview overview={overview} />
-        <InsightList title="계정 인사이트" insights={accountInsights} />
-
-        <RecentInsightCards
-          strengths={recent.strengths}
-          weaknesses={recent.weaknesses}
-          summary={recent.summary}
+        <InsightList
+          title="계정 인사이트"
+          insights={accountInsights}
+          helpText="최근 저장된 7일 계정 스냅샷을 기준으로 Graph API의 도달, 참여 계정, 팔로우·언팔로우를 사용합니다. 참여율은 참여 계정 ÷ 도달, 순 팔로워는 팔로우 − 언팔로우로 계산하며, 7일 이상 이전 스냅샷이 있으면 도달 증감도 비교합니다. 값이 없는 지표는 인사이트에서 제외합니다."
         />
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">

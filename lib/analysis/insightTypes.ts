@@ -1,4 +1,4 @@
-export type InsightSource = "API" | "derived" | "EDIT";
+export type InsightSource = "API" | "derived";
 export type InsightTone = "strength" | "opportunity" | "info";
 
 export interface MetricInsight {

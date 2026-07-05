@@ -8,14 +8,13 @@ function tmpStore() {
   return createSettingsStore(dir);
 }
 
-test("기본값: text/vision provider=anthropic, 키 없음", async () => {
+test("기본값: text provider=anthropic, 키 없음", async () => {
   const s = await tmpStore().get();
   expect(s.textProvider).toBe("anthropic");
-  expect(s.visionProvider).toBe("anthropic");
   expect(s.providers.anthropic.apiKey).toBeUndefined();
 });
 
-test("legacy activeProvider 입력은 text/vision 둘 다 설정한다", async () => {
+test("legacy activeProvider 입력은 text provider로 사용한다", async () => {
   const store = tmpStore();
   await store.save({
     activeProvider: "kimi",
@@ -23,20 +22,11 @@ test("legacy activeProvider 입력은 text/vision 둘 다 설정한다", async (
   });
   const s = await store.get();
   expect(s.textProvider).toBe("kimi");
-  expect(s.visionProvider).toBe("kimi");
   expect(s.providers.kimi.apiKey).toBe("sk-kimi-secret-9999");
   expect(s.providers.kimi.model).toBe("moonshot-v1-32k-vision-preview");
 });
 
-test("textProvider와 visionProvider를 독립적으로 설정", async () => {
-  const store = tmpStore();
-  await store.save({ textProvider: "openai", visionProvider: "kimi" });
-  const s = await store.get();
-  expect(s.textProvider).toBe("openai");
-  expect(s.visionProvider).toBe("kimi");
-});
-
-test("legacy settings.json(activeProvider만 존재)을 읽으면 text/vision 둘 다 폴백", async () => {
+test("legacy settings.json(activeProvider만 존재)을 읽으면 text provider로 폴백", async () => {
   const dir = mkdtempSync(join(tmpdir(), "settings-"));
   writeFileSync(
     join(dir, "settings.json"),
@@ -47,15 +37,13 @@ test("legacy settings.json(activeProvider만 존재)을 읽으면 text/vision �
   );
   const s = await createSettingsStore(dir).get();
   expect(s.textProvider).toBe("openai");
-  expect(s.visionProvider).toBe("openai");
 });
 
-test("masked()는 text/vision provider를 반환", async () => {
+test("masked()는 text provider를 반환", async () => {
   const store = tmpStore();
-  await store.save({ textProvider: "openai", visionProvider: "kimi" });
+  await store.save({ textProvider: "openai" });
   const m = await store.masked();
   expect(m.textProvider).toBe("openai");
-  expect(m.visionProvider).toBe("kimi");
 });
 
 test("빈 apiKey로 save하면 기존 키를 유지(덮어쓰지 않음)", async () => {

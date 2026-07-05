@@ -10,20 +10,14 @@ import { Skeleton, EmptyState } from "@/components/ui";
 import { BottleneckBanner } from "@/components/BottleneckBanner";
 import { DiagnosisCards } from "@/components/DiagnosisCards";
 import { MetricBars } from "@/components/MetricBars";
-import { RetentionChart } from "@/components/RetentionChart";
 import { ReelMetricTrend } from "@/components/ReelMetricTrend";
-import { ScreenshotUploadCard } from "@/components/ScreenshotUploadCard";
 import { SrtUploadCard } from "@/components/SrtUploadCard";
-import { ReachSourcesCard } from "@/components/ReachSourcesCard";
-import { AudienceBreakdownCard } from "@/components/AudienceBreakdownCard";
-import { WatchTimeBucketsChart } from "@/components/WatchTimeBucketsChart";
 import { SolutionsPanel } from "@/components/SolutionsPanel";
 import { AiGenerationPanel } from "@/components/AiGenerationPanel";
 import { ReelDerivedMetrics } from "@/components/ReelDerivedMetrics";
 import { ReelConversionFunnel } from "@/components/ReelConversionFunnel";
 import { InsightList } from "@/components/InsightList";
 import { ReelPerformanceDashboard } from "@/components/ReelPerformanceDashboard";
-import { buildRetentionCurve } from "@/lib/analysis/retentionCurve";
 
 interface ReelNav {
   prevId: string | null;
@@ -84,7 +78,6 @@ export default function ReelDetailPage() {
 }
 
 function ReelDetail({ reel, analysis, metricHistory, kpiDeltas, nav, onChange }: DetailResponse & { onChange: () => void }) {
-  const retention = buildRetentionCurve(reel);
   return (
     <>
       {/* 이전·다음 릴스 이동 */}
@@ -148,17 +141,7 @@ function ReelDetail({ reel, analysis, metricHistory, kpiDeltas, nav, onChange }:
       )}
       <BottleneckBanner bottleneck={analysis.diagnosis.bottleneck} delta={analysis.bottleneckDelta} />
       <ReelMetricTrend history={metricHistory} />
-      <div id="retention-chart" className="scroll-mt-4">
-        <RetentionChart curve={retention.curve} drops={analysis.drops} estimated={retention.estimated} />
-      </div>
       <SrtUploadCard reelId={reel.id} analysis={analysis.transcript} insights={reel.transcriptInsights} onChange={onChange} />
-      {/* 보조 카드 — 넓은 화면에서 2열로 우측 여백 활용 */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <AudienceBreakdownCard breakdown={reel.audienceBreakdown} />
-        <ReachSourcesCard sources={reel.reachSources} />
-        <WatchTimeBucketsChart buckets={reel.watchTimeBuckets} />
-      </div>
-      <ScreenshotUploadCard reelId={reel.id} />
       <DiagnosisCards
         strengths={analysis.diagnosis.strengths}
         weaknesses={analysis.diagnosis.weaknesses}

@@ -21,28 +21,25 @@ const ProvidersSchema = z.object({
 
 const InstagramSchema = z.object({ accessToken: z.string().optional() });
 
-// 디스크에 저장된 형태(관대): activeProvider는 구버전 단일 필드(레거시), text/vision은 신규.
+// 디스크에 저장된 형태(관대): activeProvider는 구버전 단일 필드다.
 const StoredSettingsSchema = z.object({
-  activeProvider: ProviderEnum.optional(), // 레거시: text/vision 미지정 시 폴백
+  activeProvider: ProviderEnum.optional(),
   textProvider: ProviderEnum.optional(),
-  visionProvider: ProviderEnum.optional(),
   providers: ProvidersSchema,
   instagram: InstagramSchema.optional(),
 });
 
-// 정규화된 런타임 설정: 자막 분석(text)·이미지 추출(vision) 제공자를 독립적으로 보유.
+// 정규화된 런타임 설정: 자막 분석과 생성에 사용할 텍스트 제공자.
 export interface Settings {
   textProvider: ProviderId;
-  visionProvider: ProviderId;
   providers: z.infer<typeof ProvidersSchema>;
   instagram?: z.infer<typeof InstagramSchema>;
 }
 
 // 클라이언트가 보내는 부분 업데이트 (apiKey 비우면 기존 유지)
 export const SettingsInputSchema = z.object({
-  activeProvider: ProviderEnum.optional(), // 레거시 편의: text/vision 미지정 시 둘 다 설정
+  activeProvider: ProviderEnum.optional(),
   textProvider: ProviderEnum.optional(),
-  visionProvider: ProviderEnum.optional(),
   providers: z
     .object({
       anthropic: ProviderConfigSchema.optional(),
@@ -62,7 +59,6 @@ export interface MaskedProvider {
 }
 export interface MaskedSettings {
   textProvider: ProviderId;
-  visionProvider: ProviderId;
   providers: Record<ProviderId, MaskedProvider>;
   instagram: { configured: boolean; maskedKey: string | null };
 }
@@ -70,17 +66,15 @@ export interface MaskedSettings {
 function defaultSettings(): Settings {
   return {
     textProvider: "anthropic",
-    visionProvider: "anthropic",
     providers: { anthropic: {}, openai: {}, kimi: {}, gemini: {} },
   };
 }
 
-// 저장 형태 → 런타임 형태. 레거시 activeProvider를 text/vision 폴백으로 마이그레이션.
+// 저장 형태 → 런타임 형태. 레거시 activeProvider를 textProvider 폴백으로 사용한다.
 function normalize(raw: z.infer<typeof StoredSettingsSchema>): Settings {
   const fallback = raw.activeProvider ?? "anthropic";
   return {
     textProvider: raw.textProvider ?? fallback,
-    visionProvider: raw.visionProvider ?? fallback,
     providers: raw.providers,
     instagram: raw.instagram,
   };
@@ -109,10 +103,9 @@ export function createSettingsStore(dataDir: string): SettingsStore {
 
   async function save(incoming: SettingsInput): Promise<Settings> {
     const cur = await get();
-    const legacy = incoming.activeProvider; // 지정 시 text/vision 폴백
+    const legacy = incoming.activeProvider;
     const next: Settings = {
       textProvider: incoming.textProvider ?? legacy ?? cur.textProvider,
-      visionProvider: incoming.visionProvider ?? legacy ?? cur.visionProvider,
       providers: { ...cur.providers },
       instagram: { ...cur.instagram },
     };
@@ -148,7 +141,6 @@ export function createSettingsStore(dataDir: string): SettingsStore {
     const igToken = s.instagram?.accessToken;
     return {
       textProvider: s.textProvider,
-      visionProvider: s.visionProvider,
       providers,
       instagram: {
         configured: Boolean(igToken),

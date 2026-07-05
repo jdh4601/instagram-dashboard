@@ -36,11 +36,11 @@ const fakeClient: GraphClient = {
   }),
 };
 
-test("동기화는 집계 수치를 갱신하고 스샷 데이터(훅·길이·자막)는 보존한다", async () => {
+test("동기화는 API 집계 수치를 갱신하고 기존 EDIT 분석값은 제거한다", async () => {
   const reelRepo = createJsonReelRepository(tmpDir());
   const accountRepo = createJsonAccountRepository(tmpDir());
 
-  // 스크린샷으로 이미 넣어둔 기존 릴스
+  // 과거 EDIT 기능으로 저장된 값이 있는 기존 릴스
   const existing: Reel = {
     id: "media-1", postedAt: "2026-06-01T00:00:00Z", durationSec: 53,
     views: 100, reach: 90, likes: 1, comments: 0, saves: 0, shares: 0, avgWatchTimeSec: 5,
@@ -62,13 +62,13 @@ test("동기화는 집계 수치를 갱신하고 스샷 데이터(훅·길이·�
   const updated = await reelRepo.get("media-1");
   expect(updated?.views).toBe(12000); // API로 갱신
   expect(updated?.avgWatchTimeSec).toBeCloseTo(21, 5);
-  expect(updated?.durationSec).toBe(53); // 스샷 길이 보존
-  expect(updated?.hookRetention3s).toBe(42); // 스샷 훅 보존
-  expect(updated?.skipRate).toBe(31); // 스킵 비율 보존
-  expect(updated?.skipRateSource).toBe("EDIT");
-  expect(updated?.reachSources?.reelsTab).toBe(70); // 유입 소스 보존
-  expect(updated?.audienceBreakdown?.nonFollowersPct).toBe(70); // 팔로워 비중 보존
-  expect(updated?.watchTimeBuckets?.[0].pct).toBe(40); // 시청 지속 분포 보존
+  expect(updated?.durationSec).toBe(53); // 수동 입력 길이 보존
+  expect(updated?.hookRetention3s).toBe(55); // API Skip Rate에서 계산
+  expect(updated?.skipRate).toBe(45);
+  expect(updated?.skipRateSource).toBe("API");
+  expect(updated?.reachSources).toBeUndefined();
+  expect(updated?.audienceBreakdown).toBeUndefined();
+  expect(updated?.watchTimeBuckets).toBeUndefined();
   expect(updated?.followsFromReel).toBe(20); // Graph 값으로 갱신
   expect(updated?.profileVisits).toBe(100); // Graph 값으로 갱신
   expect(updated?.transcript?.[0].text).toBe("도입"); // 자막 보존
@@ -114,7 +114,7 @@ test("신규 릴스는 길이 0(미상)으로 생성된다", async () => {
   expect(created?.views).toBe(12000);
 });
 
-test("EDIT skipRate는 Graph 동기화보다 우선하며 3초 잔존율로 환산", async () => {
+test("과거 EDIT skipRate는 Graph 값으로 교체", async () => {
   const reelRepo = createJsonReelRepository(tmpDir());
   const accountRepo = createJsonAccountRepository(tmpDir());
 
@@ -129,9 +129,9 @@ test("EDIT skipRate는 Graph 동기화보다 우선하며 3초 잔존율로 환�
   await syncFromGraph(fakeClient, reelRepo, accountRepo, "2026-06-29");
 
   const updated = await reelRepo.get("media-1");
-  expect(updated?.hookRetention3s).toBeCloseTo(31.44, 5);
-  expect(updated?.skipRate).toBe(68.56);
-  expect(updated?.skipRateSource).toBe("EDIT");
+  expect(updated?.hookRetention3s).toBe(55);
+  expect(updated?.skipRate).toBe(45);
+  expect(updated?.skipRateSource).toBe("API");
 });
 
 test("Graph skipRate는 API 출처와 함께 신규 릴스에 저장", async () => {

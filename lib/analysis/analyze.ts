@@ -1,6 +1,6 @@
 import type { Reel } from "@/lib/schemas";
 import { diagnose, type Diagnosis } from "@/lib/analysis/diagnosis";
-import { detectDrops, type DropSegment } from "@/lib/analysis/dropDetection";
+import type { DropSegment } from "@/lib/analysis/dropDetection";
 import { buildPlaybook, type Prescription } from "@/lib/recommend/playbook";
 import { buildBaselineThresholds, deltaVsRecent } from "@/lib/analysis/baseline";
 import { analyzeTranscript, type TranscriptAnalysis } from "@/lib/analysis/transcriptAnalysis";
@@ -22,7 +22,7 @@ export function analyzeReel(reel: Reel, history: Reel[]): AnalyzeResult {
   const baseline = buildBaselineThresholds(history);
   const thresholds = baseline ?? BENCHMARKS;
   const diagnosis = diagnose(reel, thresholds);
-  const drops = detectDrops(reel.retentionCurve ?? [], reel.transcript ?? []);
+  const drops: DropSegment[] = [];
   const prescriptions = buildPlaybook(diagnosis, drops);
   const transcript = analyzeTranscript(reel, drops);
   const reelInsights = buildReelInsights(reel, history);

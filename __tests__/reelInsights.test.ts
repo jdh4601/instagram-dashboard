@@ -27,8 +27,3 @@ test("비교 릴스가 부족하면 상대 우열 문구를 생성하지 않음"
   const insights = buildReelInsights(reel("target", { saves: 40 }), [reel("h1")]);
   expect(insights.some((insight) => insight.benchmarkValue !== undefined)).toBe(false);
 });
-
-test("EDIT 비팔로워 데이터는 출처를 명시", () => {
-  const insights = buildReelInsights(reel("target", { audienceBreakdown: { followersPct: 20, nonFollowersPct: 80 } }), []);
-  expect(insights).toContainEqual(expect.objectContaining({ id: "non-follower-reach", source: "EDIT" }));
-});

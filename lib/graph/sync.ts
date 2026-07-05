@@ -21,18 +21,13 @@ function daysBefore(date: string, days: number): string {
   return value.toISOString().slice(0, 10);
 }
 
-// 기존 릴스가 있으면 스크린샷 출처 필드(길이·훅·잔존곡선·유입소스·자막)를 보존하고
-// API 집계 수치만 갱신한다.
+// 기존 릴스가 있으면 수동 입력 길이·자막을 보존하고 API 집계 수치를 갱신한다.
 function mergeWithExisting(mapped: Reel, existing: Reel | null): Reel {
   if (!existing) return mapped;
-  const preserveEditSkip = existing.skipRateSource === "EDIT";
-  const skipRate = preserveEditSkip ? existing.skipRate : mapped.skipRate ?? existing.skipRate;
-  const skipRateSource = preserveEditSkip
-    ? "EDIT"
-    : mapped.skipRateSource ?? existing.skipRateSource;
-  const hookFromSkip = preserveEditSkip
-    ? existing.hookRetention3s ?? (existing.skipRate != null ? 100 - existing.skipRate : undefined)
-    : mapped.hookRetention3s ?? existing.hookRetention3s ?? (skipRate != null ? 100 - skipRate : undefined);
+  const skipRate = mapped.skipRate ?? (existing.skipRateSource === "EDIT" ? undefined : existing.skipRate);
+  const skipRateSource = mapped.skipRateSource ?? (existing.skipRateSource === "EDIT" ? undefined : existing.skipRateSource);
+  const hookFromSkip = mapped.hookRetention3s ??
+    (skipRate != null ? 100 - skipRate : existing.skipRateSource === "EDIT" ? undefined : existing.hookRetention3s);
   return {
     ...mapped,
     durationSec: existing.durationSec || mapped.durationSec,
@@ -45,10 +40,6 @@ function mergeWithExisting(mapped: Reel, existing: Reel | null): Reel {
     hookRetention3s: hookFromSkip,
     skipRate,
     skipRateSource,
-    retentionCurve: existing.retentionCurve,
-    reachSources: existing.reachSources,
-    audienceBreakdown: existing.audienceBreakdown,
-    watchTimeBuckets: existing.watchTimeBuckets,
     followsFromReel: mapped.followsFromReel ?? existing.followsFromReel,
     profileVisits: mapped.profileVisits ?? existing.profileVisits,
     transcript: existing.transcript,

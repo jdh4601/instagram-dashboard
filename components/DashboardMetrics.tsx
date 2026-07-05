@@ -12,21 +12,15 @@ import {
   CartesianGrid,
   ReferenceLine,
   ReferenceDot,
-  BarChart,
-  Cell,
 } from "recharts";
 import {
   Clock,
-  Gauge,
-  SkipForward,
-  UserPlus,
-  UserCircle,
   TrendingUp,
   Activity,
   AlertTriangle,
 } from "lucide-react";
-import { Card, CardHeader, CardBody, EmptyState, Stat } from "@/components/ui";
-import { fmtPct, fmtSec, fmtCount } from "@/lib/ui/format";
+import { Card, CardHeader, CardBody, EmptyState } from "@/components/ui";
+import { fmtPct, fmtSec } from "@/lib/ui/format";
 import { BENCHMARKS } from "@/config/benchmarks";
 import type { DashboardMetrics as Metrics } from "@/lib/analysis/dashboardMetrics";
 
@@ -35,73 +29,15 @@ interface Props {
 }
 
 export function DashboardMetrics({ metrics }: Props) {
-  const { series, highSkipReels, topFollowConversionReels } = metrics;
+  const { series, highSkipReels } = metrics;
 
   return (
     <section className="space-y-5">
-      <DashboardMetricsKpiCards metrics={metrics} />
-
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <WatchTimeCompletionChart series={series} />
         <Retention3sChart series={series} lowRetentionReels={highSkipReels} />
-        <FollowConversionRankChart reels={topFollowConversionReels} />
-        <ProfileVisitRateChart series={series} />
       </div>
     </section>
-  );
-}
-
-function DashboardMetricsKpiCards({ metrics }: Props) {
-  const completionHint =
-    metrics.completionRate === null
-      ? "일부 릴스의 영상 길이를 몰라 평균 시청 비율에서 제외됐어요"
-      : undefined;
-
-  const watchTimeHint =
-    metrics.avgWatchTimeSec === null || metrics.avgDurationSec === null
-      ? "영상 길이를 몰라 비교가 어려워요 — 업로드 시 길이를 입력해 주세요"
-      : `${Math.round(metrics.avgDurationSec)}초 영상 중 평균 ${fmtSec(metrics.avgWatchTimeSec)} 시청`;
-
-  const skipHint =
-    metrics.skipRate === null
-      ? "스크린샷을 업로드하면 채워져요"
-      : `${100 - BENCHMARKS.hookRetention3s.weakBelow}% 초과 이탈 심함`;
-
-  return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-      <Stat
-        label="평균 시청 시간"
-        value={metrics.avgWatchTimeSec === null ? "-" : fmtSec(metrics.avgWatchTimeSec)}
-        icon={<Clock size={16} />}
-        hint={watchTimeHint}
-      />
-      <Stat
-        label="평균 시청 비율"
-        value={metrics.completionRate === null ? "-" : fmtPct(metrics.completionRate)}
-        icon={<Gauge size={16} />}
-        hint={completionHint}
-      />
-      <Stat
-        label="Skip Rate"
-        value={metrics.skipRate === null ? "-" : fmtPct(metrics.skipRate)}
-        icon={<SkipForward size={16} />}
-        hint={skipHint}
-      />
-      <Stat
-        label="팔로우 전환율"
-        value={
-          metrics.followConversionRate === null ? "-" : fmtPct(metrics.followConversionRate)
-        }
-        icon={<UserPlus size={16} />}
-        hint="follows / reach"
-      />
-      <Stat
-        label="프로필 방문률"
-        value={metrics.profileVisitRate === null ? "-" : fmtPct(metrics.profileVisitRate)}
-        icon={<UserCircle size={16} />}
-        hint="시청 → 팔로우 중간 단계"
-      />
-    </div>
   );
 }
 
@@ -227,7 +163,7 @@ function Retention3sChart({
           <EmptyState
             icon={<Activity size={26} />}
             title="릴스 2개 이상부터 표시됩니다"
-            hint="첫 3초 잔존율(=100−스킵)입니다. Graph API 또는 EDIT 인사이트 데이터가 있을 때 표시됩니다."
+            hint="첫 3초 잔존율(=100−스킵)입니다. Graph API의 Skip Rate가 있을 때 표시됩니다."
           />
         ) : (
           <>
@@ -306,132 +242,6 @@ function Retention3sChart({
               </div>
             )}
           </>
-        )}
-      </CardBody>
-    </Card>
-  );
-}
-
-function FollowConversionRankChart({
-  reels,
-}: {
-  reels: Metrics["topFollowConversionReels"];
-}) {
-  const data = [...reels].reverse(); // 하→상 순으로 그리기
-
-  return (
-    <Card>
-      <CardHeader
-        title="팔로우 전환율 TOP5"
-        icon={<UserPlus size={16} className="text-brand-600" />}
-      />
-      <CardBody>
-        {reels.length === 0 ? (
-          <EmptyState
-            icon={<UserPlus size={26} />}
-            title="팔로우 데이터가 없습니다"
-            hint="릴스에 followsFromReel이 등록되면 순위가 표시됩니다."
-          />
-        ) : (
-          <div className="space-y-4">
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={data} layout="vertical" margin={{ top: 4, right: 24, bottom: 4, left: 4 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" horizontal={false} />
-                <XAxis type="number" unit="%" tick={{ fontSize: 11, fill: "#94a3b8" }} />
-                <YAxis
-                  type="category"
-                  dataKey="title"
-                  width={120}
-                  tick={{ fontSize: 10, fill: "#64748b" }}
-                  interval={0}
-                />
-                <Tooltip
-                  formatter={(v, _name, entry) => {
-                    const e = entry?.payload as Metrics["topFollowConversionReels"][number];
-                    return [`${fmtPct(Number(v))} · ${fmtCount(e.follows)}팔로우 · 도달 ${fmtCount(e.reach)}`, "전환율"];
-                  }}
-                  contentStyle={{ borderRadius: 8, border: "1px solid #e9edf3", fontSize: 12 }}
-                />
-                <Bar dataKey="rate" radius={[0, 4, 4, 0]}>
-                  {data.map((_, i) => (
-                    <Cell key={i} fill={i === data.length - 1 ? "#4f46e5" : "#818cf8"} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-
-            <ul className="space-y-1">
-              {reels.map((r, i) => (
-                <li
-                  key={r.idx}
-                  className="flex items-center justify-between rounded-md border border-slate-100 px-2.5 py-1.5 text-xs"
-                >
-                  <span className="flex items-center gap-2 truncate">
-                    <span className="w-5 text-center font-medium text-slate-500">{i + 1}</span>
-                    <span className="truncate">{r.title}</span>
-                  </span>
-                  <span className="shrink-0 tabular-nums text-slate-600">
-                    {fmtPct(r.rate)} · {fmtCount(r.follows)}팔로우
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </CardBody>
-    </Card>
-  );
-}
-
-function ProfileVisitRateChart({
-  series,
-}: {
-  series: Metrics["series"];
-}) {
-  const data = series.map((s) => ({ ...s, rate: s.profileVisitRate }));
-
-  return (
-    <Card>
-      <CardHeader
-        title="프로필 방문률 추이"
-        icon={<UserCircle size={16} className="text-brand-600" />}
-      />
-      <CardBody>
-        {series.length < 2 ? (
-          <EmptyState
-            icon={<UserCircle size={26} />}
-            title="릴스 2개 이상부터 표시됩니다"
-            hint="릴스에 profileVisits이 등록되면 추이가 표시됩니다."
-          />
-        ) : (
-          <ResponsiveContainer width="100%" height={180}>
-            <ComposedChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: -8 }}>
-              <defs>
-                <linearGradient id="visitFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#4f46e5" stopOpacity={0.25} />
-                  <stop offset="100%" stopColor="#4f46e5" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" vertical={false} />
-              <XAxis dataKey="idx" tick={{ fontSize: 11, fill: "#94a3b8" }} />
-              <YAxis unit="%" tick={{ fontSize: 11, fill: "#94a3b8" }} />
-              <Tooltip
-                formatter={(v) => [fmtPct(Number(v)), "프로필 방문률"]}
-                labelFormatter={(l, p) => {
-                  const d = (p?.[0]?.payload ?? {}) as { title?: string; postedAt?: string };
-                  return d.title ? `${d.title} · ${d.postedAt ?? ""}` : `${l}번째 릴스`;
-                }}
-                contentStyle={{ borderRadius: 8, border: "1px solid #e9edf3", fontSize: 12 }}
-              />
-              <Area
-                type="monotone"
-                dataKey="rate"
-                stroke="#4f46e5"
-                strokeWidth={2}
-                fill="url(#visitFill)"
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
         )}
       </CardBody>
     </Card>

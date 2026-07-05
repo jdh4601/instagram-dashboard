@@ -64,14 +64,14 @@ export const DerivedRatesSchema = z.object({
 });
 export type DerivedRates = z.infer<typeof DerivedRatesSchema>;
 
-// 팔로워 / 논팔로워 비중 (계정 상태 스크린샷)
+// 과거 저장 데이터와의 호환을 위한 팔로워 / 논팔로워 비중
 export const AudienceBreakdownSchema = z.object({
   followersPct: z.number().min(0).max(100),
   nonFollowersPct: z.number().min(0).max(100),
 });
 export type AudienceBreakdown = z.infer<typeof AudienceBreakdownSchema>;
 
-// 시청 지속 시간 분포 (시청 지속 그래프 스크린샷)
+// 과거 저장 데이터와의 호환을 위한 시청 지속 시간 분포
 export const WatchTimeBucketSchema = z.object({
   label: z.string(), // 예: "0~3초", "3~10초", "10초~"
   pct: z.number().min(0).max(100),
@@ -155,15 +155,3 @@ export const AccountSnapshotSchema = z.object({
   unavailableMetrics: z.array(z.string()).optional(),
 });
 export type AccountSnapshot = z.infer<typeof AccountSnapshotSchema>;
-
-// Claude Vision 스크린샷 파싱 결과
-export const ScreenshotParseSchema = z.object({
-  hookRetention3s: z.number().min(0).max(100).optional(),
-  skipRate: z.number().min(0).max(100).optional(),
-  retentionCurve: z.array(RetentionPointSchema).optional(),
-  reachSources: ReachSourcesSchema.optional(),
-  audienceBreakdown: AudienceBreakdownSchema.optional(),
-  watchTimeBuckets: z.array(WatchTimeBucketSchema).optional(),
-  profileVisits: z.number().nonnegative().optional(),
-});
-export type ScreenshotParse = z.infer<typeof ScreenshotParseSchema>;

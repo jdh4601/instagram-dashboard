@@ -25,7 +25,6 @@ interface MaskedProvider {
 }
 interface MaskedSettings {
   textProvider: ProviderId;
-  visionProvider: ProviderId;
   providers: Record<ProviderId, MaskedProvider>;
   instagram: { configured: boolean; maskedKey: string | null };
 }
@@ -33,7 +32,6 @@ interface MaskedSettings {
 export default function SettingsPage() {
   const [data, setData] = useState<MaskedSettings | null>(null);
   const [textProvider, setTextProvider] = useState<ProviderId>("anthropic");
-  const [visionProvider, setVisionProvider] = useState<ProviderId>("anthropic");
   const [keyInputs, setKeyInputs] = useState<Record<string, string>>({});
   const [modelInputs, setModelInputs] = useState<Record<string, string>>({});
   const [igToken, setIgToken] = useState("");
@@ -42,7 +40,6 @@ export default function SettingsPage() {
   function load(d: MaskedSettings) {
     setData(d);
     setTextProvider(d.textProvider);
-    setVisionProvider(d.visionProvider);
     const models: Record<string, string> = {};
     for (const id of PROVIDER_ORDER) models[id] = d.providers[id].model;
     setModelInputs(models);
@@ -64,7 +61,7 @@ export default function SettingsPage() {
     const res = await fetch("/api/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ textProvider, visionProvider, providers, instagram: { accessToken: igToken } }),
+      body: JSON.stringify({ textProvider, providers, instagram: { accessToken: igToken } }),
     });
     if (!res.ok) {
       setStatus("저장 실패");
@@ -90,8 +87,7 @@ export default function SettingsPage() {
       </div>
       <p className="text-sm text-neutral-500">
         키는 이 PC의 <code>data/settings.json</code>에만 저장되며 화면에는 마스킹되어 표시됩니다.
-        <strong>자막 분석</strong>(텍스트)과 <strong>이미지 추출</strong>(비전)에 쓸 제공자를 따로 고를 수 있어요 —
-        예: 분석은 고품질 모델, 이미지 추출은 저렴한 모델. 스크린샷 파싱은 vision 지원 모델에서만 동작합니다.
+        자막 분석과 맞춤 대본 생성에 사용할 제공자와 모델을 선택할 수 있습니다.
       </p>
 
       <form onSubmit={onSave} className="space-y-3">
@@ -111,15 +107,6 @@ export default function SettingsPage() {
                       onChange={() => setTextProvider(id)}
                     />
                     자막 분석
-                  </label>
-                  <label className="flex items-center gap-1">
-                    <input
-                      type="radio"
-                      name="visionProvider"
-                      checked={visionProvider === id}
-                      onChange={() => setVisionProvider(id)}
-                    />
-                    이미지 추출
                   </label>
                 </span>
               </div>

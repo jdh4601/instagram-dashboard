@@ -64,7 +64,8 @@ test("최신 계정 인사이트를 상단 개요로 전달", () => {
     accountsEngagedLast7d: 400,
     totalInteractionsLast7d: 600,
     netFollowersLast7d: 22,
-    profileLinksTapsLast7d: 12,
+    followConversionRateLast7d: 0.6,
+    followConversionSource: "api",
   });
 });
 
@@ -97,4 +98,45 @@ test("API가 reach를 지원하면 실제 0도 수집값으로 구분", () => {
   }], null);
   expect(o.reachLast7d).toBe(0);
   expect(o.reachAvailable).toBe(true);
+  expect(o.followConversionRateLast7d).toBeNull();
+});
+
+test("팔로우 전환율은 최근 7일 follows / reach로 계산", () => {
+  const o = buildAccountOverview([], [{
+    date: "2026-07-05",
+    followerCount: 250,
+    reachLast7d: 4000,
+    followsLast7d: 20,
+  }], null);
+
+  expect(o.followConversionRateLast7d).toBeCloseTo(0.5, 5);
+  expect(o.followConversionSource).toBe("api");
+});
+
+test("API follows가 없으면 7일 팔로워 순증가 / reach로 추정", () => {
+  const o = buildAccountOverview([], [
+    { date: "2026-06-28", followerCount: 238, reachLast7d: 0 },
+    { date: "2026-07-05", followerCount: 256, reachLast7d: 3860 },
+  ], null);
+
+  expect(o.followConversionRateLast7d).toBeCloseTo((18 / 3860) * 100, 5);
+  expect(o.followConversionSource).toBe("snapshot");
+});
+
+test("팔로우 데이터가 없거나 도달이 0이면 전환율을 만들지 않는다", () => {
+  const missingFollows = buildAccountOverview([], [{
+    date: "2026-07-05",
+    followerCount: 250,
+    reachLast7d: 4000,
+  }], null);
+  const zeroReach = buildAccountOverview([], [{
+    date: "2026-07-05",
+    followerCount: 250,
+    reachLast7d: 0,
+    followsLast7d: 20,
+  }], null);
+
+  expect(missingFollows.followConversionRateLast7d).toBeNull();
+  expect(zeroReach.followConversionRateLast7d).toBeNull();
+  expect(missingFollows.followConversionSource).toBeNull();
 });
