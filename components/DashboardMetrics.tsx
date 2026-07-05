@@ -147,6 +147,8 @@ function Retention3sChart({
     retention: s.skipRate == null ? null : 100 - s.skipRate,
   }));
   const weakBelow = BENCHMARKS.hookRetention3s.weakBelow;
+  // 표시 구간(7번째~최신)의 릴스마다 X축 눈금을 하나씩 찍는다.
+  const xTicks = data.map((d) => d.idx).filter((idx) => idx >= 7);
 
   return (
     <Card>
@@ -162,7 +164,7 @@ function Retention3sChart({
             hint="첫 3초 잔존율(=100−스킵)입니다. Graph API의 Skip Rate가 있을 때 표시됩니다."
           />
         ) : (
-          <ResponsiveContainer width="100%" height={180}>
+          <ResponsiveContainer width="100%" height={200}>
             <ComposedChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: -16 }}>
               <defs>
                 <linearGradient id="retentionTrendFill" x1="0" y1="0" x2="0" y2="1">
@@ -175,6 +177,7 @@ function Retention3sChart({
                 dataKey="idx"
                 type="number"
                 domain={[7, "dataMax"]}
+                ticks={xTicks}
                 allowDataOverflow
                 allowDecimals={false}
                 tick={{ fontSize: 11, fill: "#94a3b8" }}
@@ -186,6 +189,10 @@ function Retention3sChart({
                 tick={{ fontSize: 11, fill: "#94a3b8" }}
               />
               <Tooltip
+                // 세로 위치를 차트 하단으로 고정해 데이터 선을 가리지 않게 한다(x는 커서를 따라감).
+                position={{ y: 150 }}
+                allowEscapeViewBox={{ y: true }}
+                offset={12}
                 formatter={(v) => [fmtPct(Number(v)), "3초 잔존율"]}
                 labelFormatter={(l, p) => {
                   const d = (p?.[0]?.payload ?? {}) as { title?: string; postedAt?: string };
@@ -200,6 +207,8 @@ function Retention3sChart({
                 strokeWidth={2}
                 fill="url(#retentionTrendFill)"
                 connectNulls={false}
+                dot={{ r: 4, fill: "#4f46e5", stroke: "#fff", strokeWidth: 1.5 }}
+                activeDot={{ r: 6 }}
               />
               <ReferenceLine
                 y={weakBelow}
