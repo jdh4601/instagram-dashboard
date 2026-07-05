@@ -81,3 +81,37 @@ test("동기화 실패 시 이메일을 보내지 않고 에러를 전파한다"
   await expect(generateAndSendDailyReport(deps)).rejects.toThrow("graph down");
   expect(sent).toHaveLength(0);
 });
+
+test("generateNarrative가 있으면 총평을 리포트와 이메일에 반영한다", async () => {
+  const { deps, sent } = makeDeps({
+    generateNarrative: async () => "오늘의 총평입니다.",
+  });
+  const report = await generateAndSendDailyReport(deps);
+  expect(report.narrative).toBe("오늘의 총평입니다.");
+  expect(sent[0].html).toContain("오늘의 총평입니다.");
+});
+
+test("generateNarrative에 생성된 리포트를 전달한다", async () => {
+  let received: { metrics: { followerCount: number } } | null = null;
+  const { deps } = makeDeps({
+    generateNarrative: async (r) => {
+      received = r;
+      return "총평";
+    },
+  });
+  await generateAndSendDailyReport(deps);
+  expect(received!.metrics.followerCount).toBe(252);
+});
+
+test("총평 생성이 실패해도 정량 리포트는 발송한다", async () => {
+  const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+  const { deps, sent } = makeDeps({
+    generateNarrative: async () => {
+      throw new Error("LLM timeout");
+    },
+  });
+  const report = await generateAndSendDailyReport(deps);
+  expect(sent).toHaveLength(1);
+  expect(report.narrative).toBeUndefined();
+  spy.mockRestore();
+});

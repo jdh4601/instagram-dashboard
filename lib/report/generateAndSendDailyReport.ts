@@ -15,6 +15,8 @@ export interface DailyReportDeps {
   send: (email: DailyReportEmail) => Promise<void>;
   /** 오늘 날짜 YYYY-MM-DD (테스트 주입용) */
   today: () => string;
+  /** LLM 총평 생성(선택). 실패해도 정량 리포트는 발송된다 */
+  generateNarrative?: (report: DailyReport) => Promise<string>;
   options?: BuildDailyReportOptions;
 }
 
@@ -30,7 +32,17 @@ export async function generateAndSendDailyReport(deps: DailyReportDeps): Promise
   await deps.sync();
 
   const [reels, snapshots] = await Promise.all([deps.loadReels(), deps.loadSnapshots()]);
-  const report = buildDailyReport(reels, snapshots, deps.today(), deps.options);
+  let report = buildDailyReport(reels, snapshots, deps.today(), deps.options);
+
+  if (deps.generateNarrative) {
+    try {
+      const narrative = await deps.generateNarrative(report);
+      report = { ...report, narrative };
+    } catch (err) {
+      // 총평(LLM) 생성 실패는 리포트 발송을 막지 않는다 — 정량 리포트는 여전히 유효하다.
+      console.error("[daily-report] LLM 총평 생성 실패, 총평 없이 발송합니다:", err);
+    }
+  }
 
   await deps.send({ subject: buildSubject(report), html: renderReportHtml(report) });
   return report;

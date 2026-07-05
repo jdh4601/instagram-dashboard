@@ -9,6 +9,8 @@ import { getInstagramClient } from "@/lib/graph";
 import { syncFromGraph } from "@/lib/graph/sync";
 import { generateAndSendDailyReport } from "@/lib/report/generateAndSendDailyReport";
 import { createReportSender } from "@/lib/email/sendReport";
+import { buildNarrativePrompt } from "@/lib/report/narrativePrompt";
+import { getTextModel } from "@/lib/llm";
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -53,6 +55,11 @@ async function handle(request: Request): Promise<NextResponse> {
       loadSnapshots: () => getAccountRepository().list(),
       send,
       today,
+      generateNarrative: async (report) => {
+        const model = await getTextModel();
+        const { system, userText } = buildNarrativePrompt(report);
+        return (await model.generate({ system, userText })).trim();
+      },
     });
 
     return NextResponse.json({
