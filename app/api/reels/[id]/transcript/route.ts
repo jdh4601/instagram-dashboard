@@ -4,6 +4,8 @@ import { parseSrt } from "@/lib/parsing/srt";
 
 // SRT 자막 업로드: 원문 SRT를 서버에서 파싱해 reel.transcript에 저장.
 // 잔존 차트 급락 구간 매칭·자막 분석이 모두 이 데이터를 사용한다.
+const MAX_SRT_BYTES = 512 * 1024; // 자막 한 편은 넉넉히 512KB 이내. 과대 페이로드 차단.
+
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
@@ -17,6 +19,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const srt = (body as { srt?: unknown })?.srt;
   if (typeof srt !== "string" || !srt.trim()) {
     return NextResponse.json({ error: "SRT 내용이 비어 있습니다" }, { status: 400 });
+  }
+  if (Buffer.byteLength(srt, "utf8") > MAX_SRT_BYTES) {
+    return NextResponse.json({ error: "SRT 파일이 너무 큽니다 (최대 512KB)" }, { status: 413 });
   }
 
   const repo = getRepository();

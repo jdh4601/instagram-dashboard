@@ -69,34 +69,41 @@ export async function syncFromGraph(
   const unavailableMetrics = new Set(accountInsights.unavailableMetrics);
 
   let synced = 0;
+  // 릴스별 insight는 순차 호출한다(Graph API rate limit 완화). 한 릴스가 실패해도
+  // (삭제된 미디어·권한 변경·일시적 5xx) 전체 동기화가 멈추지 않도록 개별 격리한다.
   for (const media of reels) {
-    const insights = await client.getInsights(media.id);
-    insights.availableMetrics.forEach((metric) => availableMetrics.add(metric));
-    insights.unavailableMetrics.forEach((metric) => unavailableMetrics.add(metric));
-    const mapped = mapMediaToReel(media, insights.metrics);
-    const existing = await reelRepo.get(mapped.id);
-    const merged = mergeWithExisting(mapped, existing);
-    await reelRepo.upsert({ ...merged, derived: computeDerivedRates(merged) });
-    // 동기화 시점의 지표를 이력으로 누적(조회수/도달 추이용)
-    if (historyRepo) {
-      await historyRepo.add({
-        reelId: merged.id,
-        date: today,
-        views: merged.views,
-        reach: merged.reach,
-        likes: merged.likes,
-        comments: merged.comments,
-        saves: merged.saves,
-        shares: merged.shares,
-        totalInteractions: merged.totalInteractions,
-        totalWatchTimeSec: merged.totalWatchTimeSec,
-        replays: merged.replays,
-        totalPlays: merged.totalPlays,
-        followsFromReel: merged.followsFromReel,
-        profileVisits: merged.profileVisits,
-      });
+    try {
+      const insights = await client.getInsights(media.id);
+      insights.availableMetrics.forEach((metric) => availableMetrics.add(metric));
+      insights.unavailableMetrics.forEach((metric) => unavailableMetrics.add(metric));
+      const mapped = mapMediaToReel(media, insights.metrics);
+      const existing = await reelRepo.get(mapped.id);
+      const merged = mergeWithExisting(mapped, existing);
+      await reelRepo.upsert({ ...merged, derived: computeDerivedRates(merged) });
+      // 동기화 시점의 지표를 이력으로 누적(조회수/도달 추이용)
+      if (historyRepo) {
+        await historyRepo.add({
+          reelId: merged.id,
+          date: today,
+          views: merged.views,
+          reach: merged.reach,
+          likes: merged.likes,
+          comments: merged.comments,
+          saves: merged.saves,
+          shares: merged.shares,
+          totalInteractions: merged.totalInteractions,
+          totalWatchTimeSec: merged.totalWatchTimeSec,
+          replays: merged.replays,
+          totalPlays: merged.totalPlays,
+          followsFromReel: merged.followsFromReel,
+          profileVisits: merged.profileVisits,
+        });
+      }
+      synced++;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[sync] 릴스 ${media.id} 동기화 실패 — 건너뜁니다: ${message}`);
     }
-    synced++;
   }
 
   await accountRepo.add({

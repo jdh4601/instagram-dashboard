@@ -73,6 +73,8 @@ export function createGraphClient(opts: Options): GraphClient {
   let reelOptionalCapabilities: { supported: string[]; unavailable: string[] } | null = null;
 
   async function request(path: string, params: Record<string, string>): Promise<unknown> {
+    // 주의: Graph API 규약대로 access_token을 쿼리스트링에 싣는다. 즉 이 URL은
+    // 장기 토큰을 포함하므로, 요청 URL 전체를 그대로 로깅하는 코드는 절대 추가하지 말 것.
     const query = new URLSearchParams({ ...params, access_token: opts.accessToken });
     const url = `${base}/${VERSION}/${path}?${query.toString()}`;
     const res = await fetchImpl(url);
