@@ -6,12 +6,16 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      # 폰 QR 접속용 서버 주소 (Docker에서는 컨테이너 IP가 아닌 호스트 머신 IP를 지정해야 합니다)
-      # 예: LAN_HOST=http://192.168.0.25:3000
-      - LAN_HOST=${LAN_HOST:-}
-      # .env 파일의 ANTHROPIC_API_KEY를 컨테이너에 주입 (LLM 자막 분석·AI 생성·스크린샷 파싱용)
+      # 폴백용 LLM 키(설정 화면 /settings 에 키가 없을 때만 사용).
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      # ── 매일 아침 이메일 리포트 (/api/cron/daily-report) ──
+      # 이 값들이 없으면 크론 엔드포인트가 500/502로 실패한다. .env.example 참고.
+      - CRON_SECRET=${CRON_SECRET:-}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - REPORT_EMAIL_FROM=${REPORT_EMAIL_FROM:-}
+      - REPORT_EMAIL_TO=${REPORT_EMAIL_TO:-}
+      - REPORT_URL=${REPORT_URL:-}
     volumes:
-      # 컨테이너를 날려도 data 폴 더의 데이터는 유지됨
+      # 컨테이너를 날려도 data 폴더의 데이터(릴스·설정·토큰)는 유지된다.
       - ./data:/app/data
     restart: unless-stopped

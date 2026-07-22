@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import {
   getRepository,
@@ -20,6 +21,15 @@ function unauthorized(): NextResponse {
   return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 }
 
+// 타이밍 공격을 피하기 위해 상수 시간 비교를 사용한다.
+function secretMatches(provided: string | null, expected: string): boolean {
+  if (!provided) return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
 async function handle(request: Request): Promise<NextResponse> {
   const secret = process.env.CRON_SECRET;
   if (!secret) {
@@ -28,7 +38,7 @@ async function handle(request: Request): Promise<NextResponse> {
       { status: 500 },
     );
   }
-  if (request.headers.get("x-cron-secret") !== secret) {
+  if (!secretMatches(request.headers.get("x-cron-secret"), secret)) {
     return unauthorized();
   }
 

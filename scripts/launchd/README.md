@@ -20,16 +20,24 @@
 
 ## 설치
 
+`com.example.instagram-report.plist.template`을 복사한 뒤 자리표시자
+(`__LABEL__`, `__PROJECT_DIR__`)를 본인 값으로 바꿔서 설치한다.
+
 ```bash
 # 1) 스크립트 실행 권한
 chmod +x scripts/daily-report.sh
 
-# 2) plist 복사 (경로가 다르면 plist 안의 절대경로를 먼저 수정)
-cp scripts/launchd/com.done.instagram-report.plist ~/Library/LaunchAgents/
+# 2) 템플릿 → 실제 plist 생성 (라벨과 절대경로 치환)
+LABEL="com.$(whoami).instagram-report"
+sed -e "s|__LABEL__|$LABEL|g" -e "s|__PROJECT_DIR__|$PWD|g" \
+  scripts/launchd/com.example.instagram-report.plist.template \
+  > "$HOME/Library/LaunchAgents/$LABEL.plist"
 
 # 3) 등록
-launchctl load ~/Library/LaunchAgents/com.done.instagram-report.plist
+launchctl load "$HOME/Library/LaunchAgents/$LABEL.plist"
 ```
+
+> 아래 예시 명령의 `com.example.instagram-report`는 위에서 정한 `$LABEL`로 바꿔서 쓰세요.
 
 ## 절전 중에도 놓치지 않기 (중요)
 
@@ -49,7 +57,7 @@ launchctl load ~/Library/LaunchAgents/com.done.instagram-report.plist
 
 ```bash
 # 지금 즉시 한 번 실행 (스케줄 무관)
-launchctl start com.done.instagram-report
+launchctl start com.example.instagram-report
 
 # 로그 확인
 tail -f data/daily-report.log
@@ -61,8 +69,8 @@ PROJECT_DIR="$PWD" bash scripts/daily-report.sh
 ## 제거
 
 ```bash
-launchctl unload ~/Library/LaunchAgents/com.done.instagram-report.plist
-rm ~/Library/LaunchAgents/com.done.instagram-report.plist
+launchctl unload ~/Library/LaunchAgents/com.example.instagram-report.plist
+rm ~/Library/LaunchAgents/com.example.instagram-report.plist
 sudo pmset repeat cancel   # 자동 웨이크 해제
 ```
 

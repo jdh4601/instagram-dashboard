@@ -33,7 +33,7 @@ function metricValues(reels: Reel[], key: MetricKey): number[] {
     .map((r) => {
       if (key === "hookRetention3s") return r.hookRetention3s;
       if (key === "completionRate") {
-        // 영상 길이를 모륾면(0) 완료율은 계산 불가
+        // 영상 길이를 모르면(0) 완료율은 계산 불가
         if (r.durationSec <= 0) return undefined;
       }
       const d = computeDerivedRates(r);

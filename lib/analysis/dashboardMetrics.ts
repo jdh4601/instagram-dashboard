@@ -1,6 +1,5 @@
 import type { Reel } from "@/lib/schemas";
 import { computeDerivedRates } from "@/lib/analysis/metrics";
-import { BENCHMARKS } from "@/config/benchmarks";
 import { reelTitle } from "@/lib/ui/reelTitle";
 
 export interface ReelMetricPoint {
@@ -14,12 +13,6 @@ export interface ReelMetricPoint {
   skipRate: number | null;
 }
 
-export interface HighSkipReel {
-  idx: number;
-  title: string;
-  skipRate: number;
-}
-
 export interface DashboardMetrics {
   /** 평균 시청 시간(초) */
   avgWatchTimeSec: number | null;
@@ -31,8 +24,6 @@ export interface DashboardMetrics {
   skipRate: number | null;
   /** 시간순(오래된→최신) 릴스 지표 시리즈 */
   series: ReelMetricPoint[];
-  /** 3초 후 이탈이 심한 릴스(약점 임계값 초과) */
-  highSkipReels: HighSkipReel[];
 }
 
 function average(values: number[]): number | null {
@@ -73,19 +64,11 @@ export function computeDashboardMetrics(reels: Reel[]): DashboardMetrics {
     series.filter((s) => s.skipRate !== null).map((s) => s.skipRate!),
   );
 
-  const skipWeakAbove = 100 - BENCHMARKS.hookRetention3s.weakBelow;
-  const highSkipReels: HighSkipReel[] = series
-    .filter((s): s is ReelMetricPoint & { skipRate: number } =>
-      s.skipRate !== null && s.skipRate > skipWeakAbove,
-    )
-    .map((s) => ({ idx: s.idx, title: s.title, skipRate: s.skipRate }));
-
   return {
     avgWatchTimeSec,
     completionRate,
     avgDurationSec,
     skipRate,
     series,
-    highSkipReels,
   };
 }

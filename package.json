@@ -1,7 +1,7 @@
 {
   "name": "instagram-dashboard",
   "version": "1.0.0",
-  "description": "",
+  "description": "Local AI dashboard that diagnoses Instagram Reels funnel bottlenecks from Graph API metrics and emails a daily best/worst report.",
   "main": "index.js",
   "directories": {
     "doc": "docs"
@@ -11,15 +11,26 @@
     "build": "next build",
     "start": "next start -H 0.0.0.0",
     "test": "jest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "seed:demo": "node scripts/seed-demo.mjs",
+    "postinstall": "node scripts/postinstall.mjs"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jdh4601/ai-reels-analyzer.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "instagram",
+    "reels",
+    "analytics",
+    "dashboard",
+    "graph-api",
+    "nextjs",
+    "ai",
+    "llm"
+  ],
+  "author": "DongHyun Jung",
+  "license": "MIT",
   "type": "commonjs",
   "bugs": {
     "url": "https://github.com/jdh4601/ai-reels-analyzer/issues"

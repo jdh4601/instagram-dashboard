@@ -52,6 +52,13 @@ export default function Page() {
     }
   }
 
+  // 동기화 알림은 3초간 보여주고 자동으로 사라진다.
+  useEffect(() => {
+    if (!syncStatus) return;
+    const timer = setTimeout(() => setSyncStatus(""), 3000);
+    return () => clearTimeout(timer);
+  }, [syncStatus]);
+
   useEffect(() => {
     fetch("/api/reels")
       .then((r) => r.json())
@@ -123,7 +130,7 @@ export default function Page() {
       </main>
 
       {syncStatus && (
-        <div className="fixed bottom-4 left-1/2 z-30 -translate-x-1/2 rounded-lg bg-neutral-900 px-4 py-2 text-sm text-white shadow-card-hover">
+        <div className="fixed bottom-4 left-1/2 z-30 -translate-x-1/2 rounded-lg bg-black/70 px-4 py-2 text-sm text-white shadow-card-hover backdrop-blur-sm">
           {syncStatus}
         </div>
       )}
