@@ -35,7 +35,6 @@ export default function Page() {
   const [toast, setToast] = useState<SyncToast | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
-  const [instagramConfigured, setInstagramConfigured] = useState(false);
   const [tokenIssuedAt, setTokenIssuedAt] = useState<string | null>(null);
   const [tokenBannerDismissed, setTokenBannerDismissed] = useState(false);
   // 기본값 릴스 — 토글 도입 전 동작을 유지한다.
@@ -126,7 +125,6 @@ export default function Page() {
       if (profileResult.status === "fulfilled") setProfile(profileResult.value.profile ?? null);
       if (settingsResult.status === "fulfilled") {
         const issuedAt = settingsResult.value.instagramTokenIssuedAt;
-        setInstagramConfigured(settingsResult.value.instagram?.configured === true);
         setTokenIssuedAt(typeof issuedAt === "string" ? issuedAt : null);
       }
 
@@ -170,13 +168,12 @@ export default function Page() {
   const dashboardMetrics = computeDashboardMetrics(filterByMedia(reels, "REELS"));
   const accountInsights = buildAccountInsights(snapshots);
 
+  // 저장 시점을 모르는 토큰은 경고하지 않는다. 토큰을 이 앱에 저장하기 전부터 쓰던
+  // 사용자는 갱신 여부와 무관하게 배너가 영구히 떠서, 조치할 수 없는 알림이 된다.
   const tokenSavedAtMs = tokenIssuedAt ? Date.parse(tokenIssuedAt) : Number.NaN;
-  const tokenSavedAtKnown = Number.isFinite(tokenSavedAtMs);
-  const tokenAgeMs = tokenSavedAtKnown ? Date.now() - tokenSavedAtMs : null;
-  const tokenAgeUnknown = instagramConfigured && !tokenSavedAtKnown;
+  const tokenAgeMs = Number.isFinite(tokenSavedAtMs) ? Date.now() - tokenSavedAtMs : null;
   const tokenNeedsReview = tokenAgeMs !== null && tokenAgeMs > TOKEN_WARN_DAYS * 24 * 60 * 60 * 1000;
-  const showTokenBanner =
-    !tokenBannerDismissed && (tokenAgeUnknown || tokenNeedsReview);
+  const showTokenBanner = !tokenBannerDismissed && tokenNeedsReview;
 
   return (
     <>
@@ -189,9 +186,7 @@ export default function Page() {
             {showTokenBanner && (
               <div className="flex items-center justify-between gap-3 rounded-card border border-band-ok-border bg-band-ok-soft px-4 py-2.5 text-sm text-band-ok">
                 <span>
-                  {tokenAgeUnknown
-                    ? "등록된 Instagram 토큰의 갱신 시점을 확인할 수 없습니다"
-                    : "Instagram 토큰을 이 앱에 저장하거나 변경한 지 50일 이상 지났습니다"}
+                  Instagram 토큰을 이 앱에 저장하거나 변경한 지 50일 이상 지났습니다
                   {" — "}
                   <Link
                     href="/settings"
