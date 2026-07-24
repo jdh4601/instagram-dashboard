@@ -114,7 +114,7 @@ export function AccountOverview({ overview }: AccountOverviewProps) {
             delta={overview.deltas.totalInteractionsLast7d}
             fallback={
               overview.totalInteractionsLast7d === null
-                ? `릴스 평균 ${fmtPct(overview.avgEngagementRate)}`
+                ? `게시물 평균 ${fmtPct(overview.avgEngagementRate)}`
                 : "직전 비교 데이터 없음"
             }
           />

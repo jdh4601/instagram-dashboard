@@ -124,7 +124,7 @@ function WatchTimeCompletionChart({
   return (
     <Card>
       <CardHeader
-        title="시청 시간 / 평균 시청 비율"
+        title="시청 시간 / 평균 시청 비율 (릴스 기준)"
         icon={<TrendingUp size={16} className="text-brand-600" />}
       />
       <CardBody>
@@ -241,7 +241,7 @@ function Retention3sChart({
   return (
     <Card>
       <CardHeader
-        title="3초 잔존율 추이"
+        title="3초 잔존율 추이 (릴스 기준)"
         icon={<Activity size={16} className="text-brand-600" />}
       />
       <CardBody>

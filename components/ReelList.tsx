@@ -7,12 +7,16 @@ import { reelTitle } from "@/lib/ui/reelTitle";
 import { selectReels, SORT_LABELS, type ReelSort } from "@/lib/ui/reelSelect";
 import { fmtCount, fmtPct } from "@/lib/ui/format";
 import { cn } from "@/components/ui";
+import { MediaTypeToggle } from "@/components/MediaTypeToggle";
+import type { MediaFilter } from "@/lib/ui/mediaFilter";
 
 interface Props {
   reels: Reel[];
+  filter: MediaFilter;
+  onFilterChange: (value: MediaFilter) => void;
 }
 
-export function ReelList({ reels }: Props) {
+export function ReelList({ reels, filter, onFilterChange }: Props) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<ReelSort>("latest");
 
@@ -20,18 +24,29 @@ export function ReelList({ reels }: Props) {
 
   if (reels.length === 0) {
     return (
-      <div className="rounded-card border border-dashed border-border-subtle bg-surface-muted p-8 text-center text-sm text-neutral-500">
-        <Film className="mx-auto mb-2 text-neutral-300" size={28} />
-        아직 릴스가 없습니다. 상단의 <b>동기화</b>로 Instagram에서 가져오세요.
-      </div>
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-neutral-700">게시물 목록</h2>
+          <MediaTypeToggle value={filter} onChange={onFilterChange} />
+        </div>
+        <div className="rounded-card border border-dashed border-border-subtle bg-surface-muted p-8 text-center text-sm text-neutral-500">
+          <Film className="mx-auto mb-2 text-neutral-300" size={28} />
+          {filter === "CAROUSEL"
+            ? "캐러셀 게시물이 없습니다."
+            : "아직 게시물이 없습니다. 상단의 동기화로 Instagram에서 가져오세요."}
+        </div>
+      </section>
     );
   }
 
   return (
     <section className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-neutral-700">릴스 목록</h2>
-        <span className="text-xs text-neutral-500">{visible.length}개</span>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-neutral-700">게시물 목록</h2>
+        <div className="flex items-center gap-2">
+          <MediaTypeToggle value={filter} onChange={onFilterChange} />
+          <span className="text-xs text-neutral-500">{visible.length}개</span>
+        </div>
       </div>
 
       <div className="flex items-center gap-2">
@@ -42,7 +57,7 @@ export function ReelList({ reels }: Props) {
             aria-hidden="true"
           />
           <input
-            aria-label="릴스 제목과 캡션 검색"
+            aria-label="게시물 제목과 캡션 검색"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="제목·캡션 검색"
@@ -51,7 +66,7 @@ export function ReelList({ reels }: Props) {
         </div>
         <div
           role="group"
-          aria-label="릴스 정렬"
+          aria-label="게시물 정렬"
           className="flex gap-1 rounded-lg border border-border-subtle bg-surface p-0.5"
         >
           {(Object.keys(SORT_LABELS) as ReelSort[]).map((s) => (

@@ -16,6 +16,7 @@ import { EngagementPieChart } from "@/components/EngagementPieChart";
 import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { InsightList } from "@/components/InsightList";
 import { buildAccountInsights } from "@/lib/analysis/accountInsights";
+import { filterByMedia, type MediaFilter } from "@/lib/ui/mediaFilter";
 
 interface SyncToast {
   tone: "success" | "warning" | "error";
@@ -37,6 +38,8 @@ export default function Page() {
   const [instagramConfigured, setInstagramConfigured] = useState(false);
   const [tokenIssuedAt, setTokenIssuedAt] = useState<string | null>(null);
   const [tokenBannerDismissed, setTokenBannerDismissed] = useState(false);
+  // 기본값 릴스 — 토글 도입 전 동작을 유지한다.
+  const [mediaFilter, setMediaFilter] = useState<MediaFilter>("REELS");
 
   async function onSync() {
     setSyncing(true);
@@ -160,9 +163,11 @@ export default function Page() {
     setSnapFollowers("");
   }
 
-  const overview = buildAccountOverview(reels, snapshots, profile);
+  const visibleReels = filterByMedia(reels, mediaFilter);
+  const overview = buildAccountOverview(visibleReels, snapshots, profile);
   const followerDelta = latestFollowerDelta(snapshots);
-  const dashboardMetrics = computeDashboardMetrics(reels);
+  // 평균 시청시간·3초 잔존율은 캐러셀에 존재하지 않는 지표라 항상 릴스만 집계한다.
+  const dashboardMetrics = computeDashboardMetrics(filterByMedia(reels, "REELS"));
   const accountInsights = buildAccountInsights(snapshots);
 
   const tokenSavedAtMs = tokenIssuedAt ? Date.parse(tokenIssuedAt) : Number.NaN;
@@ -216,12 +221,12 @@ export default function Page() {
 
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
               <FollowerGrowthChart snapshots={snapshots} />
-              <EngagementPieChart reels={reels} />
+              <EngagementPieChart reels={visibleReels} />
             </div>
 
             <DashboardMetrics metrics={dashboardMetrics} />
 
-            <ReelList reels={reels} />
+            <ReelList reels={visibleReels} filter={mediaFilter} onFilterChange={setMediaFilter} />
 
             <form
               onSubmit={addSnapshot}
