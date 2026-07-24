@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Stat } from "@/components/ui";
 import { fmtPct } from "@/lib/ui/format";
+import { COMPARISON_WINDOW_DAYS } from "@/lib/analysis/comparisonWindow";
 import type {
   AccountOverview as Overview,
   MetricDelta,
@@ -34,7 +35,7 @@ function DeltaHint({ delta, fallback, percentagePoints = false }: DeltaHintProps
     return (
       <span className="inline-flex items-center gap-1 text-neutral-500">
         <Minus size={12} aria-hidden="true" />
-        직전 대비 변화 없음
+        {COMPARISON_WINDOW_DAYS}일 전 대비 변화 없음
       </span>
     );
   }
@@ -58,7 +59,7 @@ function DeltaHint({ delta, fallback, percentagePoints = false }: DeltaHintProps
       }
     >
       <Icon size={12} aria-hidden="true" />
-      직전 대비 {sign}{absoluteLabel}{relativeLabel}
+      {COMPARISON_WINDOW_DAYS}일 전 대비 {sign}{absoluteLabel}{relativeLabel}
     </span>
   );
 }
@@ -70,7 +71,7 @@ export function AccountOverview({ overview }: AccountOverviewProps) {
         label="팔로워"
         value={overview.followers.toLocaleString()}
         icon={<Users size={16} />}
-        hint={<DeltaHint delta={overview.deltas.followers} fallback="직전 비교 데이터 없음" />}
+        hint={<DeltaHint delta={overview.deltas.followers} fallback="7일 전 비교 데이터 없음" />}
       />
       <Stat
         label="7일 도달"
@@ -79,7 +80,7 @@ export function AccountOverview({ overview }: AccountOverviewProps) {
         hint={
           <DeltaHint
             delta={overview.deltas.reachLast7d}
-            fallback={overview.reachAvailable ? "직전 비교 데이터 없음" : "API 미지원 또는 미수집"}
+            fallback={overview.reachAvailable ? "7일 전 비교 데이터 없음" : "API 미지원 또는 미수집"}
           />
         }
       />
@@ -90,7 +91,7 @@ export function AccountOverview({ overview }: AccountOverviewProps) {
         hint={
           <DeltaHint
             delta={overview.deltas.viewsLast7d}
-            fallback={overview.viewsLast7d === null ? "API 미지원 또는 미수집" : "직전 비교 데이터 없음"}
+            fallback={overview.viewsLast7d === null ? "API 미지원 또는 미수집" : "7일 전 비교 데이터 없음"}
           />
         }
       />
@@ -101,7 +102,7 @@ export function AccountOverview({ overview }: AccountOverviewProps) {
         hint={
           <DeltaHint
             delta={overview.deltas.accountsEngagedLast7d}
-            fallback={overview.accountsEngagedLast7d === null ? "API 미지원 또는 미수집" : "직전 비교 데이터 없음"}
+            fallback={overview.accountsEngagedLast7d === null ? "API 미지원 또는 미수집" : "7일 전 비교 데이터 없음"}
           />
         }
       />
@@ -115,7 +116,7 @@ export function AccountOverview({ overview }: AccountOverviewProps) {
             fallback={
               overview.totalInteractionsLast7d === null
                 ? `게시물 평균 ${fmtPct(overview.avgEngagementRate)}`
-                : "직전 비교 데이터 없음"
+                : "7일 전 비교 데이터 없음"
             }
           />
         }
@@ -130,7 +131,7 @@ export function AccountOverview({ overview }: AccountOverviewProps) {
             fallback={
               overview.followConversionRateLast7d === null
                 ? "팔로우 또는 도달 데이터 없음"
-                : "직전 비교 데이터 없음"
+                : "7일 전 비교 데이터 없음"
             }
             percentagePoints
           />

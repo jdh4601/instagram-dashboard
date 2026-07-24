@@ -24,9 +24,9 @@ test("릴스 5개 이상이면 중앙값 기반 임계값을 만든다", () => {
   const t = buildBaselineThresholds(hist);
   expect(t).not.toBeNull();
   // 훅 중앙값 50 → weakBelow 42.5, strongAbove 57.5
-  expect(t!.hookRetention3s.weakBelow).toBeCloseTo(42.5, 5);
-  expect(t!.hookRetention3s.strongAbove).toBeCloseTo(57.5, 5);
-  expect(t!.hookRetention3s.weight).toBe(5); // 글로벌 유지
+  expect(t!.hookRetention3s!.weakBelow).toBeCloseTo(42.5, 5);
+  expect(t!.hookRetention3s!.strongAbove).toBeCloseTo(57.5, 5);
+  expect(t!.hookRetention3s!.weight).toBe(5); // 글로벌 유지
 });
 
 test("deltaVsRecent: 현재 훅 − 최근 평균", () => {

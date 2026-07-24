@@ -7,6 +7,8 @@ import { withFileLock, writeJsonAtomic } from "@/lib/store/jsonFile";
 
 export interface ReelHistoryRepository {
   list(reelId: string): Promise<ReelMetricSnapshot[]>;
+  /** 모든 게시물의 이력. 목록 화면의 경과일 정규화 집계에 쓴다. */
+  listAll(): Promise<ReelMetricSnapshot[]>;
   add(snapshot: ReelMetricSnapshot): Promise<ReelMetricSnapshot>;
   removeByReelIds(reelIds: string[]): Promise<number>;
 }
@@ -27,6 +29,10 @@ export function createJsonReelHistoryRepository(dataDir: string): ReelHistoryRep
       return all
         .filter((s) => s.reelId === reelId)
         .sort((a, b) => a.date.localeCompare(b.date));
+    },
+    async listAll() {
+      const all = await readAll();
+      return all.sort((a, b) => a.date.localeCompare(b.date));
     },
     add: (snapshot) =>
       withFileLock(file, async () => {

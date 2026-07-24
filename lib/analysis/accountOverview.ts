@@ -1,12 +1,16 @@
 import type { Reel, AccountSnapshot, AccountProfile } from "@/lib/schemas";
 import { sortByDate, latestFollowerDelta } from "@/lib/analysis/followerTrend";
+import { comparisonPair, daysBetween } from "@/lib/analysis/comparisonWindow";
 
 export interface AccountOverview {
   followers: number;
   followerDelta: number | null;
   reachLast7d: number;
   reachAvailable: boolean;
-  reelCount: number;
+  /** 대시보드가 실제로 분석 중인 게시물 수. 사용자가 목록에서 세는 숫자와 같아야 한다. */
+  contentCount: number;
+  /** Instagram이 보고한 media_count. 실제 수집분과 다를 수 있어 병기용으로만 둔다. */
+  profileMediaCount: number | null;
   avgEngagementRate: number;
   viewsLast7d: number | null;
   accountsEngagedLast7d: number | null;
@@ -31,10 +35,6 @@ export interface AccountOverviewDeltas {
   accountsEngagedLast7d: MetricDelta | null;
   totalInteractionsLast7d: MetricDelta | null;
   followConversionRateLast7d: MetricDelta | null;
-}
-
-function daysBetween(a: string, b: string): number {
-  return Math.abs(new Date(`${a}T00:00:00Z`).getTime() - new Date(`${b}T00:00:00Z`).getTime()) / 86_400_000;
 }
 
 function metricDelta(current: number | null, previous: number | null): MetricDelta | null {
@@ -85,13 +85,19 @@ export function buildAccountOverview(
   profile: AccountProfile | null,
 ): AccountOverview {
   const sorted = sortByDate(snapshots);
-  const latest = sorted[sorted.length - 1] ?? null;
-  const previous = sorted[sorted.length - 2] ?? null;
-  const latestConversion = followConversionAt(latest, sorted.slice(0, -1));
-  const previousConversion = followConversionAt(previous, sorted.slice(0, -2));
+  // 비교 기준은 accountInsights와 공유한다. "직전 스냅샷"은 스냅샷 주기가 불규칙해
+  // 하루 전일 수도 닷새 전일 수도 있고, 7일 롤링 지표를 그런 값과 비교하면 두 창이
+  // 겹쳐 증감이 노이즈가 된다.
+  const { current: latest, baseline: previous } = comparisonPair(sorted);
+  const earlierThan = (snapshot: AccountSnapshot | null) =>
+    snapshot === null ? [] : sorted.filter((s) => s.date < snapshot.date);
+  const latestConversion = followConversionAt(latest, earlierThan(latest));
+  const previousConversion = followConversionAt(previous, earlierThan(previous));
 
   const followers = profile?.followersCount ?? latest?.followerCount ?? 0;
-  const reelCount = profile?.mediaCount ?? reels.length;
+  // Instagram의 media_count(23)와 실제 수집분(36)이 어긋난다. 집계 기준이 다르거나
+  // 갱신이 지연된 값이라, 화면에는 대시보드가 실제로 분석 중인 개수를 쓴다.
+  const contentCount = reels.length;
 
   const rates = reels
     .map((r) => r.derived?.engagementRate)
@@ -104,7 +110,8 @@ export function buildAccountOverview(
     followerDelta: latestFollowerDelta(snapshots),
     reachLast7d: latest?.reachLast7d ?? 0,
     reachAvailable: hasReach(latest),
-    reelCount,
+    contentCount,
+    profileMediaCount: profile?.mediaCount ?? null,
     avgEngagementRate,
     viewsLast7d: latest?.viewsLast7d ?? null,
     accountsEngagedLast7d: latest?.accountsEngagedLast7d ?? null,

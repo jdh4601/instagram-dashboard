@@ -64,13 +64,6 @@ export const DerivedRatesSchema = z.object({
 });
 export type DerivedRates = z.infer<typeof DerivedRatesSchema>;
 
-// 과거 저장 데이터와의 호환을 위한 팔로워 / 논팔로워 비중
-export const AudienceBreakdownSchema = z.object({
-  followersPct: z.number().min(0).max(100),
-  nonFollowersPct: z.number().min(0).max(100),
-});
-export type AudienceBreakdown = z.infer<typeof AudienceBreakdownSchema>;
-
 // 과거 저장 데이터와의 호환을 위한 시청 지속 시간 분포
 export const WatchTimeBucketSchema = z.object({
   label: z.string(), // 예: "0~3초", "3~10초", "10초~"
@@ -114,7 +107,6 @@ export const ReelSchema = z.object({
   transcript: z.array(TranscriptLineSchema).optional(),
   transcriptInsights: TranscriptInsightsSchema.optional(),
   derived: DerivedRatesSchema.optional(),
-  audienceBreakdown: AudienceBreakdownSchema.optional(),
   watchTimeBuckets: z.array(WatchTimeBucketSchema).optional(),
 });
 export type Reel = z.infer<typeof ReelSchema>;

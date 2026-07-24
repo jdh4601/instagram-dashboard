@@ -52,7 +52,6 @@ test("동기화는 API 집계 수치를 갱신하고 기존 EDIT 분석값은 �
     skipRateSource: "EDIT",
     retentionCurve: [{ sec: 0, pct: 100 }, { sec: 3, pct: 42 }],
     reachSources: { reelsTab: 70, explore: 20 },
-    audienceBreakdown: { followersPct: 30, nonFollowersPct: 70 },
     watchTimeBuckets: [{ label: "0~3초", pct: 40 }],
     followsFromReel: 12,
     profileVisits: 80,
@@ -70,7 +69,6 @@ test("동기화는 API 집계 수치를 갱신하고 기존 EDIT 분석값은 �
   expect(updated?.skipRate).toBe(45);
   expect(updated?.skipRateSource).toBe("API");
   expect(updated?.reachSources).toBeUndefined();
-  expect(updated?.audienceBreakdown).toBeUndefined();
   expect(updated?.watchTimeBuckets).toBeUndefined();
   expect(updated?.followsFromReel).toBe(20); // Graph 값으로 갱신
   expect(updated?.profileVisits).toBe(100); // Graph 값으로 갱신

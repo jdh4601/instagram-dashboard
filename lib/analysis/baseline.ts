@@ -1,5 +1,10 @@
-import { BENCHMARKS, BASELINE_MIN_REELS, type MetricKey, type Threshold } from "@/config/benchmarks";
-import type { Reel } from "@/lib/schemas";
+import {
+  BENCHMARKS_BY_KIND,
+  BASELINE_MIN_REELS,
+  type MetricKey,
+  type ThresholdTable,
+} from "@/config/benchmarks";
+import type { MediaKind, Reel } from "@/lib/schemas";
 import { computeDerivedRates } from "@/lib/analysis/metrics";
 
 export function median(nums: number[]): number {
@@ -17,17 +22,20 @@ function valueOf(reel: Reel, key: MetricKey): number | undefined {
 
 export function buildBaselineThresholds(
   history: Reel[],
-): Record<MetricKey, Threshold> | null {
+  kind: MediaKind = "REELS",
+): ThresholdTable | null {
   if (history.length < BASELINE_MIN_REELS) return null;
 
-  const keys = Object.keys(BENCHMARKS) as MetricKey[];
-  const result = {} as Record<MetricKey, Threshold>;
+  const globals = BENCHMARKS_BY_KIND[kind];
+  const result: ThresholdTable = {};
 
-  for (const key of keys) {
+  for (const key of Object.keys(globals) as MetricKey[]) {
+    const global = globals[key];
+    if (global === undefined) continue;
+
     const values = history
       .map((r) => valueOf(r, key))
       .filter((v): v is number => v !== undefined);
-    const global = BENCHMARKS[key];
 
     if (values.length < BASELINE_MIN_REELS) {
       result[key] = global; // 이 지표는 데이터 부족 → 글로벌 유지
@@ -37,7 +45,11 @@ export function buildBaselineThresholds(
     result[key] = {
       ...global,
       weakBelow: m * 0.85,
-      strongAbove: m * 1.15,
+      // 강점에는 절대 하한을 건다. 개인 중앙값만 쓰면 계정 전체가 기준 미달일 때
+      // 자기 평균보다 조금 나은 게시물이 "강점"으로 뜬다. 실제로 캐러셀 저장율
+      // 중앙값이 0.15%라 0.64%짜리가 강점으로 판정됐다 — 업계 합격선은 1%다.
+      // 약점 판정은 개인 기준을 그대로 둬서 게시물 간 비교력은 유지한다.
+      strongAbove: Math.max(m * 1.15, global.weakBelow),
     };
   }
   return result;

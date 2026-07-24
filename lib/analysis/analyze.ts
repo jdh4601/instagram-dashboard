@@ -4,9 +4,10 @@ import type { DropSegment } from "@/lib/analysis/dropDetection";
 import { buildPlaybook, type Prescription } from "@/lib/recommend/playbook";
 import { buildBaselineThresholds, deltaVsRecent } from "@/lib/analysis/baseline";
 import { analyzeTranscript, type TranscriptAnalysis } from "@/lib/analysis/transcriptAnalysis";
-import { BENCHMARKS, type MetricKey } from "@/config/benchmarks";
+import { BENCHMARKS_BY_KIND, type MetricKey } from "@/config/benchmarks";
 import { buildReelInsights } from "@/lib/analysis/reelInsights";
 import type { MetricInsight } from "@/lib/analysis/insightTypes";
+import { mediaKindOf } from "@/lib/media/kind";
 
 export interface AnalyzeResult {
   diagnosis: Diagnosis;
@@ -19,8 +20,10 @@ export interface AnalyzeResult {
 }
 
 export function analyzeReel(reel: Reel, history: Reel[]): AnalyzeResult {
-  const baseline = buildBaselineThresholds(history);
-  const thresholds = baseline ?? BENCHMARKS;
+  // history는 호출부에서 같은 미디어 종류로 걸러 들어온다(app/api/reels/[id]/route.ts).
+  const kind = mediaKindOf(reel);
+  const baseline = buildBaselineThresholds(history, kind);
+  const thresholds = baseline ?? BENCHMARKS_BY_KIND[kind];
   const diagnosis = diagnose(reel, thresholds);
   const drops: DropSegment[] = [];
   const prescriptions = buildPlaybook(diagnosis, drops);

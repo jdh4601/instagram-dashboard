@@ -4,11 +4,17 @@ import type { AccountProfile } from "@/lib/schemas";
 interface AccountHeaderProps {
   profile: AccountProfile | null;
   followerDelta: number | null;
+  /** 실제 동기화된 게시물 수. 목록에서 세는 숫자와 일치해야 한다. */
+  contentCount: number;
 }
 
-export function AccountHeader({ profile, followerDelta }: AccountHeaderProps) {
+export function AccountHeader({ profile, followerDelta, contentCount }: AccountHeaderProps) {
   const username = profile?.username ?? "계정 미연결";
   const followers = profile?.followersCount ?? 0;
+  // Instagram의 media_count는 집계 기준이 달라 실제 수집분과 어긋날 수 있다.
+  // 화면에는 실제 개수를 쓰고, 다를 때만 IG 값을 툴팁으로 병기한다.
+  const igCount = profile?.mediaCount ?? null;
+  const countMismatch = igCount !== null && igCount !== contentCount;
 
   return (
     <div className="flex items-center gap-3">
@@ -28,7 +34,14 @@ export function AccountHeader({ profile, followerDelta }: AccountHeaderProps) {
         <div className="text-base font-semibold text-neutral-900">@{username}</div>
         <div className="flex items-center gap-2 text-sm text-neutral-500">
           <span className="tabular-nums">팔로워 {followers.toLocaleString()}</span>
-          {profile && <span className="tabular-nums">콘텐츠 {profile.mediaCount.toLocaleString()}</span>}
+          {profile && (
+            <span
+              className="tabular-nums"
+              title={countMismatch ? `Instagram 집계 ${igCount!.toLocaleString()}` : undefined}
+            >
+              콘텐츠 {contentCount.toLocaleString()}
+            </span>
+          )}
           {followerDelta !== null && followerDelta !== 0 && (
             <span
               className={

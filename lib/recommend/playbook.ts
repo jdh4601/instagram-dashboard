@@ -35,10 +35,6 @@ const PLAYBOOK: Partial<Record<MetricKey, { title: string; action: string }>> = 
     title: "저장 유발",
     action: "저장하고 싶은 정보(요약·체크리스트)를 화면에 명시",
   },
-  nonFollowerReach: {
-    title: "논팔로워 도달 확대",
-    action: "트렌디한 훅 + 공유·저장 유발 구조로 Reels탭/탐색 유입을 늘리세요",
-  },
 };
 
 export function buildPlaybook(

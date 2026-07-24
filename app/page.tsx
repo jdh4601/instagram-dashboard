@@ -10,6 +10,8 @@ import { DashboardActions } from "@/components/DashboardActions";
 import { SyncProgressBar } from "@/components/SyncProgressBar";
 import { AccountHeader } from "@/components/AccountHeader";
 import { AccountOverview } from "@/components/AccountOverview";
+import { WeeklyFunnelCard } from "@/components/WeeklyFunnelCard";
+import { buildConversionFunnel } from "@/lib/analysis/conversionFunnel";
 import { Input, Button, Skeleton } from "@/components/ui";
 import { ReelList } from "@/components/ReelList";
 import { FollowerGrowthChart } from "@/components/FollowerGrowthChart";
@@ -18,6 +20,7 @@ import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { InsightList } from "@/components/InsightList";
 import { buildAccountInsights } from "@/lib/analysis/accountInsights";
 import { filterByMedia, type MediaFilter } from "@/lib/ui/mediaFilter";
+import type { EarlyViewsMap } from "@/lib/ui/reelSelect";
 import { readNdjson } from "@/lib/ui/ndjsonStream";
 import type { SyncProgress, SyncResult } from "@/lib/graph/sync";
 
@@ -31,6 +34,7 @@ const TOKEN_WARN_DAYS = 50;
 
 export default function Page() {
   const [reels, setReels] = useState<Reel[]>([]);
+  const [earlyViews, setEarlyViews] = useState<EarlyViewsMap>({});
   const [snapshots, setSnapshots] = useState<AccountSnapshot[]>([]);
   const [profile, setProfile] = useState<AccountProfile | null>(null);
   const [snapDate, setSnapDate] = useState("");
@@ -92,6 +96,7 @@ export default function Page() {
         refreshedResponses.map((response) => response.json()),
       );
       setReels(reelsRes.reels);
+      setEarlyViews(reelsRes.earlyViews ?? {});
       setSnapshots(snapsRes.snapshots);
       setProfile(profileRes.profile);
       const failed = typeof data.failedReels === "number" ? data.failedReels : 0;
@@ -148,7 +153,10 @@ export default function Page() {
     ]).then(([reelsResult, snapshotsResult, profileResult, settingsResult]) => {
       if (!active) return;
 
-      if (reelsResult.status === "fulfilled") setReels(reelsResult.value.reels ?? []);
+      if (reelsResult.status === "fulfilled") {
+        setReels(reelsResult.value.reels ?? []);
+        setEarlyViews(reelsResult.value.earlyViews ?? {});
+      }
       if (snapshotsResult.status === "fulfilled") setSnapshots(snapshotsResult.value.snapshots ?? []);
       if (profileResult.status === "fulfilled") setProfile(profileResult.value.profile ?? null);
       if (settingsResult.status === "fulfilled") {
@@ -195,6 +203,8 @@ export default function Page() {
   // 평균 시청시간·3초 잔존율은 캐러셀에 존재하지 않는 지표라 항상 릴스만 집계한다.
   const dashboardMetrics = computeDashboardMetrics(filterByMedia(reels, "REELS"));
   const accountInsights = buildAccountInsights(snapshots);
+  // 퍼널은 미디어 필터를 따른다 — "릴스만 볼 때 릴스 전환율"이 자연스럽다.
+  const funnel = buildConversionFunnel(visibleReels);
 
   // 저장 시점을 모르는 토큰은 경고하지 않는다. 토큰을 이 앱에 저장하기 전부터 쓰던
   // 사용자는 갱신 여부와 무관하게 배너가 영구히 떠서, 조치할 수 없는 알림이 된다.
@@ -235,8 +245,10 @@ export default function Page() {
                 </button>
               </div>
             )}
-            <AccountHeader profile={profile} followerDelta={followerDelta} />
+            {/* 헤더는 필터와 무관한 전체 개수를 보여준다 */}
+            <AccountHeader profile={profile} followerDelta={followerDelta} contentCount={reels.length} />
             <AccountOverview overview={overview} />
+            <WeeklyFunnelCard funnel={funnel} />
             <InsightList
               title="계정 인사이트"
               insights={accountInsights}
@@ -255,6 +267,7 @@ export default function Page() {
               filter={mediaFilter}
               onFilterChange={setMediaFilter}
               syncing={syncing}
+              earlyViews={earlyViews}
             />
 
             <form
