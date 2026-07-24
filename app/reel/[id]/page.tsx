@@ -7,6 +7,7 @@ import type { Reel, ReelMetricSnapshot } from "@/lib/schemas";
 import type { AnalyzeResult } from "@/lib/analysis/analyze";
 import type { ReelKpiDeltas } from "@/lib/analysis/reelKpiDeltas";
 import { reelTitle } from "@/lib/ui/reelTitle";
+import { mediaKindOf } from "@/lib/media/kind";
 import { Skeleton, EmptyState } from "@/components/ui";
 import { BottleneckBanner } from "@/components/BottleneckBanner";
 import { DiagnosisCards } from "@/components/DiagnosisCards";
@@ -89,9 +90,12 @@ function ReelDetail({
   nav,
   onChange,
 }: DetailResponse & { onChange: () => void }) {
+  // 자막과 훅·엔딩 생성은 영상 전제라 캐러셀에서는 의미가 없다.
+  const isReel = mediaKindOf(reel) === "REELS";
+
   return (
     <>
-      {/* 이전·다음 릴스 이동 */}
+      {/* 이전·다음 이동 */}
       {(nav?.prevId || nav?.nextId) && (
         <div className="flex items-center justify-between text-sm">
           {nav?.prevId ? (
@@ -99,7 +103,7 @@ function ReelDetail({
               href={`/reel/${nav.prevId}`}
               className="inline-flex min-h-11 items-center gap-1 rounded-lg text-neutral-600 hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 sm:min-h-9"
             >
-              <ArrowLeft size={14} /> 이전 릴스
+              <ArrowLeft size={14} /> 이전 {isReel ? "릴스" : "캐러셀"}
             </Link>
           ) : (
             <span />
@@ -109,7 +113,7 @@ function ReelDetail({
               href={`/reel/${nav.nextId}`}
               className="inline-flex min-h-11 items-center gap-1 rounded-lg text-neutral-600 hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 sm:min-h-9"
             >
-              다음 릴스 <ArrowRight size={14} />
+              다음 {isReel ? "릴스" : "캐러셀"} <ArrowRight size={14} />
             </Link>
           ) : (
             <span />
@@ -119,7 +123,7 @@ function ReelDetail({
 
       {/* 헤더 */}
       <div className="flex gap-4">
-        <div className="relative aspect-[9/16] w-24 shrink-0 overflow-hidden rounded-card border border-border-subtle bg-neutral-100">
+        <div className={`relative ${isReel ? "aspect-[9/16] w-24" : "aspect-square w-24"} shrink-0 overflow-hidden rounded-card border border-border-subtle bg-neutral-100`}>
           {reel.thumbnailUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={reel.thumbnailUrl} alt="" className="h-full w-full object-cover" />
@@ -154,15 +158,17 @@ function ReelDetail({
         weaknesses={analysis.diagnosis.weaknesses}
       />
       <SolutionsPanel prescriptions={analysis.prescriptions} />
-      <AiGenerationPanel reelId={reel.id} />
-      <InsightList title="이 릴스의 핵심 인사이트" insights={analysis.reelInsights} />
+      {isReel && <AiGenerationPanel reelId={reel.id} />}
+      <InsightList title={`이 ${isReel ? "릴스" : "캐러셀"}의 핵심 인사이트`} insights={analysis.reelInsights} />
       <ReelMetricTrend history={metricHistory} />
-      <SrtUploadCard
-        reelId={reel.id}
-        analysis={analysis.transcript}
-        insights={reel.transcriptInsights}
-        onChange={onChange}
-      />
+      {isReel && (
+        <SrtUploadCard
+          reelId={reel.id}
+          analysis={analysis.transcript}
+          insights={reel.transcriptInsights}
+          onChange={onChange}
+        />
+      )}
       <MetricBars verdicts={analysis.diagnosis.verdicts} baselineActive={analysis.baselineActive} />
       <ReelDerivedMetrics reel={reel} />
       <ReelConversionFunnel reel={reel} />

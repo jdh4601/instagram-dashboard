@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { Reel } from "@/lib/schemas";
 import type { ReelKpiDeltas, ReelKpiKey } from "@/lib/analysis/reelKpiDeltas";
 import { fmtCount, fmtDuration } from "@/lib/ui/format";
+import { mediaKindOf } from "@/lib/media/kind";
 import { Badge, Card } from "@/components/ui";
 
 interface Metric {
@@ -12,6 +13,8 @@ interface Metric {
 }
 
 export function ReelPerformanceDashboard({ reel, deltas }: { reel: Reel; deltas?: ReelKpiDeltas }) {
+  const isReel = mediaKindOf(reel) === "REELS";
+
   const primary: Metric[] = [
     { key: "views", label: "조회수", value: fmtCount(reel.views) },
     { key: "reach", label: "도달", value: fmtCount(reel.reach), note: "고유 계정" },
@@ -22,7 +25,8 @@ export function ReelPerformanceDashboard({ reel, deltas }: { reel: Reel; deltas?
   ];
 
   const secondary = [
-    { label: "평균 시청", value: `${reel.avgWatchTimeSec.toFixed(1)}초`, source: "API", delta: deltas?.avgWatchTimeSec },
+    // 캐러셀에는 시청 개념이 없다. 나머지 영상 지표는 값 자체가 undefined라 자동으로 빠진다.
+    isReel ? { label: "평균 시청", value: `${reel.avgWatchTimeSec.toFixed(1)}초`, source: "API", delta: deltas?.avgWatchTimeSec } : null,
     typeof reel.totalInteractions === "number" ? { label: "총 상호작용", value: fmtCount(reel.totalInteractions), source: "API" } : null,
     typeof reel.totalWatchTimeSec === "number" ? { label: "총 시청 시간", value: fmtDuration(reel.totalWatchTimeSec), source: "API" } : null,
     typeof reel.skipRate === "number" && reel.skipRateSource !== "EDIT" ? { label: "Skip Rate", value: `${reel.skipRate.toFixed(2)}%`, source: "API" } : null,
@@ -34,7 +38,7 @@ export function ReelPerformanceDashboard({ reel, deltas }: { reel: Reel; deltas?
   return (
     <Card className="overflow-hidden">
       <div className="flex items-center justify-between border-b border-border-subtle px-4 py-2.5">
-        <h2 className="text-sm font-semibold text-neutral-800">릴스 성과</h2>
+        <h2 className="text-sm font-semibold text-neutral-800">{isReel ? "릴스 성과" : "캐러셀 성과"}</h2>
         <Badge className="text-[10px]">Instagram API</Badge>
       </div>
 
