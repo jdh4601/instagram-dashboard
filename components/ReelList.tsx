@@ -8,7 +8,7 @@ import { selectReels, SORT_LABELS, type ReelSort } from "@/lib/ui/reelSelect";
 import { fmtCount, fmtPct } from "@/lib/ui/format";
 import { cn } from "@/components/ui";
 import { MediaTypeToggle } from "@/components/MediaTypeToggle";
-import type { MediaFilter } from "@/lib/ui/mediaFilter";
+import { MEDIA_FILTER_LABELS, type MediaFilter } from "@/lib/ui/mediaFilter";
 
 interface Props {
   reels: Reel[];
@@ -31,9 +31,11 @@ export function ReelList({ reels, filter, onFilterChange }: Props) {
         </div>
         <div className="rounded-card border border-dashed border-border-subtle bg-surface-muted p-8 text-center text-sm text-neutral-500">
           <Film className="mx-auto mb-2 text-neutral-300" size={28} />
-          {filter === "CAROUSEL"
-            ? "캐러셀 게시물이 없습니다."
-            : "아직 게시물이 없습니다. 상단의 동기화로 Instagram에서 가져오세요."}
+          {/* 목록은 이미 걸러진 채로 들어온다. 전체 필터에서 비었을 때만 저장소가
+              비었다고 단정할 수 있고, 나머지는 필터 때문일 수도 있어 문구를 나눈다. */}
+          {filter === "ALL"
+            ? "아직 게시물이 없습니다. 상단의 동기화로 Instagram에서 가져오세요."
+            : `${MEDIA_FILTER_LABELS[filter]} 게시물이 없습니다. 다른 종류를 보거나 동기화해 주세요.`}
         </div>
       </section>
     );

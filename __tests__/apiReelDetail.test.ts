@@ -73,3 +73,40 @@ test("없는 id는 404", async () => {
   const { status } = await detail("없는-id");
   expect(status).toBe(404);
 });
+
+// 개인화 베이스라인은 BASELINE_MIN_REELS(5) 이상일 때만 켜진다. 캐러셀 6건(대상 포함)과
+// 릴스 5건을 두어, 베이스라인이 릴스로 오염되면 대상 캐러셀의 공유율 판정이
+// "적정"에서 "강점"으로 뒤집히도록 지표를 벌려 놓았다.
+//   동종 기준: 다른 캐러셀 5건이 모두 1.0% → 중앙값 1.0 → 적정 구간 0.85~1.15 → 대상 0.9%는 "적정"
+//   오염 시:   릴스 5건(0.1%)이 섞여 중앙값 0.55 → 강점 기준 0.63 → 대상 0.9%가 "강점"
+const shareRateReel = (id: string, day: number, shares: number, mediaType: "REELS" | "CAROUSEL"): Reel => ({
+  ...base,
+  id,
+  postedAt: `2026-07-${String(day).padStart(2, "0")}T00:00:00Z`,
+  mediaType,
+  views: 1000,
+  shares,
+});
+
+test("베이스라인은 같은 종류만 쓴다 — 릴스가 섞이면 캐러셀 판정이 뒤집힌다", async () => {
+  const carousels = [
+    shareRateReel("캐러셀-대상", 1, 9, "CAROUSEL"),
+    ...[2, 3, 4, 5, 6].map((day) => shareRateReel(`캐러셀-${day}`, day, 10, "CAROUSEL")),
+  ];
+  const lowShareReels = [11, 12, 13, 14, 15].map((day) =>
+    shareRateReel(`릴스-${day}`, day, 1, "REELS"),
+  );
+  const mixed = [...carousels, ...lowShareReels];
+  mockGetRepository.mockReturnValue({
+    list: jest.fn(async () => mixed),
+    get: jest.fn(async (id: string) => mixed.find((r) => r.id === id) ?? null),
+  });
+
+  const { body } = await detail("캐러셀-대상");
+
+  expect(body.analysis.baselineActive).toBe(true);
+  const shareVerdict = body.analysis.diagnosis.verdicts.find(
+    (v: { key: string }) => v.key === "shareRate",
+  );
+  expect(shareVerdict.band).toBe("ok");
+});

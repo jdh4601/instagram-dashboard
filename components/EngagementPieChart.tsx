@@ -27,7 +27,7 @@ export function EngagementPieChart({ reels }: Props) {
         <CardBody>
           <EmptyState
             icon={<PieChartIcon size={26} />}
-            title="릴스 데이터가 없습니다"
+            title="게시물 데이터가 없습니다"
             hint="동기화 후 인게이지먼트 비율을 확인하세요."
           />
         </CardBody>
