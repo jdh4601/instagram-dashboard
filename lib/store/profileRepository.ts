@@ -1,7 +1,8 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { AccountProfileSchema, type AccountProfile } from "@/lib/schemas";
+import { withFileLock, writeJsonAtomic } from "@/lib/store/jsonFile";
 
 export interface ProfileRepository {
   get(): Promise<AccountProfile | null>;
@@ -18,11 +19,11 @@ export function createJsonProfileRepository(dataDir: string): ProfileRepository 
       if (!raw.trim()) return null;
       return AccountProfileSchema.parse(JSON.parse(raw));
     },
-    async save(profile) {
-      const validated = AccountProfileSchema.parse(profile);
-      if (!existsSync(dataDir)) await mkdir(dataDir, { recursive: true });
-      await writeFile(file, JSON.stringify(validated, null, 2), "utf8");
-      return validated;
-    },
+    save: (profile) =>
+      withFileLock(file, async () => {
+        const validated = AccountProfileSchema.parse(profile);
+        await writeJsonAtomic(file, validated);
+        return validated;
+      }),
   };
 }

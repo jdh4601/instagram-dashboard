@@ -4,7 +4,7 @@ import { createJsonAccountRepository, type AccountRepository } from "@/lib/store
 import { createJsonProfileRepository, type ProfileRepository } from "@/lib/store/profileRepository";
 import { createJsonReelHistoryRepository, type ReelHistoryRepository } from "@/lib/store/reelHistoryRepository";
 
-const dataDir = () => join(process.cwd(), "data");
+const dataDir = () => process.env.DATA_DIR || join(process.cwd(), "data");
 
 let repo: ReelRepository | null = null;
 let accountRepo: AccountRepository | null = null;

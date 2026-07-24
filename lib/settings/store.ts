@@ -1,9 +1,10 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { PROVIDER_IDS, PROVIDER_PRESETS, type ProviderId } from "@/lib/llm/providers";
 import { maskApiKey } from "@/lib/settings/mask";
+import { withFileLock, writeJsonAtomic } from "@/lib/store/jsonFile";
 
 const ProviderEnum = z.enum(["anthropic", "openai", "kimi", "gemini"]);
 
@@ -27,6 +28,7 @@ const StoredSettingsSchema = z.object({
   textProvider: ProviderEnum.optional(),
   providers: ProvidersSchema,
   instagram: InstagramSchema.optional(),
+  instagramTokenIssuedAt: z.string().optional(),
 });
 
 // 정규화된 런타임 설정: 자막 분석과 생성에 사용할 텍스트 제공자.
@@ -34,6 +36,8 @@ export interface Settings {
   textProvider: ProviderId;
   providers: z.infer<typeof ProvidersSchema>;
   instagram?: z.infer<typeof InstagramSchema>;
+  /** Instagram 토큰이 새로 저장/변경된 시각(ISO). 장기 토큰은 60일에 만료된다. */
+  instagramTokenIssuedAt?: string;
 }
 
 // 클라이언트가 보내는 부분 업데이트 (apiKey 비우면 기존 유지)
@@ -61,6 +65,7 @@ export interface MaskedSettings {
   textProvider: ProviderId;
   providers: Record<ProviderId, MaskedProvider>;
   instagram: { configured: boolean; maskedKey: string | null };
+  instagramTokenIssuedAt: string | null;
 }
 
 function defaultSettings(): Settings {
@@ -77,6 +82,7 @@ function normalize(raw: z.infer<typeof StoredSettingsSchema>): Settings {
     textProvider: raw.textProvider ?? fallback,
     providers: raw.providers,
     instagram: raw.instagram,
+    instagramTokenIssuedAt: raw.instagramTokenIssuedAt,
   };
 }
 
@@ -91,40 +97,49 @@ export function createSettingsStore(dataDir: string): SettingsStore {
 
   async function get(): Promise<Settings> {
     if (!existsSync(file)) return defaultSettings();
+    // 업그레이드 전에 생성된 파일도 첫 접근부터 소유자 전용으로 교정한다.
+    await chmod(file, 0o600);
     const raw = await readFile(file, "utf8");
     if (!raw.trim()) return defaultSettings();
     return normalize(StoredSettingsSchema.parse(JSON.parse(raw)));
   }
 
   async function write(settings: Settings): Promise<void> {
-    if (!existsSync(dataDir)) await mkdir(dataDir, { recursive: true });
-    await writeFile(file, JSON.stringify(settings, null, 2), "utf8");
+    // 새 임시 파일부터 0600으로 만든 뒤 원자적으로 교체해 키가 넓은 권한으로 노출되는 창을 막는다.
+    await writeJsonAtomic(file, settings, { mode: 0o600 });
   }
 
-  async function save(incoming: SettingsInput): Promise<Settings> {
-    const cur = await get();
-    const legacy = incoming.activeProvider;
-    const next: Settings = {
-      textProvider: incoming.textProvider ?? legacy ?? cur.textProvider,
-      providers: { ...cur.providers },
-      instagram: { ...cur.instagram },
-    };
-    if (incoming.instagram) {
-      const incToken = incoming.instagram.accessToken?.trim();
-      next.instagram = { accessToken: incToken ? incToken : cur.instagram?.accessToken };
-    }
-    for (const id of PROVIDER_IDS) {
-      const inc = incoming.providers?.[id];
-      if (!inc) continue;
-      const existing = cur.providers[id];
-      const trimmedKey = inc.apiKey?.trim();
-      next.providers[id] = {
-        apiKey: trimmedKey ? trimmedKey : existing.apiKey, // 빈 값이면 기존 유지
-        model: inc.model !== undefined ? inc.model : existing.model,
+  function save(incoming: SettingsInput): Promise<Settings> {
+    return withFileLock(file, async () => {
+      const cur = await get();
+      const legacy = incoming.activeProvider;
+      const next: Settings = {
+        textProvider: incoming.textProvider ?? legacy ?? cur.textProvider,
+        providers: { ...cur.providers },
+        instagram: { ...cur.instagram },
+        instagramTokenIssuedAt: cur.instagramTokenIssuedAt,
       };
-    }
-    await write(next);
-    return next;
+      if (incoming.instagram) {
+        const incToken = incoming.instagram.accessToken?.trim();
+        if (incToken && incToken !== cur.instagram?.accessToken) {
+          // 토큰이 새로 저장/변경될 때만 발급일을 기록한다(빈 값·동일 값은 유지).
+          next.instagram = { accessToken: incToken };
+          next.instagramTokenIssuedAt = new Date().toISOString();
+        }
+      }
+      for (const id of PROVIDER_IDS) {
+        const inc = incoming.providers?.[id];
+        if (!inc) continue;
+        const existing = cur.providers[id];
+        const trimmedKey = inc.apiKey?.trim();
+        next.providers[id] = {
+          apiKey: trimmedKey ? trimmedKey : existing.apiKey, // 빈 값이면 기존 유지
+          model: inc.model !== undefined ? inc.model : existing.model,
+        };
+      }
+      await write(next);
+      return next;
+    });
   }
 
   async function masked(): Promise<MaskedSettings> {
@@ -146,6 +161,7 @@ export function createSettingsStore(dataDir: string): SettingsStore {
         configured: Boolean(igToken),
         maskedKey: igToken ? maskApiKey(igToken) : null,
       },
+      instagramTokenIssuedAt: s.instagramTokenIssuedAt ?? null,
     };
   }
 

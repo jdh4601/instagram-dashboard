@@ -1,9 +1,10 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { AccountSnapshotSchema, type AccountSnapshot } from "@/lib/schemas";
 import { sortByDate } from "@/lib/analysis/followerTrend";
+import { withFileLock, writeJsonAtomic } from "@/lib/store/jsonFile";
 
 export interface AccountRepository {
   list(): Promise<AccountSnapshot[]>;
@@ -20,23 +21,19 @@ export function createJsonAccountRepository(dataDir: string): AccountRepository 
     return z.array(AccountSnapshotSchema).parse(JSON.parse(raw));
   }
 
-  async function writeAll(snapshots: AccountSnapshot[]): Promise<void> {
-    if (!existsSync(dataDir)) await mkdir(dataDir, { recursive: true });
-    await writeFile(file, JSON.stringify(snapshots, null, 2), "utf8");
-  }
-
   return {
     async list() {
       return sortByDate(await readAll());
     },
-    async add(snapshot) {
-      const validated = AccountSnapshotSchema.parse(snapshot);
-      const all = await readAll();
-      const idx = all.findIndex((s) => s.date === validated.date);
-      const next =
-        idx === -1 ? [...all, validated] : all.map((s, i) => (i === idx ? validated : s));
-      await writeAll(next);
-      return validated;
-    },
+    add: (snapshot) =>
+      withFileLock(file, async () => {
+        const validated = AccountSnapshotSchema.parse(snapshot);
+        const all = await readAll();
+        const idx = all.findIndex((s) => s.date === validated.date);
+        const next =
+          idx === -1 ? [...all, validated] : all.map((s, i) => (i === idx ? validated : s));
+        await writeJsonAtomic(file, next);
+        return validated;
+      }),
   };
 }

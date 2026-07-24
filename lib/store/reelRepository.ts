@@ -1,8 +1,9 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { ReelSchema, type Reel } from "@/lib/schemas";
+import { withFileLock, writeJsonAtomic } from "@/lib/store/jsonFile";
 
 export interface ReelRepository {
   list(): Promise<Reel[]>;
@@ -20,24 +21,20 @@ export function createJsonReelRepository(dataDir: string): ReelRepository {
     return z.array(ReelSchema).parse(JSON.parse(raw));
   }
 
-  async function writeAll(reels: Reel[]): Promise<void> {
-    if (!existsSync(dataDir)) await mkdir(dataDir, { recursive: true });
-    await writeFile(file, JSON.stringify(reels, null, 2), "utf8");
-  }
-
   return {
     list: () => readAll(),
     async get(id) {
       const all = await readAll();
       return all.find((r) => r.id === id) ?? null;
     },
-    async upsert(reel) {
-      const validated = ReelSchema.parse(reel);
-      const all = await readAll();
-      const idx = all.findIndex((r) => r.id === validated.id);
-      const next = idx === -1 ? [...all, validated] : all.map((r, i) => (i === idx ? validated : r));
-      await writeAll(next);
-      return validated;
-    },
+    upsert: (reel) =>
+      withFileLock(file, async () => {
+        const validated = ReelSchema.parse(reel);
+        const all = await readAll();
+        const idx = all.findIndex((r) => r.id === validated.id);
+        const next = idx === -1 ? [...all, validated] : all.map((r, i) => (i === idx ? validated : r));
+        await writeJsonAtomic(file, next);
+        return validated;
+      }),
   };
 }
