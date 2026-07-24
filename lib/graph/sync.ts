@@ -3,9 +3,13 @@ import type { ReelRepository } from "@/lib/store/reelRepository";
 import type { AccountRepository } from "@/lib/store/accountRepository";
 import type { ProfileRepository } from "@/lib/store/profileRepository";
 import type { ReelHistoryRepository } from "@/lib/store/reelHistoryRepository";
-import { classifyMedia, mapMediaToReel } from "@/lib/graph/map";
+import { classifyMedia, mapMediaToReel, type GraphMedia } from "@/lib/graph/map";
 import { computeDerivedRates } from "@/lib/analysis/metrics";
-import type { Reel } from "@/lib/schemas";
+import { probeDurationSec } from "@/lib/media/probeDuration";
+import type { MediaKind, Reel } from "@/lib/schemas";
+
+/** media_url에서 영상 길이(초)를 읽는다. 실패는 null. */
+export type DurationProbe = (mediaUrl: string) => Promise<number | null>;
 
 /** 동기화 진행 상황. total은 목록을 받은 뒤에야 확정되므로 그 전에는 0이다. */
 export interface SyncProgress {
@@ -70,6 +74,31 @@ function mergeWithExisting(mapped: Reel, existing: Reel | null): Reel {
   };
 }
 
+/**
+ * 길이를 모르는 릴스만 media_url에서 실측해 채운다.
+ *
+ * media_url은 서명·만료되는 CDN URL이라 나중에 따로 돌릴 수 없어 동기화 중에 처리한다.
+ * 이미 길이가 있으면 호출하지 않는다 — 릴스 수만큼 네트워크 왕복이 늘어난다.
+ * 캐러셀의 media_url은 첫 장 이미지라 대상이 아니다.
+ */
+async function withProbedDuration(
+  reel: Reel,
+  media: GraphMedia,
+  kind: MediaKind,
+  probe: DurationProbe,
+): Promise<Reel> {
+  if (kind !== "REELS" || reel.durationSec > 0 || !media.media_url) return reel;
+  try {
+    const durationSec = await probe(media.media_url);
+    return durationSec === null ? reel : { ...reel, durationSec };
+  } catch (err) {
+    // 길이는 보조 지표다. 수집 실패가 게시물 동기화 자체를 실패로 만들면 안 된다.
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`[sync] 릴스 ${reel.id} 길이 수집 실패 — 길이 미상으로 둡니다: ${message}`);
+    return reel;
+  }
+}
+
 export async function syncFromGraph(
   client: GraphClient,
   reelRepo: ReelRepository,
@@ -78,6 +107,7 @@ export async function syncFromGraph(
   profileRepo?: ProfileRepository,
   historyRepo?: ReelHistoryRepository,
   onProgress?: (progress: SyncProgress) => void,
+  probeDuration: DurationProbe = probeDurationSec,
 ): Promise<SyncResult> {
   const emptyInsights: GraphInsightResult = { metrics: {}, availableMetrics: [], unavailableMetrics: [] };
   const accountInsightsPromise = client.getAccountInsights
@@ -110,7 +140,12 @@ export async function syncFromGraph(
       insights.unavailableMetrics.forEach((metric) => unavailableMetrics.add(metric));
       const mapped = mapMediaToReel(media, insights.metrics, kind);
       const existing = await reelRepo.get(mapped.id);
-      const merged = mergeWithExisting(mapped, existing);
+      const merged = await withProbedDuration(
+        mergeWithExisting(mapped, existing),
+        media,
+        kind,
+        probeDuration,
+      );
       await reelRepo.upsert({ ...merged, derived: computeDerivedRates(merged) });
       // 동기화 시점의 지표를 이력으로 누적(조회수/도달 추이용)
       if (historyRepo) {
