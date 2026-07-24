@@ -2,10 +2,11 @@ node_modules
 .next
 data
 .git
-.env.local
-.env
+.env*
+!.env.example
 *.pem
 *.key
+credentials.json
 .DS_Store
 *.tsbuildinfo
 __tests__

@@ -2,14 +2,14 @@ node_modules/
 .next/
 data/
 .omx/
-.env
-.env.local
-.env*.local
+.env*
+!.env.example
 *.pem
 *.key
 credentials.json
-!.env.example
 .DS_Store
 
 next-env.d.ts
 *.tsbuildinfo
+
+.playwright-cli/
