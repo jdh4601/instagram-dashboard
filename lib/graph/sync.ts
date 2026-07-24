@@ -9,11 +9,16 @@ import type { Reel } from "@/lib/schemas";
 
 export interface SyncResult {
   syncedReels: number;
+  failedReels: number;
+  errors: string[];
   followerCount: number;
   username: string;
   availableMetrics: string[];
   unavailableMetrics: string[];
 }
+
+// SyncResult.errors에 담는 릴스별 실패 메시지 상한(전체 실패 건수는 failedReels가 담는다).
+const MAX_REPORTED_ERRORS = 5;
 
 function daysBefore(date: string, days: number): string {
   const value = new Date(`${date}T00:00:00Z`);
@@ -69,6 +74,8 @@ export async function syncFromGraph(
   const unavailableMetrics = new Set(accountInsights.unavailableMetrics);
 
   let synced = 0;
+  let failed = 0;
+  const errors: string[] = [];
   // 릴스별 insight는 순차 호출한다(Graph API rate limit 완화). 한 릴스가 실패해도
   // (삭제된 미디어·권한 변경·일시적 5xx) 전체 동기화가 멈추지 않도록 개별 격리한다.
   for (const media of reels) {
@@ -102,8 +109,18 @@ export async function syncFromGraph(
       synced++;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      failed++;
+      if (errors.length < MAX_REPORTED_ERRORS) errors.push(`${media.id}: ${message}`);
       console.error(`[sync] 릴스 ${media.id} 동기화 실패 — 건너뜁니다: ${message}`);
     }
+  }
+
+  // 동기화할 릴스가 있었는데 전부 실패하면 조용한 200 대신 예외를 던진다
+  // (API 라우트가 502로 변환). 계정 스냅샷/프로필도 "정상 동기화"가 아니므로 남기지 않는다.
+  if (reels.length > 0 && synced === 0 && failed > 0) {
+    throw new Error(
+      `릴스 동기화 전체 실패: ${failed}/${reels.length}개 릴스 모두 실패. 원인: ${errors.join(" | ")}`,
+    );
   }
 
   await accountRepo.add({
@@ -130,6 +147,8 @@ export async function syncFromGraph(
   }
   return {
     syncedReels: synced,
+    failedReels: failed,
+    errors,
     followerCount: profile.followersCount,
     username: profile.username,
     availableMetrics: [...availableMetrics].sort(),
