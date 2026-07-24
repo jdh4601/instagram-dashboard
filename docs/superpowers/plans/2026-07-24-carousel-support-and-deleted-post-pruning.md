@@ -597,17 +597,19 @@ git commit -m "feat(schema): 게시물 미디어 종류(mediaType) 필드 추가
 
 ---
 
-## Task 5: Graph 클라이언트가 캐러셀을 수집하도록 확장
+## Task 5: Graph 수집·동기화가 캐러셀을 다루도록 확장
 
 **Files:**
 - Modify: `lib/graph/map.ts`
 - Modify: `lib/graph/client.ts`
-- Modify: `__tests__/graphClient.test.ts` (`listReels` → `listMedia` 개명, 케이스 보강)
+- Modify: `lib/graph/sync.ts`
+- Modify: `__tests__/graphClient.test.ts` (`listReels` → `listMedia` 개명, 테스트 이름 정정)
 - Modify: `__tests__/graphPagination.test.ts` (`listReels` → `listMedia` 개명, 7곳)
 - Modify: `__tests__/syncFailures.test.ts:35` (가짜 클라이언트 키 개명)
 - Modify: `__tests__/graphSync.test.ts:24` (가짜 클라이언트 키 개명)
 - Modify: `__tests__/syncPrune.test.ts` (Task 2에서 만든 가짜 클라이언트 키 개명)
 - Test: `__tests__/graphCarousel.test.ts` (신규)
+- Test: `__tests__/syncCarousel.test.ts` (신규)
 
 **Interfaces:**
 - Consumes: `MediaKind` (Task 4)
@@ -616,6 +618,9 @@ git commit -m "feat(schema): 게시물 미디어 종류(mediaType) 필드 추가
   - `mapMediaToReel(media: GraphMedia, insights: Record<string, number>, kind: MediaKind): Reel` — 세 번째 인자 추가
   - `GraphClient.listMedia(): Promise<GraphMedia[]>` — `listReels`를 대체
   - `GraphClient.getInsights(mediaId: string, kind?: MediaKind): Promise<GraphInsightResult>` — 두 번째 인자는 선택, 생략 시 `"REELS"`
+  - 저장된 `Reel.mediaType`이 실제 미디어 종류를 담는다
+
+`mergeWithExisting`은 `{ ...mapped, ... }`로 시작하므로 `mediaType`이 자동으로 새 값을 따라간다. 별도 수정이 필요 없다.
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -731,9 +736,88 @@ test("mapMediaToReel은 릴스에 mediaType REELS를 심는다", () => {
 });
 ```
 
+`__tests__/syncCarousel.test.ts` 생성:
+
+```ts
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { syncFromGraph } from "@/lib/graph/sync";
+import { createJsonReelRepository } from "@/lib/store/reelRepository";
+import { createJsonAccountRepository } from "@/lib/store/accountRepository";
+import type { GraphClient } from "@/lib/graph/client";
+import type { MediaKind } from "@/lib/schemas";
+
+function tmpDir() {
+  return mkdtempSync(join(tmpdir(), "sync-carousel-"));
+}
+
+// getInsights가 어떤 종류로 호출됐는지 기록하는 가짜 클라이언트
+function recordingClient(seen: Record<string, MediaKind | undefined>): GraphClient {
+  return {
+    getProfile: async () => ({ userId: "1", username: "founder", followersCount: 100, mediaCount: 2 }),
+    listMedia: async () => [
+      { id: "reel-1", media_product_type: "REELS", timestamp: "2026-06-01T00:00:00+0000" },
+      {
+        id: "carousel-1",
+        media_type: "CAROUSEL_ALBUM",
+        media_product_type: "FEED",
+        timestamp: "2026-06-02T00:00:00+0000",
+        media_url: "https://cdn/slide.jpg",
+      },
+    ],
+    getInsights: async (mediaId, kind) => {
+      seen[mediaId] = kind;
+      return {
+        metrics: { views: 700, reach: 500, likes: 30, comments: 2, saved: 8, shares: 4 },
+        availableMetrics: ["reach"],
+        unavailableMetrics: [],
+      };
+    },
+    getAccountInsights: async () => ({ metrics: {}, availableMetrics: [], unavailableMetrics: [] }),
+  };
+}
+
+test("캐러셀은 CAROUSEL로 저장되고 릴스는 REELS로 저장된다", async () => {
+  const dir = tmpDir();
+  const reelRepo = createJsonReelRepository(dir);
+  const accountRepo = createJsonAccountRepository(dir);
+
+  const result = await syncFromGraph(recordingClient({}), reelRepo, accountRepo, "2026-06-29");
+
+  expect(result.syncedReels).toBe(2);
+  expect((await reelRepo.get("reel-1"))?.mediaType).toBe("REELS");
+  expect((await reelRepo.get("carousel-1"))?.mediaType).toBe("CAROUSEL");
+});
+
+test("getInsights에 미디어 종류를 그대로 넘긴다", async () => {
+  const dir = tmpDir();
+  const seen: Record<string, MediaKind | undefined> = {};
+
+  await syncFromGraph(
+    recordingClient(seen),
+    createJsonReelRepository(dir),
+    createJsonAccountRepository(dir),
+    "2026-06-29",
+  );
+
+  expect(seen["reel-1"]).toBe("REELS");
+  expect(seen["carousel-1"]).toBe("CAROUSEL");
+});
+
+test("캐러셀은 첫 장 이미지를 썸네일로 저장한다", async () => {
+  const dir = tmpDir();
+  const reelRepo = createJsonReelRepository(dir);
+
+  await syncFromGraph(recordingClient({}), reelRepo, createJsonAccountRepository(dir), "2026-06-29");
+
+  expect((await reelRepo.get("carousel-1"))?.thumbnailUrl).toBe("https://cdn/slide.jpg");
+});
+```
+
 - [ ] **Step 2: 테스트가 실패하는지 확인**
 
-Run: `npx jest __tests__/graphCarousel.test.ts`
+Run: `npx jest __tests__/graphCarousel.test.ts __tests__/syncCarousel.test.ts`
 Expected: FAIL — `classifyMedia` export 없음, `client.listMedia is not a function`
 
 - [ ] **Step 3: `lib/graph/map.ts` 수정**
@@ -943,139 +1027,15 @@ sed -i '' 's/listReels/listMedia/g' \
 test("listMedia는 분석 대상이 아닌 피드 글을 제외한다", async () => {
 ```
 
-- [ ] **Step 6: `lib/graph/sync.ts`의 호출부만 최소 수정**
+- [ ] **Step 6: `lib/graph/sync.ts` 배선**
 
-Task 6에서 종류별 처리를 붙이기 전에, 개명된 메서드로 컴파일이 되게 한다.
-
-`lib/graph/sync.ts`에서 `client.listReels(),` → `client.listMedia(),` 로 바꾸고, `mapMediaToReel(media, insights.metrics)` → `mapMediaToReel(media, insights.metrics, "REELS")` 로 바꾼다. (Task 6에서 실제 종류를 넘기도록 고친다.)
-
-- [ ] **Step 7: 테스트 통과 확인**
-
-Run: `npx jest __tests__/graphCarousel.test.ts`
-Expected: PASS (6 tests)
-
-Run: `npx jest`
-Expected: 전체 통과
-
-Run: `npx tsc --noEmit`
-Expected: 출력 없음
-
-- [ ] **Step 8: 커밋**
-
-```bash
-git add lib/graph/client.ts lib/graph/map.ts lib/graph/sync.ts __tests__/
-git commit -m "feat(graph): 캐러셀 미디어 수집과 종류별 인사이트 지표 분리"
-```
-
----
-
-## Task 6: 동기화가 캐러셀을 종류에 맞게 저장
-
-**Files:**
-- Modify: `lib/graph/sync.ts`
-- Test: `__tests__/syncCarousel.test.ts` (신규)
-
-**Interfaces:**
-- Consumes: `classifyMedia`, `mapMediaToReel(media, insights, kind)`, `GraphClient.getInsights(id, kind)` (Task 5)
-- Produces: 저장된 `Reel.mediaType`이 실제 미디어 종류를 담는다
-
-`mergeWithExisting`은 `{ ...mapped, ... }`로 시작하므로 `mediaType`이 자동으로 새 값을 따라간다. 별도 수정이 필요 없다.
-
-- [ ] **Step 1: 실패하는 테스트 작성**
-
-`__tests__/syncCarousel.test.ts` 생성:
-
-```ts
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { syncFromGraph } from "@/lib/graph/sync";
-import { createJsonReelRepository } from "@/lib/store/reelRepository";
-import { createJsonAccountRepository } from "@/lib/store/accountRepository";
-import type { GraphClient } from "@/lib/graph/client";
-import type { MediaKind } from "@/lib/schemas";
-
-function tmpDir() {
-  return mkdtempSync(join(tmpdir(), "sync-carousel-"));
-}
-
-// getInsights가 어떤 종류로 호출됐는지 기록하는 가짜 클라이언트
-function recordingClient(seen: Record<string, MediaKind | undefined>): GraphClient {
-  return {
-    getProfile: async () => ({ userId: "1", username: "founder", followersCount: 100, mediaCount: 2 }),
-    listMedia: async () => [
-      { id: "reel-1", media_product_type: "REELS", timestamp: "2026-06-01T00:00:00+0000" },
-      {
-        id: "carousel-1",
-        media_type: "CAROUSEL_ALBUM",
-        media_product_type: "FEED",
-        timestamp: "2026-06-02T00:00:00+0000",
-        media_url: "https://cdn/slide.jpg",
-      },
-    ],
-    getInsights: async (mediaId, kind) => {
-      seen[mediaId] = kind;
-      return {
-        metrics: { views: 700, reach: 500, likes: 30, comments: 2, saved: 8, shares: 4 },
-        availableMetrics: ["reach"],
-        unavailableMetrics: [],
-      };
-    },
-    getAccountInsights: async () => ({ metrics: {}, availableMetrics: [], unavailableMetrics: [] }),
-  };
-}
-
-test("캐러셀은 CAROUSEL로 저장되고 릴스는 REELS로 저장된다", async () => {
-  const dir = tmpDir();
-  const reelRepo = createJsonReelRepository(dir);
-  const accountRepo = createJsonAccountRepository(dir);
-
-  const result = await syncFromGraph(recordingClient({}), reelRepo, accountRepo, "2026-06-29");
-
-  expect(result.syncedReels).toBe(2);
-  expect((await reelRepo.get("reel-1"))?.mediaType).toBe("REELS");
-  expect((await reelRepo.get("carousel-1"))?.mediaType).toBe("CAROUSEL");
-});
-
-test("getInsights에 미디어 종류를 그대로 넘긴다", async () => {
-  const dir = tmpDir();
-  const seen: Record<string, MediaKind | undefined> = {};
-
-  await syncFromGraph(
-    recordingClient(seen),
-    createJsonReelRepository(dir),
-    createJsonAccountRepository(dir),
-    "2026-06-29",
-  );
-
-  expect(seen["reel-1"]).toBe("REELS");
-  expect(seen["carousel-1"]).toBe("CAROUSEL");
-});
-
-test("캐러셀은 첫 장 이미지를 썸네일로 저장한다", async () => {
-  const dir = tmpDir();
-  const reelRepo = createJsonReelRepository(dir);
-
-  await syncFromGraph(recordingClient({}), reelRepo, createJsonAccountRepository(dir), "2026-06-29");
-
-  expect((await reelRepo.get("carousel-1"))?.thumbnailUrl).toBe("https://cdn/slide.jpg");
-});
-```
-
-- [ ] **Step 2: 테스트가 실패하는지 확인**
-
-Run: `npx jest __tests__/syncCarousel.test.ts`
-Expected: FAIL — `mediaType`이 `"CAROUSEL"`이 아니라 `"REELS"` (Task 5 Step 6에서 하드코딩해 둔 값)
-
-- [ ] **Step 3: 동기화 루프에 종류 판별 붙이기**
-
-`lib/graph/sync.ts` 상단 import 교체:
+상단 import 교체:
 
 ```ts
 import { classifyMedia, mapMediaToReel } from "@/lib/graph/map";
 ```
 
-동기화 루프 시작 부분에서 변수 이름을 `reels` → `mediaList`로 바꾸고 종류를 판별한다. `const [profile, reels, accountInsights] = await Promise.all([...])`를 다음으로 교체:
+`const [profile, reels, accountInsights] = await Promise.all([...])`를 교체 — 이제 릴스만 담기지 않으므로 이름도 바꾼다:
 
 ```ts
   const [profile, mediaList, accountInsights] = await Promise.all([
@@ -1085,7 +1045,7 @@ import { classifyMedia, mapMediaToReel } from "@/lib/graph/map";
   ]);
 ```
 
-`for (const media of reels) {` 를 다음으로 교체하고, 루프 안 두 줄을 고친다:
+동기화 루프 머리를 교체:
 
 ```ts
   for (const media of mediaList) {
@@ -1098,11 +1058,7 @@ import { classifyMedia, mapMediaToReel } from "@/lib/graph/map";
       const mapped = mapMediaToReel(media, insights.metrics, kind);
 ```
 
-- [ ] **Step 4: 나머지 `reels` 참조를 `mediaList`로 정리**
-
-같은 파일에서 남은 세 곳을 바꾼다.
-
-전체 실패 검사:
+남은 `reels` 참조 두 곳도 `mediaList`로 바꾼다. 전체 실패 검사:
 
 ```ts
   if (mediaList.length > 0 && synced === 0 && failed > 0) {
@@ -1120,27 +1076,32 @@ prune 블록 (Task 2에서 추가한 부분):
     const liveIds = new Set(mediaList.map((media) => media.id));
 ```
 
-- [ ] **Step 5: 테스트 통과 확인**
+- [ ] **Step 7: 테스트 통과 확인**
 
-Run: `npx jest __tests__/syncCarousel.test.ts`
-Expected: PASS (3 tests)
+Run: `npx jest __tests__/graphCarousel.test.ts __tests__/syncCarousel.test.ts`
+Expected: PASS (9 tests)
 
 Run: `npx jest`
-Expected: 전체 통과. `syncFailures.test.ts`의 `/2\/2개 릴스 모두 실패/` 정규식이 그대로 맞아야 한다 (메시지 문구를 바꾸지 않았다).
+Expected: 전체 통과
 
 Run: `npx tsc --noEmit`
 Expected: 출력 없음
 
-- [ ] **Step 6: 커밋**
+- [ ] **Step 8: 커밋**
+
+이 저장소에는 이번 작업과 무관한 untracked 파일이 있다. `git add __tests__/`처럼 디렉터리를 통째로 스테이징하지 말고 파일을 정확히 지정한다.
 
 ```bash
-git add lib/graph/sync.ts __tests__/syncCarousel.test.ts
-git commit -m "feat(sync): 캐러셀을 미디어 종류에 맞게 수집·저장"
+git add lib/graph/client.ts lib/graph/map.ts lib/graph/sync.ts \
+  __tests__/graphCarousel.test.ts __tests__/graphClient.test.ts \
+  __tests__/graphPagination.test.ts __tests__/syncFailures.test.ts \
+  __tests__/graphSync.test.ts __tests__/syncPrune.test.ts \
+  __tests__/syncCarousel.test.ts
+git commit -m "feat(graph): 캐러셀 수집·동기화와 종류별 인사이트 지표 분리"
 ```
 
----
 
-## Task 7: 미디어 종류 토글과 참여 지표 연동
+## Task 6: 미디어 종류 토글과 참여 지표 연동
 
 **Files:**
 - Create: `lib/ui/mediaFilter.ts`
@@ -1418,7 +1379,7 @@ git commit -m "feat(dashboard): 릴스·캐러셀 미디어 종류 토글 추가
 
 ---
 
-## Task 8: 캐러셀 상세 페이지 분기와 동종 비교
+## Task 7: 캐러셀 상세 페이지 분기와 동종 비교
 
 **Files:**
 - Modify: `app/api/reels/[id]/route.ts`
@@ -1427,7 +1388,7 @@ git commit -m "feat(dashboard): 릴스·캐러셀 미디어 종류 토글 추가
 - Test: `__tests__/apiReelDetail.test.ts` (신규)
 
 **Interfaces:**
-- Consumes: `mediaKindOf` (Task 4), `filterByMedia` (Task 7)
+- Consumes: `mediaKindOf` (Task 4), `filterByMedia` (Task 6)
 - Produces: 없음 (기능 종단)
 
 캐러셀에는 `hookRetention3s`와 `completionRate`가 `undefined`라 `diagnose()`가 이미 자동으로 제외한다. 진단 로직 자체는 손대지 않는다.
@@ -1693,10 +1654,10 @@ git commit -m "feat(reel): 캐러셀 상세 분기와 동종 게시물 비교"
 ```bash
 npx jest
 npx tsc --noEmit
-git log --oneline -8
+git log --oneline -7
 ```
 
-Expected: 테스트 전체 통과, 타입 오류 0, 태스크당 커밋 1개씩 8개.
+Expected: 테스트 전체 통과, 타입 오류 0, 태스크당 커밋 1개씩 7개.
 
 ## 이 계획이 다루지 않는 것
 
