@@ -13,7 +13,7 @@
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "seed:demo": "node scripts/seed-demo.mjs",
-    "postinstall": "node scripts/postinstall.mjs"
+    "postinstall": "node -e \"(async()=>{const fs=require('node:fs');fs.mkdirSync('data',{recursive:true});if(fs.existsSync('scripts/postinstall.mjs'))await import('./scripts/postinstall.mjs')})().catch(error=>{console.error(error);process.exit(1)})\""
   },
   "repository": {
     "type": "git",
