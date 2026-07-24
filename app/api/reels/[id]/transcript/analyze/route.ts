@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import { getRepository } from "@/lib/store";
 import { getTextModel } from "@/lib/llm";
 import { generateTranscriptInsights } from "@/lib/recommend/transcriptInsights";
+import { assertJsonRequest } from "@/lib/api/guard";
 
 // LLM 자막 심층 분석: 자막 + 지표를 모델에 보내 잘된 점/아쉬운 점 원인을 받아 릴스에 캐시.
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const blocked = assertJsonRequest(req);
+  if (blocked) return blocked;
   const { id } = await params;
   const repo = getRepository();
   const reel = await repo.get(id);

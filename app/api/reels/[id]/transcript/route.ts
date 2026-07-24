@@ -1,13 +1,24 @@
 import { NextResponse } from "next/server";
 import { getRepository } from "@/lib/store";
 import { parseSrt } from "@/lib/parsing/srt";
+import { assertJsonRequest } from "@/lib/api/guard";
 
 // SRT 자막 업로드: 원문 SRT를 서버에서 파싱해 reel.transcript에 저장.
 // 잔존 차트 급락 구간 매칭·자막 분석이 모두 이 데이터를 사용한다.
 const MAX_SRT_BYTES = 512 * 1024; // 자막 한 편은 넉넉히 512KB 이내. 과대 페이로드 차단.
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const blocked = assertJsonRequest(req);
+  if (blocked) return blocked;
   const { id } = await params;
+
+  const declaredLength = req.headers.get("content-length");
+  if (declaredLength !== null) {
+    const byteLength = Number(declaredLength);
+    if (Number.isFinite(byteLength) && byteLength > MAX_SRT_BYTES) {
+      return NextResponse.json({ error: "SRT 파일이 너무 큽니다 (최대 512KB)" }, { status: 413 });
+    }
+  }
 
   let body: unknown;
   try {
@@ -41,7 +52,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 }
 
 // 자막 삭제
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const blocked = assertJsonRequest(req);
+  if (blocked) return blocked;
   const { id } = await params;
   const repo = getRepository();
   const reel = await repo.get(id);
