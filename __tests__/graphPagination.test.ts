@@ -45,7 +45,7 @@ test("listMedia는 limit=100으로 첫 페이지를 요청하고 paging.next를 
     ) as unknown as typeof fetch,
   });
 
-  const reels = await client.listMedia();
+  const { analyzable: reels } = await client.listMedia();
   expect(reels.map((m) => m.id)).toEqual(["r1", "r2", "r3"]);
   expect(calls).toHaveLength(3);
   expect(calls[0]).toContain("limit=100");
@@ -62,7 +62,7 @@ test("paging.next가 없으면 첫 페이지만 요청하고 멈춘다", async (
     ) as unknown as typeof fetch,
   });
 
-  const reels = await client.listMedia();
+  const { analyzable: reels } = await client.listMedia();
   expect(reels.map((m) => m.id)).toEqual(["r1", "r2"]);
   expect(calls).toHaveLength(1);
 });
@@ -99,7 +99,7 @@ test("릴스가 500개를 넘어도 paging.next가 끝날 때까지 모두 가�
     fetchImpl: pagedFetch(pages, calls) as unknown as typeof fetch,
   });
 
-  const reels = await client.listMedia();
+  const { analyzable: reels } = await client.listMedia();
   expect(reels).toHaveLength(600);
   expect(calls).toHaveLength(6);
 });

@@ -37,7 +37,7 @@ test("listMedia는 릴스와 캐러셀을 함께 반환하고 단일 사진 글�
     }) as unknown as typeof fetch,
   });
 
-  const media = await client.listMedia();
+  const { analyzable: media } = await client.listMedia();
   expect(media.map((m) => m.id)).toEqual(["reel", "carousel"]);
 });
 

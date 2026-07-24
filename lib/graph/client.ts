@@ -88,9 +88,19 @@ interface Options {
   fetchImpl?: FetchLike;
 }
 
+export interface MediaListing {
+  /** 분석 대상으로 분류된 미디어(릴스·캐러셀) */
+  analyzable: GraphMedia[];
+  /**
+   * 분류 성공 여부와 무관하게 응답에 존재한 모든 미디어 id.
+   * 분류 실패를 "삭제됨"으로 오인해 지우지 않도록 prune은 이 집합에 대조한다.
+   */
+  allIds: string[];
+}
+
 export interface GraphClient {
   getProfile(): Promise<GraphProfile>;
-  listMedia(): Promise<GraphMedia[]>;
+  listMedia(): Promise<MediaListing>;
   getInsights(mediaId: string, kind?: MediaKind): Promise<GraphInsightResult>;
   getAccountInsights?(range: { since: string; until: string }): Promise<GraphInsightResult>;
 }
@@ -212,14 +222,16 @@ export function createGraphClient(opts: Options): GraphClient {
         fields: "id,media_type,media_product_type,caption,timestamp,thumbnail_url,media_url,permalink",
         limit: MEDIA_PAGE_SIZE,
       })) as MediaPage;
-      const collected: GraphMedia[] = [];
+      const analyzable: GraphMedia[] = [];
+      const allIds: string[] = [];
       const seenPages = new Set<string>();
       for (let pageCount = 0; pageCount < MAX_MEDIA_PAGES; pageCount++) {
         for (const media of page.data ?? []) {
-          if (classifyMedia(media) !== null) collected.push(media);
+          allIds.push(media.id);
+          if (classifyMedia(media) !== null) analyzable.push(media);
         }
         const next = page.paging?.next;
-        if (!next) return collected;
+        if (!next) return { analyzable, allIds };
         // 일부만 반환하면 진단 표본이 조용히 잘리므로 안전 상한에서는 명시적으로 실패한다.
         if (pageCount + 1 >= MAX_MEDIA_PAGES) {
           throw new Error(`Graph API 미디어 페이지가 안전 상한(${MAX_MEDIA_PAGES})을 초과했습니다`);
@@ -230,7 +242,7 @@ export function createGraphClient(opts: Options): GraphClient {
         seenPages.add(next);
         page = await fetchMediaPage(next);
       }
-      return collected;
+      return { analyzable, allIds };
     },
 
     async getInsights(mediaId, kind = "REELS") {

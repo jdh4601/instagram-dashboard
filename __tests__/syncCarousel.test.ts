@@ -15,16 +15,19 @@ function tmpDir() {
 function recordingClient(seen: Record<string, MediaKind | undefined>): GraphClient {
   return {
     getProfile: async () => ({ userId: "1", username: "founder", followersCount: 100, mediaCount: 2 }),
-    listMedia: async () => [
-      { id: "reel-1", media_product_type: "REELS", timestamp: "2026-06-01T00:00:00+0000" },
-      {
-        id: "carousel-1",
-        media_type: "CAROUSEL_ALBUM",
-        media_product_type: "FEED",
-        timestamp: "2026-06-02T00:00:00+0000",
-        media_url: "https://cdn/slide.jpg",
-      },
-    ],
+    listMedia: async () => ({
+      analyzable: [
+        { id: "reel-1", media_product_type: "REELS", timestamp: "2026-06-01T00:00:00+0000" },
+        {
+          id: "carousel-1",
+          media_type: "CAROUSEL_ALBUM",
+          media_product_type: "FEED",
+          timestamp: "2026-06-02T00:00:00+0000",
+          media_url: "https://cdn/slide.jpg",
+        },
+      ],
+      allIds: ["reel-1", "carousel-1"],
+    }),
     getInsights: async (mediaId, kind) => {
       seen[mediaId] = kind;
       return {

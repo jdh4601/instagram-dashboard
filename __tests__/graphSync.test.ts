@@ -21,9 +21,12 @@ const fakeClient: GraphClient = {
     avatarUrl: "https://cdn/a.jpg",
     mediaCount: 7,
   }),
-  listMedia: async () => [
-    { id: "media-1", media_product_type: "REELS", caption: "API 캡션", timestamp: "2026-06-01T00:00:00+0000" },
-  ],
+  listMedia: async () => ({
+    analyzable: [
+      { id: "media-1", media_product_type: "REELS", caption: "API 캡션", timestamp: "2026-06-01T00:00:00+0000" },
+    ],
+    allIds: ["media-1"],
+  }),
   getInsights: async () => ({
     metrics: { views: 12000, reach: 9000, likes: 400, comments: 8, saved: 50, shares: 200, total_interactions: 658, ig_reels_avg_watch_time: 21000, reels_skip_rate: 45, follows: 20, profile_visits: 100 },
     availableMetrics: ["views", "reach", "reels_skip_rate", "follows", "profile_visits"],
@@ -89,6 +92,30 @@ test("이력 저장소가 주어지면 동기화 시점 지표를 누적한다",
   const h = await history.list("media-1");
   expect(h).toHaveLength(1);
   expect(h[0]).toMatchObject({ reelId: "media-1", date: "2026-06-29", views: 12000 });
+});
+
+test("캐시된 자막 심층 분석은 동기화 후에도 보존된다", async () => {
+  const reelRepo = createJsonReelRepository(tmpDir());
+  const accountRepo = createJsonAccountRepository(tmpDir());
+
+  const existing: Reel = {
+    id: "media-1", postedAt: "2026-06-01T00:00:00Z", durationSec: 40,
+    views: 100, reach: 90, likes: 1, comments: 0, saves: 0, shares: 0, avgWatchTimeSec: 5,
+    transcriptInsights: {
+      summary: "훅이 약하다",
+      strengths: [{ title: "사례 인용", detail: "구체적 숫자를 들었다" }],
+      weaknesses: [{ title: "도입 지연", detail: "본론까지 5초", metric: "skipRate" }],
+      generatedAt: "2026-06-02T00:00:00Z",
+    },
+  };
+  await reelRepo.upsert(existing);
+
+  await syncFromGraph(fakeClient, reelRepo, accountRepo, "2026-06-29");
+
+  const updated = await reelRepo.get("media-1");
+  expect(updated?.transcriptInsights?.summary).toBe("훅이 약하다");
+  expect(updated?.transcriptInsights?.weaknesses[0].title).toBe("도입 지연");
+  expect(updated?.views).toBe(12000); // API 수치는 정상 갱신
 });
 
 test("프로필 저장소가 주어지면 계정 프로필을 저장한다", async () => {

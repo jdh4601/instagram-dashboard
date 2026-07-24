@@ -45,7 +45,7 @@ test("listMedia는 분석 대상이 아닌 피드 글을 제외한다", async ()
       },
     }) as unknown as typeof fetch,
   });
-  const reels = await client.listMedia();
+  const { analyzable: reels } = await client.listMedia();
   expect(reels.map((m) => m.id)).toEqual(["a"]);
 });
 
