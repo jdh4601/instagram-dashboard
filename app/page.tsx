@@ -7,6 +7,7 @@ import { buildAccountOverview } from "@/lib/analysis/accountOverview";
 import { latestFollowerDelta } from "@/lib/analysis/followerTrend";
 import { computeDashboardMetrics } from "@/lib/analysis/dashboardMetrics";
 import { DashboardActions } from "@/components/DashboardActions";
+import { SyncProgressBar } from "@/components/SyncProgressBar";
 import { AccountHeader } from "@/components/AccountHeader";
 import { AccountOverview } from "@/components/AccountOverview";
 import { Input, Button, Skeleton } from "@/components/ui";
@@ -17,6 +18,8 @@ import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { InsightList } from "@/components/InsightList";
 import { buildAccountInsights } from "@/lib/analysis/accountInsights";
 import { filterByMedia, type MediaFilter } from "@/lib/ui/mediaFilter";
+import { readNdjson } from "@/lib/ui/ndjsonStream";
+import type { SyncProgress, SyncResult } from "@/lib/graph/sync";
 
 interface SyncToast {
   tone: "success" | "warning" | "error";
@@ -34,6 +37,7 @@ export default function Page() {
   const [snapFollowers, setSnapFollowers] = useState("");
   const [toast, setToast] = useState<SyncToast | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [tokenIssuedAt, setTokenIssuedAt] = useState<string | null>(null);
   const [tokenBannerDismissed, setTokenBannerDismissed] = useState(false);
@@ -43,16 +47,39 @@ export default function Page() {
   async function onSync() {
     setSyncing(true);
     setToast(null);
+    setSyncProgress({ completed: 0, total: 0 });
     try {
       const res = await fetch("/api/sync", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setToast({ tone: "error", message: "동기화 실패: " + (data.error ?? "오류") });
+      if (!res.ok || !res.body) {
+        const failed = await res.json().catch(() => ({}));
+        setToast({ tone: "error", message: "동기화 실패: " + (failed.error ?? "오류") });
         return;
       }
+
+      // 스트림은 헤더를 먼저 보내므로 실패도 상태 코드가 아니라 마지막 이벤트로 온다.
+      let data: SyncResult | null = null;
+      let streamError: string | null = null;
+      for await (const event of readNdjson(res.body)) {
+        const parsed = event as { type?: string } & Record<string, unknown>;
+        if (parsed.type === "progress") {
+          setSyncProgress({ completed: Number(parsed.completed), total: Number(parsed.total) });
+        } else if (parsed.type === "result") {
+          data = parsed as unknown as SyncResult;
+        } else if (parsed.type === "error") {
+          streamError = String(parsed.error);
+        }
+      }
+      if (streamError !== null || data === null) {
+        setToast({
+          tone: "error",
+          message: "동기화 실패: " + (streamError ?? "응답이 완결되지 않았습니다"),
+        });
+        return;
+      }
+
       const refreshedResponses = await Promise.all([
         fetch("/api/reels"),
         fetch("/api/snapshots"),
@@ -93,6 +120,7 @@ export default function Page() {
       setToast({ tone: "error", message: "동기화 실패: 네트워크 또는 화면 갱신 오류가 발생했습니다" });
     } finally {
       setSyncing(false);
+      setSyncProgress(null);
     }
   }
 
@@ -178,6 +206,7 @@ export default function Page() {
   return (
     <>
       <DashboardActions onSync={onSync} syncing={syncing} />
+      {syncing && syncProgress && <SyncProgressBar progress={syncProgress} />}
       <main className="mx-auto max-w-5xl space-y-5 px-4 pb-4 sm:px-6 sm:pb-6">
         {initialLoading ? (
           <DashboardSkeleton />

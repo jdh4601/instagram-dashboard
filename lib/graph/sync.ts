@@ -7,6 +7,12 @@ import { classifyMedia, mapMediaToReel } from "@/lib/graph/map";
 import { computeDerivedRates } from "@/lib/analysis/metrics";
 import type { Reel } from "@/lib/schemas";
 
+/** 동기화 진행 상황. total은 목록을 받은 뒤에야 확정되므로 그 전에는 0이다. */
+export interface SyncProgress {
+  completed: number;
+  total: number;
+}
+
 export interface SyncResult {
   syncedReels: number;
   failedReels: number;
@@ -71,6 +77,7 @@ export async function syncFromGraph(
   today: string,
   profileRepo?: ProfileRepository,
   historyRepo?: ReelHistoryRepository,
+  onProgress?: (progress: SyncProgress) => void,
 ): Promise<SyncResult> {
   const emptyInsights: GraphInsightResult = { metrics: {}, availableMetrics: [], unavailableMetrics: [] };
   const accountInsightsPromise = client.getAccountInsights
@@ -82,6 +89,9 @@ export async function syncFromGraph(
     accountInsightsPromise,
   ]);
   const mediaList = listing.analyzable;
+  // 게시물당 Graph 호출을 순차로 돌려 전체 동기화는 수십 초가 걸린다. 총 개수를
+  // 먼저 알려야 화면이 진행률 막대를 그릴 수 있다.
+  onProgress?.({ completed: 0, total: mediaList.length });
 
   const availableMetrics = new Set(accountInsights.availableMetrics);
   const unavailableMetrics = new Set(accountInsights.unavailableMetrics);
@@ -128,6 +138,8 @@ export async function syncFromGraph(
       if (errors.length < MAX_REPORTED_ERRORS) errors.push(`${media.id}: ${message}`);
       console.error(`[sync] 릴스 ${media.id} 동기화 실패 — 건너뜁니다: ${message}`);
     }
+    // 실패한 게시물도 처리가 끝난 것이라 진행률에 넣는다. 빼면 막대가 100%에 닿지 않는다.
+    onProgress?.({ completed: synced + failed, total: mediaList.length });
   }
 
   // 동기화할 릴스가 있었는데 전부 실패하면 조용한 200 대신 예외를 던진다
