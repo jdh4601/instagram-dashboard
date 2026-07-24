@@ -33,7 +33,7 @@ test("getProfile은 user_id/username/followers_count/avatar/media_count를 반�
   expect(p.mediaCount).toBe(42);
 });
 
-test("listReels는 REELS 타입만 반환", async () => {
+test("listMedia는 분석 대상이 아닌 피드 글을 제외한다", async () => {
   const client = createGraphClient({
     accessToken: "tok",
     fetchImpl: fakeFetch({
@@ -45,7 +45,7 @@ test("listReels는 REELS 타입만 반환", async () => {
       },
     }) as unknown as typeof fetch,
   });
-  const reels = await client.listReels();
+  const reels = await client.listMedia();
   expect(reels.map((m) => m.id)).toEqual(["a"]);
 });
 

@@ -3,7 +3,7 @@ import type { ReelRepository } from "@/lib/store/reelRepository";
 import type { AccountRepository } from "@/lib/store/accountRepository";
 import type { ProfileRepository } from "@/lib/store/profileRepository";
 import type { ReelHistoryRepository } from "@/lib/store/reelHistoryRepository";
-import { mapMediaToReel } from "@/lib/graph/map";
+import { classifyMedia, mapMediaToReel } from "@/lib/graph/map";
 import { computeDerivedRates } from "@/lib/analysis/metrics";
 import type { Reel } from "@/lib/schemas";
 
@@ -65,9 +65,9 @@ export async function syncFromGraph(
   const accountInsightsPromise = client.getAccountInsights
     ? client.getAccountInsights({ since: daysBefore(today, 7), until: today })
     : Promise.resolve(emptyInsights);
-  const [profile, reels, accountInsights] = await Promise.all([
+  const [profile, mediaList, accountInsights] = await Promise.all([
     client.getProfile(),
-    client.listReels(),
+    client.listMedia(),
     accountInsightsPromise,
   ]);
 
@@ -79,12 +79,14 @@ export async function syncFromGraph(
   const errors: string[] = [];
   // 릴스별 insight는 순차 호출한다(Graph API rate limit 완화). 한 릴스가 실패해도
   // (삭제된 미디어·권한 변경·일시적 5xx) 전체 동기화가 멈추지 않도록 개별 격리한다.
-  for (const media of reels) {
+  for (const media of mediaList) {
     try {
-      const insights = await client.getInsights(media.id);
+      // listMedia가 이미 분석 대상만 통과시키므로 여기서 null이 나올 일은 없다.
+      const kind = classifyMedia(media) ?? "REELS";
+      const insights = await client.getInsights(media.id, kind);
       insights.availableMetrics.forEach((metric) => availableMetrics.add(metric));
       insights.unavailableMetrics.forEach((metric) => unavailableMetrics.add(metric));
-      const mapped = mapMediaToReel(media, insights.metrics);
+      const mapped = mapMediaToReel(media, insights.metrics, kind);
       const existing = await reelRepo.get(mapped.id);
       const merged = mergeWithExisting(mapped, existing);
       await reelRepo.upsert({ ...merged, derived: computeDerivedRates(merged) });
@@ -118,9 +120,9 @@ export async function syncFromGraph(
 
   // 동기화할 릴스가 있었는데 전부 실패하면 조용한 200 대신 예외를 던진다
   // (API 라우트가 502로 변환). 계정 스냅샷/프로필도 "정상 동기화"가 아니므로 남기지 않는다.
-  if (reels.length > 0 && synced === 0 && failed > 0) {
+  if (mediaList.length > 0 && synced === 0 && failed > 0) {
     throw new Error(
-      `릴스 동기화 전체 실패: ${failed}/${reels.length}개 릴스 모두 실패. 원인: ${errors.join(" | ")}`,
+      `릴스 동기화 전체 실패: ${failed}/${mediaList.length}개 릴스 모두 실패. 원인: ${errors.join(" | ")}`,
     );
   }
 
@@ -129,8 +131,8 @@ export async function syncFromGraph(
   // 다만 목록이 0건이면 토큰 권한 이상일 수 있고, 그때 전체를 지우면 수동 입력한
   // 자막과 캐시된 LLM 분석까지 복구 불가능하게 사라지므로 건너뛴다.
   let removed = 0;
-  if (reels.length > 0) {
-    const liveIds = new Set(reels.map((media) => media.id));
+  if (mediaList.length > 0) {
+    const liveIds = new Set(mediaList.map((media) => media.id));
     const staleIds = (await reelRepo.list())
       .map((reel) => reel.id)
       .filter((id) => !liveIds.has(id));

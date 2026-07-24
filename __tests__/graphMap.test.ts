@@ -42,7 +42,7 @@ test("mapMediaToReel은 집계 지표를 Reel로 매핑(평균시청 ms→초)",
     follows: 45,
     profile_visits: 180,
   };
-  const reel = mapMediaToReel(media, insights);
+  const reel = mapMediaToReel(media, insights, "REELS");
   expect(reel.id).toBe("media-1");
   expect(reel.views).toBe(10000);
   expect(reel.saves).toBe(40); // saved → saves
@@ -56,7 +56,7 @@ test("mapMediaToReel은 집계 지표를 Reel로 매핑(평균시청 ms→초)",
 
 test("mapMediaToReel은 reels_skip_rate와 출처를 매핑", () => {
   const media = { id: "m4", media_product_type: "REELS", timestamp: "2026-06-04T00:00:00+0000" };
-  const reel = mapMediaToReel(media, { reels_skip_rate: 68.56 });
+  const reel = mapMediaToReel(media, { reels_skip_rate: 68.56 }, "REELS");
   expect(reel.skipRate).toBeCloseTo(68.56, 5);
   expect(reel.skipRateSource).toBe("API");
   expect(reel.hookRetention3s).toBeCloseTo(31.44, 5);
@@ -64,7 +64,7 @@ test("mapMediaToReel은 reels_skip_rate와 출처를 매핑", () => {
 
 test("mapMediaToReel은 skip 지표가 없으면 skipRate/hookRetention3s를 남기지 않는다", () => {
   const media = { id: "m5", media_product_type: "REELS", timestamp: "2026-06-05T00:00:00+0000" };
-  const reel = mapMediaToReel(media, {});
+  const reel = mapMediaToReel(media, {}, "REELS");
   expect(reel.skipRate).toBeUndefined();
   expect(reel.hookRetention3s).toBeUndefined();
 });
@@ -77,14 +77,14 @@ test("mapMediaToReel은 썸네일/퍼머링크를 매핑", () => {
     thumbnail_url: "https://cdn/thumb.jpg",
     permalink: "https://instagram.com/reel/abc",
   };
-  const reel = mapMediaToReel(media, {});
+  const reel = mapMediaToReel(media, {}, "REELS");
   expect(reel.thumbnailUrl).toBe("https://cdn/thumb.jpg");
   expect(reel.permalink).toBe("https://instagram.com/reel/abc");
 });
 
 test("mapMediaToReel은 누락 지표를 0으로 채운다", () => {
   const media = { id: "m2", media_type: "VIDEO", media_product_type: "REELS", timestamp: "2026-06-02T00:00:00+0000" };
-  const reel = mapMediaToReel(media, {});
+  const reel = mapMediaToReel(media, {}, "REELS");
   expect(reel.views).toBe(0);
   expect(reel.likes).toBe(0);
 });

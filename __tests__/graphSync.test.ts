@@ -21,7 +21,7 @@ const fakeClient: GraphClient = {
     avatarUrl: "https://cdn/a.jpg",
     mediaCount: 7,
   }),
-  listReels: async () => [
+  listMedia: async () => [
     { id: "media-1", media_product_type: "REELS", caption: "API 캡션", timestamp: "2026-06-01T00:00:00+0000" },
   ],
   getInsights: async () => ({

@@ -32,7 +32,7 @@ function flakyClient(reels: GraphMedia[], failIds: string[]): GraphClient {
       followersCount: 1500,
       mediaCount: reels.length,
     }),
-    listReels: async () => reels,
+    listMedia: async () => reels,
     getInsights: async (mediaId: string) => {
       if (failIds.includes(mediaId)) throw new Error(`권한 없음 (${mediaId})`);
       return okInsights();

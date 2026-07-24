@@ -1,9 +1,10 @@
-import { flattenInsights, type GraphMedia, type GraphInsightsResponse } from "@/lib/graph/map";
+import { classifyMedia, flattenInsights, type GraphMedia, type GraphInsightsResponse } from "@/lib/graph/map";
+import type { MediaKind } from "@/lib/schemas";
 
 const DEFAULT_BASE = "https://graph.instagram.com";
 const VERSION = "v23.0";
 
-// listReels 페이지네이션 상한: 한 번의 동기화가 무한정 페이지를 따라가지 않도록 제한한다.
+// listMedia 페이지네이션 상한: 한 번의 동기화가 무한정 페이지를 따라가지 않도록 제한한다.
 const MEDIA_PAGE_SIZE = "100";
 const MAX_MEDIA_PAGES = 20;
 
@@ -27,6 +28,24 @@ const OPTIONAL_REEL_METRICS = [
   "clips_replays_count",
   "ig_reels_aggregated_all_plays_count",
 ];
+
+// 캐러셀에는 ig_reels_*, reels_skip_rate, clips_replays_count가 존재하지 않는다.
+// 함께 요청하면 optionalInsights의 폴백이 지표를 하나씩 재요청해 게시물당
+// 불필요한 Graph 호출이 여러 번 발생한다.
+const REQUIRED_CAROUSEL_METRICS = ["reach", "likes", "comments", "saved", "shares"];
+
+const OPTIONAL_CAROUSEL_METRICS = [
+  "views",
+  "total_interactions",
+  "follows",
+  "profile_visits",
+  "profile_activity",
+];
+
+const METRICS_BY_KIND: Record<MediaKind, { required: string[]; optional: string[] }> = {
+  REELS: { required: REQUIRED_REEL_METRICS, optional: OPTIONAL_REEL_METRICS },
+  CAROUSEL: { required: REQUIRED_CAROUSEL_METRICS, optional: OPTIONAL_CAROUSEL_METRICS },
+};
 
 const ACCOUNT_METRICS = [
   "views",
@@ -71,15 +90,15 @@ interface Options {
 
 export interface GraphClient {
   getProfile(): Promise<GraphProfile>;
-  listReels(): Promise<GraphMedia[]>;
-  getInsights(mediaId: string): Promise<GraphInsightResult>;
+  listMedia(): Promise<GraphMedia[]>;
+  getInsights(mediaId: string, kind?: MediaKind): Promise<GraphInsightResult>;
   getAccountInsights?(range: { since: string; until: string }): Promise<GraphInsightResult>;
 }
 
 export function createGraphClient(opts: Options): GraphClient {
   const base = opts.baseURL ?? DEFAULT_BASE;
   const fetchImpl: FetchLike = opts.fetchImpl ?? ((url) => fetch(url) as unknown as Promise<FetchResult>);
-  let reelOptionalCapabilities: { supported: string[]; unavailable: string[] } | null = null;
+  const optionalCapabilities = new Map<MediaKind, { supported: string[]; unavailable: string[] }>();
 
   function safeGraphMessage(message: string): string {
     if (!opts.accessToken) return message;
@@ -188,19 +207,19 @@ export function createGraphClient(opts: Options): GraphClient {
       };
     },
 
-    async listReels() {
+    async listMedia() {
       let page = (await request("me/media", {
-        fields: "id,media_type,media_product_type,caption,timestamp,thumbnail_url,permalink",
+        fields: "id,media_type,media_product_type,caption,timestamp,thumbnail_url,media_url,permalink",
         limit: MEDIA_PAGE_SIZE,
       })) as MediaPage;
-      const reels: GraphMedia[] = [];
+      const collected: GraphMedia[] = [];
       const seenPages = new Set<string>();
       for (let pageCount = 0; pageCount < MAX_MEDIA_PAGES; pageCount++) {
         for (const media of page.data ?? []) {
-          if (media.media_product_type === "REELS") reels.push(media);
+          if (classifyMedia(media) !== null) collected.push(media);
         }
         const next = page.paging?.next;
-        if (!next) return reels;
+        if (!next) return collected;
         // 일부만 반환하면 진단 표본이 조용히 잘리므로 안전 상한에서는 명시적으로 실패한다.
         if (pageCount + 1 >= MAX_MEDIA_PAGES) {
           throw new Error(`Graph API 미디어 페이지가 안전 상한(${MAX_MEDIA_PAGES})을 초과했습니다`);
@@ -211,30 +230,32 @@ export function createGraphClient(opts: Options): GraphClient {
         seenPages.add(next);
         page = await fetchMediaPage(next);
       }
-      return reels;
+      return collected;
     },
 
-    async getInsights(mediaId) {
+    async getInsights(mediaId, kind = "REELS") {
+      const { required: requiredMetrics, optional: optionalMetrics } = METRICS_BY_KIND[kind];
       const json = (await request(`${mediaId}/insights`, {
-        metric: REQUIRED_REEL_METRICS.join(","),
+        metric: requiredMetrics.join(","),
       })) as GraphInsightsResponse;
       const required = flattenInsights(json);
-      const metricsToRequest = reelOptionalCapabilities?.supported ?? OPTIONAL_REEL_METRICS;
+      const cached = optionalCapabilities.get(kind);
+      const metricsToRequest = cached?.supported ?? optionalMetrics;
       const optional = await optionalInsights(`${mediaId}/insights`, metricsToRequest);
-      if (reelOptionalCapabilities === null) {
-        reelOptionalCapabilities = {
+      if (!cached) {
+        optionalCapabilities.set(kind, {
           supported: optional.availableMetrics,
           unavailable: optional.unavailableMetrics,
-        };
+        });
       }
       return {
         metrics: { ...required, ...optional.metrics },
         availableMetrics: [
-          ...REQUIRED_REEL_METRICS.filter((metric) => metric in required),
+          ...requiredMetrics.filter((metric) => metric in required),
           ...optional.availableMetrics,
         ],
         unavailableMetrics: [
-          ...(reelOptionalCapabilities?.unavailable ?? []),
+          ...(optionalCapabilities.get(kind)?.unavailable ?? []),
           ...optional.unavailableMetrics,
         ].filter((metric, index, values) => values.indexOf(metric) === index),
       };

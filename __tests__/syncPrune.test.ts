@@ -40,7 +40,7 @@ function clientWith(list: GraphMedia[]): GraphClient {
       followersCount: 1500,
       mediaCount: list.length,
     }),
-    listReels: async () => list,
+    listMedia: async () => list,
     getInsights: async () => ({
       metrics: { views: 1000, reach: 800, likes: 10, comments: 1, saved: 2, shares: 3 },
       availableMetrics: ["views", "reach"],

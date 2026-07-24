@@ -25,7 +25,7 @@ const reel = (id: string) => ({
 const nextUrl = (cursor: string) =>
   `https://graph.instagram.com/v23.0/me/media?after=${cursor}&access_token=tok`;
 
-test("listReels는 limit=100으로 첫 페이지를 요청하고 paging.next를 끝까지 따라간다", async () => {
+test("listMedia는 limit=100으로 첫 페이지를 요청하고 paging.next를 끝까지 따라간다", async () => {
   const calls: string[] = [];
   const client = createGraphClient({
     accessToken: "tok",
@@ -45,7 +45,7 @@ test("listReels는 limit=100으로 첫 페이지를 요청하고 paging.next를 
     ) as unknown as typeof fetch,
   });
 
-  const reels = await client.listReels();
+  const reels = await client.listMedia();
   expect(reels.map((m) => m.id)).toEqual(["r1", "r2", "r3"]);
   expect(calls).toHaveLength(3);
   expect(calls[0]).toContain("limit=100");
@@ -62,7 +62,7 @@ test("paging.next가 없으면 첫 페이지만 요청하고 멈춘다", async (
     ) as unknown as typeof fetch,
   });
 
-  const reels = await client.listReels();
+  const reels = await client.listMedia();
   expect(reels.map((m) => m.id)).toEqual(["r1", "r2"]);
   expect(calls).toHaveLength(1);
 });
@@ -81,7 +81,7 @@ test("paging.next 커서가 반복되면 무한 반복 대신 명시적으로 �
     ) as unknown as typeof fetch,
   });
 
-  await expect(client.listReels()).rejects.toThrow(/커서가 반복/);
+  await expect(client.listMedia()).rejects.toThrow(/커서가 반복/);
   expect(calls).toHaveLength(2);
 });
 
@@ -99,7 +99,7 @@ test("릴스가 500개를 넘어도 paging.next가 끝날 때까지 모두 가�
     fetchImpl: pagedFetch(pages, calls) as unknown as typeof fetch,
   });
 
-  const reels = await client.listReels();
+  const reels = await client.listMedia();
   expect(reels).toHaveLength(600);
   expect(calls).toHaveLength(6);
 });
@@ -118,7 +118,7 @@ test("페이지 상한(20)에 도달했는데 paging.next가 남으면 명시적
     fetchImpl: pagedFetch(pages, calls) as unknown as typeof fetch,
   });
 
-  await expect(client.listReels()).rejects.toThrow(/상한|완전한 목록/);
+  await expect(client.listMedia()).rejects.toThrow(/상한|완전한 목록/);
   expect(calls).toHaveLength(20);
 });
 
@@ -138,7 +138,7 @@ test("페이지 상한 오류 메시지에 paging.next의 액세스 토큰을 �
     fetchImpl: pagedFetch(pages, []) as unknown as typeof fetch,
   });
 
-  const error = await client.listReels().catch((caught: unknown) => caught);
+  const error = await client.listMedia().catch((caught: unknown) => caught);
   expect(String(error)).not.toContain(secret);
 });
 
@@ -161,5 +161,5 @@ test("다음 페이지 응답이 ok=false면 Graph 오류 메시지로 throw", a
     }) as unknown as typeof fetch,
   });
 
-  await expect(client.listReels()).rejects.toThrow(/토큰 만료/);
+  await expect(client.listMedia()).rejects.toThrow(/토큰 만료/);
 });
