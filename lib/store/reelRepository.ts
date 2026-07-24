@@ -9,6 +9,7 @@ export interface ReelRepository {
   list(): Promise<Reel[]>;
   get(id: string): Promise<Reel | null>;
   upsert(reel: Reel): Promise<Reel>;
+  removeMany(ids: string[]): Promise<number>;
 }
 
 export function createJsonReelRepository(dataDir: string): ReelRepository {
@@ -35,6 +36,16 @@ export function createJsonReelRepository(dataDir: string): ReelRepository {
         const next = idx === -1 ? [...all, validated] : all.map((r, i) => (i === idx ? validated : r));
         await writeJsonAtomic(file, next);
         return validated;
+      }),
+    removeMany: (ids) =>
+      withFileLock(file, async () => {
+        if (ids.length === 0) return 0;
+        const doomed = new Set(ids);
+        const all = await readAll();
+        const next = all.filter((r) => !doomed.has(r.id));
+        const removed = all.length - next.length;
+        if (removed > 0) await writeJsonAtomic(file, next);
+        return removed;
       }),
   };
 }

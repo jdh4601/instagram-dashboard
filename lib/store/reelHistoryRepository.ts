@@ -8,6 +8,7 @@ import { withFileLock, writeJsonAtomic } from "@/lib/store/jsonFile";
 export interface ReelHistoryRepository {
   list(reelId: string): Promise<ReelMetricSnapshot[]>;
   add(snapshot: ReelMetricSnapshot): Promise<ReelMetricSnapshot>;
+  removeByReelIds(reelIds: string[]): Promise<number>;
 }
 
 export function createJsonReelHistoryRepository(dataDir: string): ReelHistoryRepository {
@@ -36,6 +37,16 @@ export function createJsonReelHistoryRepository(dataDir: string): ReelHistoryRep
         const next = idx === -1 ? [...all, validated] : all.map((s, i) => (i === idx ? validated : s));
         await writeJsonAtomic(file, next);
         return validated;
+      }),
+    removeByReelIds: (reelIds) =>
+      withFileLock(file, async () => {
+        if (reelIds.length === 0) return 0;
+        const doomed = new Set(reelIds);
+        const all = await readAll();
+        const next = all.filter((s) => !doomed.has(s.reelId));
+        const removed = all.length - next.length;
+        if (removed > 0) await writeJsonAtomic(file, next);
+        return removed;
       }),
   };
 }
