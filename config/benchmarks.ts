@@ -8,7 +8,6 @@ export type MetricKey =
   | "likeRate"
   | "commentRate"
   | "followRate"
-  | "nonFollowerReach"
   | "profileVisitRate";
 
 /** 릴스 표가 반드시 갖는 키. 영상 전용 분석이 undefined 검사 없이 쓸 수 있다. */
@@ -33,7 +32,6 @@ export const REELS_BENCHMARKS: Record<ReelMetricKey, Threshold> = {
   likeRate:        { weakBelow: 1.5, strongAbove: 3, weight: 1, label: "좋아요율" },
   commentRate:     { weakBelow: 0.1, strongAbove: 0.3, weight: 2, label: "댓글율" },
   followRate:       { weakBelow: 0.4, strongAbove: 0.8, weight: 4, label: "팔로우 전환율" },
-  nonFollowerReach: { weakBelow: 60, strongAbove: 80, weight: 3, label: "논팔로워 도달" },
 };
 
 // 캐러셀은 도달을 늘리는 포맷이 아니라 이미 닿은 사람을 팬으로 바꾸는 포맷이다.

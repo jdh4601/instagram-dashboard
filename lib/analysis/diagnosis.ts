@@ -49,7 +49,6 @@ function metricValues(reel: Reel): Partial<Record<MetricKey, number>> {
     likeRate: d.likeRate,
     commentRate: d.commentRate,
     followRate: d.followRate,
-    nonFollowerReach: reel.audienceBreakdown?.nonFollowersPct,
     profileVisitRate: d.profileVisitRate,
   };
 }
