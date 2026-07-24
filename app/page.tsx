@@ -73,16 +73,18 @@ export default function Page() {
         setToast({
           tone: "warning",
           message:
-            `동기화 일부 실패: 릴스 ${failed}개를 가져오지 못했습니다` +
+            `동기화 일부 실패: 게시물 ${failed}개를 가져오지 못했습니다` +
             (errors.length > 0 ? ` — ${errors.slice(0, 2).join(" / ")}` : ""),
         });
         return;
       }
       const unsupported = Array.isArray(data.unavailableMetrics) ? data.unavailableMetrics.length : 0;
+      const removed = typeof data.removedReels === "number" ? data.removedReels : 0;
       setToast({
         tone: "success",
         message:
-          `동기화 완료: 릴스 ${data.syncedReels}개 · @${data.username}` +
+          `동기화 완료: 게시물 ${data.syncedReels}개 · @${data.username}` +
+          (removed > 0 ? ` · 삭제된 게시물 ${removed}개 정리` : "") +
           (unsupported > 0 ? ` · 선택 지표 ${unsupported}개 미지원` : ""),
       });
     } catch {
