@@ -226,7 +226,12 @@ export default function Page() {
 
             <DashboardMetrics metrics={dashboardMetrics} />
 
-            <ReelList reels={visibleReels} filter={mediaFilter} onFilterChange={setMediaFilter} />
+            <ReelList
+              reels={visibleReels}
+              filter={mediaFilter}
+              onFilterChange={setMediaFilter}
+              syncing={syncing}
+            />
 
             <form
               onSubmit={addSnapshot}

@@ -1,22 +1,24 @@
 "use client";
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Search, Film, Eye, Calendar, Heart, MessageCircle, Share2, Bookmark } from "lucide-react";
+import { Search, Film, Eye, Calendar, Heart, MessageCircle, Share2, Bookmark, RefreshCw } from "lucide-react";
 import type { Reel } from "@/lib/schemas";
 import { reelTitle } from "@/lib/ui/reelTitle";
 import { selectReels, SORT_LABELS, type ReelSort } from "@/lib/ui/reelSelect";
 import { fmtCount, fmtPct } from "@/lib/ui/format";
 import { cn } from "@/components/ui";
 import { MediaTypeToggle } from "@/components/MediaTypeToggle";
-import { MEDIA_FILTER_LABELS, type MediaFilter } from "@/lib/ui/mediaFilter";
+import { emptyListMessage, type MediaFilter } from "@/lib/ui/mediaFilter";
 
 interface Props {
   reels: Reel[];
   filter: MediaFilter;
   onFilterChange: (value: MediaFilter) => void;
+  /** 동기화가 진행 중이면 목록이 아직 갱신 전이라는 뜻이다. */
+  syncing?: boolean;
 }
 
-export function ReelList({ reels, filter, onFilterChange }: Props) {
+export function ReelList({ reels, filter, onFilterChange, syncing = false }: Props) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<ReelSort>("latest");
 
@@ -29,13 +31,17 @@ export function ReelList({ reels, filter, onFilterChange }: Props) {
           <h2 className="text-sm font-semibold text-neutral-700">게시물 목록</h2>
           <MediaTypeToggle value={filter} onChange={onFilterChange} />
         </div>
-        <div className="rounded-card border border-dashed border-border-subtle bg-surface-muted p-8 text-center text-sm text-neutral-500">
-          <Film className="mx-auto mb-2 text-neutral-300" size={28} />
-          {/* 목록은 이미 걸러진 채로 들어온다. 전체 필터에서 비었을 때만 저장소가
-              비었다고 단정할 수 있고, 나머지는 필터 때문일 수도 있어 문구를 나눈다. */}
-          {filter === "ALL"
-            ? "아직 게시물이 없습니다. 상단의 동기화로 Instagram에서 가져오세요."
-            : `${MEDIA_FILTER_LABELS[filter]} 게시물이 없습니다. 다른 종류를 보거나 동기화해 주세요.`}
+        <div
+          role={syncing ? "status" : undefined}
+          aria-live={syncing ? "polite" : undefined}
+          className="rounded-card border border-dashed border-border-subtle bg-surface-muted p-8 text-center text-sm text-neutral-500"
+        >
+          {syncing ? (
+            <RefreshCw className="mx-auto mb-2 animate-spin text-neutral-300" size={28} />
+          ) : (
+            <Film className="mx-auto mb-2 text-neutral-300" size={28} />
+          )}
+          {emptyListMessage(filter, syncing)}
         </div>
       </section>
     );
