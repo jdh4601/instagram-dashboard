@@ -1,5 +1,6 @@
-import type { Reel } from "@/lib/schemas";
-import { BENCHMARKS, type MetricKey, type Threshold } from "@/config/benchmarks";
+import type { MediaKind, Reel } from "@/lib/schemas";
+import { BENCHMARKS_BY_KIND, type MetricKey, type Threshold } from "@/config/benchmarks";
+import { mediaKindOf } from "@/lib/media/kind";
 import { classifyBand, type Band, type MetricVerdict } from "@/lib/analysis/diagnosis";
 import { buildBaselineThresholds } from "@/lib/analysis/baseline";
 import { computeDerivedRates } from "@/lib/analysis/metrics";
@@ -54,17 +55,20 @@ function buildVerdict(key: MetricKey, value: number, t: Threshold): MetricVerdic
   };
 }
 
-export function diagnoseRecent(reels: Reel[]): RecentDiagnosis {
-  const recent = recentReels(reels, RECENT_REEL_COUNT);
+export function diagnoseRecent(reels: Reel[], kind: MediaKind = "REELS"): RecentDiagnosis {
+  const sameKind = reels.filter((reel) => mediaKindOf(reel) === kind);
+  const recent = recentReels(sameKind, RECENT_REEL_COUNT);
   // A안: 상세(analyzeReel)와 동일한 임계값 소스 — 베이스라인(내 평균), 부족 시 글로벌
-  const thresholds = buildBaselineThresholds(reels) ?? BENCHMARKS;
+  const thresholds = buildBaselineThresholds(sameKind, kind) ?? BENCHMARKS_BY_KIND[kind];
   const verdicts: MetricVerdict[] = [];
 
   for (const key of Object.keys(thresholds) as MetricKey[]) {
+    const threshold = thresholds[key];
+    if (threshold === undefined) continue;
     const values = metricValues(recent, key);
     if (values.length === 0) continue;
     const avg = average(values);
-    verdicts.push(buildVerdict(key, avg, thresholds[key]));
+    verdicts.push(buildVerdict(key, avg, threshold));
   }
 
   const strengths = verdicts.filter((v) => v.band === "strong");

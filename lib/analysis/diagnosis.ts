@@ -1,6 +1,12 @@
-import { BENCHMARKS, type MetricKey, type Threshold } from "@/config/benchmarks";
+import {
+  BENCHMARKS_BY_KIND,
+  type MetricKey,
+  type Threshold,
+  type ThresholdTable,
+} from "@/config/benchmarks";
 import type { Reel } from "@/lib/schemas";
 import { computeDerivedRates } from "@/lib/analysis/metrics";
+import { mediaKindOf } from "@/lib/media/kind";
 
 export type Band = "weak" | "ok" | "strong";
 
@@ -39,6 +45,7 @@ function metricValues(reel: Reel): Partial<Record<MetricKey, number>> {
     commentRate: d.commentRate,
     followRate: d.followRate,
     nonFollowerReach: reel.audienceBreakdown?.nonFollowersPct,
+    profileVisitRate: d.profileVisitRate,
   };
 }
 
@@ -49,15 +56,15 @@ function priorityScore(value: number, t: Threshold): number {
 
 export function diagnose(
   reel: Reel,
-  thresholds: Record<MetricKey, Threshold> = BENCHMARKS,
+  thresholds: ThresholdTable = BENCHMARKS_BY_KIND[mediaKindOf(reel)],
 ): Diagnosis {
   const values = metricValues(reel);
   const verdicts: MetricVerdict[] = [];
 
   for (const key of Object.keys(thresholds) as MetricKey[]) {
     const value = values[key];
-    if (value === undefined) continue;
     const t = thresholds[key];
+    if (value === undefined || t === undefined) continue;
     const band = classifyBand(value, t);
     verdicts.push({
       key,

@@ -1,7 +1,7 @@
 import type { Reel, TranscriptInsights } from "@/lib/schemas";
 import { TranscriptInsightsSchema } from "@/lib/schemas";
 import { computeDerivedRates } from "@/lib/analysis/metrics";
-import { BENCHMARKS, type MetricKey } from "@/config/benchmarks";
+import { BENCHMARKS, type ReelMetricKey } from "@/config/benchmarks";
 import type { TextModel } from "@/lib/llm/types";
 
 const SYSTEM_PROMPT = `너는 인스타그램 릴스의 자막(대본)과 성과 지표를 함께 보고
@@ -27,7 +27,8 @@ metric 키 예: skipRate(스킵률), completionRate(평균 시청 비율), share
 commentRate(댓글율), followRate(팔로우전환율).`;
 
 // 지표값을 계정 벤치마크에 비춰 약점권/중간/강점권으로 라벨링. 모델이 직접 "좋다/나쁘다"를 판단하지 않게 한다.
-function band(value: number, key: MetricKey): string {
+// 자막 분석은 릴스 전용이라 릴스 표만 참조한다.
+function band(value: number, key: ReelMetricKey): string {
   const t = BENCHMARKS[key];
   const tag = value < t.weakBelow ? "약점권" : value > t.strongAbove ? "강점권" : "중간";
   return `[기준 ${t.weakBelow}↓약점·${t.strongAbove}↑강점 → ${tag}]`;
