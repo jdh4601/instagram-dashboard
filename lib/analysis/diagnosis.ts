@@ -1,5 +1,6 @@
 import {
   BENCHMARKS_BY_KIND,
+  MIN_REACH_FOR_VERDICT,
   type MetricKey,
   type Threshold,
   type ThresholdTable,
@@ -24,6 +25,10 @@ export interface Diagnosis {
   strengths: MetricVerdict[];
   weaknesses: MetricVerdict[];
   bottleneck: MetricVerdict | null;
+  /** 도달이 MIN_REACH_FOR_VERDICT 미만 — 강점·약점·병목을 비운다. */
+  insufficientSample: boolean;
+  /** 표본 부족 안내에 쓸 실제 도달값. */
+  reach: number;
 }
 
 export function classifyBand(value: number, t: Threshold): Band {
@@ -76,6 +81,20 @@ export function diagnose(
     });
   }
 
+  // 도달이 너무 작으면 비율은 계산되지만 판정할 근거가 없다. 측정값(verdicts)은
+  // 남겨 막대는 그리되, 강점·약점·병목은 만들지 않는다.
+  const insufficientSample = reel.reach < MIN_REACH_FOR_VERDICT;
+  if (insufficientSample) {
+    return {
+      verdicts,
+      strengths: [],
+      weaknesses: [],
+      bottleneck: null,
+      insufficientSample: true,
+      reach: reel.reach,
+    };
+  }
+
   const strengths = verdicts.filter((v) => v.band === "strong");
   const weaknesses = verdicts.filter((v) => v.band === "weak");
   const bottleneck =
@@ -83,5 +102,12 @@ export function diagnose(
       ? null
       : weaknesses.reduce((a, b) => (b.priorityScore > a.priorityScore ? b : a));
 
-  return { verdicts, strengths, weaknesses, bottleneck };
+  return {
+    verdicts,
+    strengths,
+    weaknesses,
+    bottleneck,
+    insufficientSample: false,
+    reach: reel.reach,
+  };
 }

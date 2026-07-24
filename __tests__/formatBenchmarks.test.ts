@@ -10,7 +10,7 @@ function carousel(overrides: Partial<Reel> = {}): Reel {
     postedAt: "2026-07-24T00:00:00Z",
     durationSec: 0,
     views: 470,
-    reach: 108,
+    reach: 400, // 판정 최소 표본(MIN_REACH_FOR_VERDICT) 이상이어야 밴드가 생긴다
     likes: 6,
     comments: 1,
     saves: 3,
@@ -27,7 +27,7 @@ function reels(overrides: Partial<Reel> = {}): Reel {
     postedAt: "2026-07-20T00:00:00Z",
     durationSec: 15,
     views: 470,
-    reach: 108,
+    reach: 400, // 판정 최소 표본(MIN_REACH_FOR_VERDICT) 이상이어야 밴드가 생긴다
     likes: 6,
     comments: 1,
     saves: 3,
@@ -85,8 +85,8 @@ describe("포맷별 진단 (INS-3)", () => {
   });
 
   test("캐러셀은 프로필 방문율을 진단한다", () => {
-    const d = diagnose(carousel({ profileVisits: 1 }));
-    // 방문 1 / 도달 108 = 0.93% → 하한 1% 미달
+    // 방문 3 / 도달 400 = 0.75% → 하한 1% 미달
+    const d = diagnose(carousel({ profileVisits: 3 }));
     expect(d.weaknesses.map((v) => v.key)).toContain("profileVisitRate");
   });
 });

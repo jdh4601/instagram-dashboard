@@ -62,3 +62,8 @@ export const BENCHMARKS = REELS_BENCHMARKS;
 export const DROP_THRESHOLD_PCT_PER_SEC = 8; // 잔존곡선 급락 플래그 기준 (%p/초)
 export const HOOK_WINDOW_SEC = 3;            // 0~3초 훅 이탈은 별도 보고
 export const BASELINE_MIN_REELS = 5;         // 개인화 베이스라인 전환 최소 릴스 수
+
+// 강점·약점·병목을 판정할 최소 도달. 진단은 비율만 보는데 도달이 작으면 분모가
+// 작아 비율이 오히려 좋게 나온다. 표본이 적을수록 "강점"이 쉬워지는 역설을 막는다.
+// 실측 사례: 도달 108건 캐러셀이 "뚜렷한 병목 없음"으로 판정됐다.
+export const MIN_REACH_FOR_VERDICT = 300;

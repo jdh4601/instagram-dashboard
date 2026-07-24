@@ -92,6 +92,8 @@ function ReelDetail({
 }: DetailResponse & { onChange: () => void }) {
   // 자막과 훅·엔딩 생성은 영상 전제라 캐러셀에서는 의미가 없다.
   const isReel = mediaKindOf(reel) === "REELS";
+  // 화면 문구는 전부 이 한 값에서 나온다. 리터럴을 흩뿌리면 캐러셀에 "릴스"가 샌다.
+  const mediaLabel = isReel ? "릴스" : "캐러셀";
 
   return (
     <>
@@ -103,7 +105,7 @@ function ReelDetail({
               href={`/reel/${nav.prevId}`}
               className="inline-flex min-h-11 items-center gap-1 rounded-lg text-neutral-600 hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 sm:min-h-9"
             >
-              <ArrowLeft size={14} /> 이전 {isReel ? "릴스" : "캐러셀"}
+              <ArrowLeft size={14} /> 이전 {mediaLabel}
             </Link>
           ) : (
             <span />
@@ -113,7 +115,7 @@ function ReelDetail({
               href={`/reel/${nav.nextId}`}
               className="inline-flex min-h-11 items-center gap-1 rounded-lg text-neutral-600 hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 sm:min-h-9"
             >
-              다음 {isReel ? "릴스" : "캐러셀"} <ArrowRight size={14} />
+              다음 {mediaLabel} <ArrowRight size={14} />
             </Link>
           ) : (
             <span />
@@ -152,14 +154,21 @@ function ReelDetail({
       <ReelPerformanceDashboard reel={reel} deltas={kpiDeltas} />
 
       {/* 진단 → 처방 → 실행 → 근거/상세 순으로 스토리를 전개한다. */}
-      <BottleneckBanner bottleneck={analysis.diagnosis.bottleneck} delta={analysis.bottleneckDelta} />
+      <BottleneckBanner
+        bottleneck={analysis.diagnosis.bottleneck}
+        delta={analysis.bottleneckDelta}
+        insufficientSample={analysis.diagnosis.insufficientSample}
+        reach={analysis.diagnosis.reach}
+      />
       <DiagnosisCards
         strengths={analysis.diagnosis.strengths}
         weaknesses={analysis.diagnosis.weaknesses}
+        mediaLabel={mediaLabel}
+        insufficientSample={analysis.diagnosis.insufficientSample}
       />
       <SolutionsPanel prescriptions={analysis.prescriptions} />
       {isReel && <AiGenerationPanel reelId={reel.id} />}
-      <InsightList title={`이 ${isReel ? "릴스" : "캐러셀"}의 핵심 인사이트`} insights={analysis.reelInsights} />
+      <InsightList title={`이 ${mediaLabel}의 핵심 인사이트`} insights={analysis.reelInsights} />
       <ReelMetricTrend history={metricHistory} />
       {isReel && (
         <SrtUploadCard

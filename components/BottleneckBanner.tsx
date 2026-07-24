@@ -1,13 +1,41 @@
-import { Zap, CheckCircle2, TrendingUp, TrendingDown } from "lucide-react";
+import { Zap, CheckCircle2, HelpCircle, TrendingUp, TrendingDown } from "lucide-react";
 import type { MetricVerdict } from "@/lib/analysis/diagnosis";
+import { MIN_REACH_FOR_VERDICT } from "@/config/benchmarks";
 import { fmtPct } from "@/lib/ui/format";
 
 interface Props {
   bottleneck: MetricVerdict | null;
   delta: number | null;
+  /** 도달이 판정 최소 표본에 못 미치면 초록/빨강 대신 중립 안내를 낸다. */
+  insufficientSample?: boolean;
+  reach?: number;
 }
 
-export function BottleneckBanner({ bottleneck, delta }: Props) {
+export function BottleneckBanner({
+  bottleneck,
+  delta,
+  insufficientSample = false,
+  reach,
+}: Props) {
+  // 표본 부족을 "병목 없음"(초록)으로 읽히게 두면 안 된다. 도달이 평균의 1/4인
+  // 게시물에 "잘 하고 있어요"가 뜨던 원인이다.
+  if (insufficientSample) {
+    return (
+      <div className="flex items-start gap-3 rounded-card border border-neutral-200 bg-neutral-50 p-4">
+        <HelpCircle className="mt-0.5 shrink-0 text-neutral-400" size={22} />
+        <div>
+          <p className="font-medium text-neutral-600">
+            표본 부족 — 아직 판정할 수 없습니다
+          </p>
+          <p className="mt-1 text-sm text-neutral-500">
+            도달 {reach?.toLocaleString() ?? "-"}건으로는 비율이 흔들립니다.
+            판정 기준은 도달 {MIN_REACH_FOR_VERDICT.toLocaleString()}건입니다.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (!bottleneck) {
     return (
       <div className="flex items-center gap-3 rounded-card border border-band-strong-border bg-band-strong-soft p-4">
