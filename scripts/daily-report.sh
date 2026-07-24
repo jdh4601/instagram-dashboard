@@ -2,7 +2,9 @@
 # 매일 아침 일일 리포트 엔드포인트를 호출한다. launchd에서 실행된다.
 set -euo pipefail
 
-PROJECT_DIR="${PROJECT_DIR:-$HOME/Developer/instagram-dashboard}"
+# 기본값은 이 스크립트가 속한 리포 루트(scripts/의 상위). 다른 위치에서 실행할 때만
+# PROJECT_DIR 환경변수로 덮어쓴다 (launchd 템플릿도 이 변수를 주입한다).
+PROJECT_DIR="${PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 ENV_FILE="$PROJECT_DIR/.env"
 
 # .env에서 CRON_SECRET / REPORT_URL 등을 로드 (docker-compose와 동일한 단일 소스)

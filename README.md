@@ -17,6 +17,10 @@ emails you a **daily best/worst report with an LLM-written summary** every morni
 - **Bring your own LLM provider** — Anthropic (Claude) / OpenAI / Kimi (Moonshot) / Gemini. Add the
   key in the dashboard settings screen.
 
+## Screenshots
+
+![Reels dashboard populated with fictional demo data](./docs/screenshots/dashboard.png)
+
 ## Features
 
 | Feature | What it does |
@@ -47,11 +51,29 @@ npm run dev
 ```
 
 Open <http://localhost:3000> and you'll see reels, diagnosis, and follower charts already populated.
-To connect a real account, follow the **Settings** section below and the
-[Instagram setup guide](./docs/INSTAGRAM_SETUP.md).
+To connect a real account, see [Connecting a real Instagram account](#connecting-a-real-instagram-account)
+below.
 
 > `seed:demo` only seeds when `data/` is empty. If you already have real data, overwrite it
-> explicitly with `npm run seed:demo -- --force`.
+> explicitly with `npm run seed:demo -- --force` (existing files are backed up as
+> `*.json.bak-<timestamp>` first).
+
+`npm install` also creates the local `data/` directory. This prevents Docker Compose from creating
+the bind-mounted directory as `root` on a fresh clone. If you skipped installation and start with
+Docker directly, create it first with `mkdir -p data`.
+
+## Connecting a real Instagram account
+
+The demo needs no credentials. To analyze your own account you need a **professional (Business or
+Creator) Instagram account** and a **long-lived access token** — the full walkthrough is in
+[docs/INSTAGRAM_SETUP.md](./docs/INSTAGRAM_SETUP.md):
+
+1. Create a Meta developer app and generate a token with the required Instagram permissions.
+2. Exchange it for a long-lived token (~60 days) and paste it into the dashboard's **⚙️ Settings**
+   (`/settings`) — it is stored only in `data/settings.json` on this machine (gitignored).
+3. Click **Sync** on the dashboard to pull your reels and followers.
+
+Tokens expire after ~60 days; the setup guide covers the renewal routine.
 
 ## ⚠️ Security notice (please read)
 
@@ -82,8 +104,9 @@ are shown masked in the UI.
 
 ## Usage
 
-1. **Add reels** — register aggregate metrics (views, likes, comments, saves, shares, avg watch
-   time, etc.) as JSON:
+1. **Add reels** — the fastest way is `npm run seed:demo` (fictional sample account, see
+   [Quick start](#quick-start-try-it-with-demo-data)). To register your own numbers manually, POST
+   aggregate metrics (views, likes, comments, saves, shares, avg watch time, etc.) as JSON:
 
    ```bash
    curl -X POST localhost:3000/api/reels \
@@ -91,8 +114,8 @@ are shown masked in the UI.
      -d @__tests__/fixtures/sample-reel.json
    ```
 
-   Or [connect a real account](./docs/INSTAGRAM_SETUP.md) and use the dashboard's **Sync** button to
-   pull from the Graph API automatically.
+   Or [connect a real account](#connecting-a-real-instagram-account) and use the dashboard's
+   **Sync** button to pull from the Graph API automatically.
 
 2. **Attach a transcript (SRT)** — attach a `.srt` exported from CapCut auto-captions on the reel
    detail screen to analyze the hook and CTA alongside performance. Running the LLM deep-dive caches
@@ -133,13 +156,16 @@ watch time ÷ video length is not a true completion rate, it's labeled **average
 ## Daily email report
 
 Every morning it syncs the account and emails the **top/bottom 3 reels of the last month + a
-follower/reach summary + an LLM summary**. A scheduler (launchd, cron, etc.) calls
+follower/reach summary + an LLM summary**. A scheduler (macOS launchd, Linux cron, etc.) calls
 `/api/cron/daily-report` with `CRON_SECRET` in the `x-cron-secret` header. See `.env.example` and
 [`scripts/launchd/README.md`](./scripts/launchd/README.md):
 
 - `CRON_SECRET` — secret protecting the cron endpoint (`openssl rand -hex 32`)
 - `RESEND_API_KEY` · `REPORT_EMAIL_FROM` · `REPORT_EMAIL_TO` — [Resend](https://resend.com) delivery
 - `REPORT_URL` — endpoint the scheduler calls (omit to use the default)
+
+The included launchd template is macOS-specific. The scheduler guide also includes Linux cron and
+Windows Task Scheduler alternatives; the app and report endpoint themselves are cross-platform.
 
 ## Development
 
@@ -172,7 +198,7 @@ lib/
   settings/     # LLM key + Instagram token settings store (masked)
   ui/           # formatting + chart helpers (pure)
 scripts/        # demo seed + daily-report scheduler (launchd)
-docs/           # Instagram setup guide + design docs
+docs/           # Instagram setup guide, screenshots, design docs
 ```
 
 ## Roadmap

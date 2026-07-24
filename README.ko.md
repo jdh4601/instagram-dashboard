@@ -14,6 +14,10 @@
 - **LLM 제공자 선택 가능** — Anthropic(Claude) / OpenAI / Kimi(Moonshot) / Gemini 중 골라서 사용.
   키는 대시보드 설정 화면에서 추가.
 
+## 스크린샷
+
+![가상 데모 데이터가 채워진 릴스 분석 대시보드](./docs/screenshots/dashboard.png)
+
 ## 주요 기능
 
 | 기능 | 설명 |
@@ -47,7 +51,24 @@ npm run dev
 실제 계정을 연결하려면 아래 **설정**과 [Instagram 연동 가이드](./docs/INSTAGRAM_SETUP.md)를 따른다.
 
 > `seed:demo`는 `data/`가 비어 있을 때만 시딩한다. 이미 실제 데이터가 있으면
-> `npm run seed:demo -- --force`로만 덮어쓸 수 있다.
+> `npm run seed:demo -- --force`로만 덮어쓸 수 있다. 이때 기존 파일은 먼저
+> `*.json.bak-<timestamp>`로 백업된다.
+
+`npm install`은 로컬 `data/` 디렉터리도 생성한다. 새로 복제한 저장소에서 Docker Compose가 bind mount
+디렉터리를 `root` 소유로 만드는 문제를 막기 위해서다. 설치를 건너뛰고 Docker부터 실행한다면
+먼저 `mkdir -p data`를 실행한다.
+
+## 실제 Instagram 계정 연결
+
+데모에는 인증 정보가 필요 없다. 실제 계정을 분석하려면 **프로페셔널(비즈니스 또는 크리에이터)
+Instagram 계정**과 **장기 액세스 토큰**이 필요하다. 전체 절차는
+[Instagram 연동 가이드](./docs/INSTAGRAM_SETUP.md)에 정리돼 있다.
+
+1. Meta 개발자 앱을 만들고 필요한 Instagram 권한으로 토큰을 발급한다.
+2. 장기 토큰(약 60일)으로 교환해 **⚙️ 설정**(`/settings`)에 저장한다.
+3. 대시보드에서 **동기화**를 눌러 릴스와 팔로워 데이터를 가져온다.
+
+토큰은 약 60일 후 만료된다. 연동 가이드의 갱신 절차에 따라 50일쯤 미리 갱신하는 것을 권장한다.
 
 ## ⚠️ 보안 주의 (꼭 읽어주세요)
 
@@ -126,13 +147,16 @@ Graph API 지표는 API 버전과 계정 유형에 따라 달라질 수 있다. 
 ## 일일 이메일 리포트
 
 매일 아침 계정을 동기화하고 **최근 1달 베스트/워스트 릴스 3개씩 + 팔로워·도달 요약 + LLM 총평**을
-이메일로 발송한다. 스케줄러(launchd 등)가 `CRON_SECRET`을 `x-cron-secret` 헤더에 담아
+이메일로 발송한다. 스케줄러(macOS launchd, Linux cron 등)가 `CRON_SECRET`을 `x-cron-secret` 헤더에 담아
 `/api/cron/daily-report`를 호출하면 된다. 설정은 `.env.example`와
 [`scripts/launchd/README.md`](./scripts/launchd/README.md) 참고:
 
 - `CRON_SECRET` — 크론 엔드포인트 보호용 시크릿(`openssl rand -hex 32`)
 - `RESEND_API_KEY` · `REPORT_EMAIL_FROM` · `REPORT_EMAIL_TO` — [Resend](https://resend.com) 발송 설정
 - `REPORT_URL` — 스케줄러가 호출할 리포트 엔드포인트(기본값 사용 시 생략 가능)
+
+포함된 launchd 템플릿은 macOS 전용이다. 스케줄러 가이드에는 Linux cron과 Windows 작업
+스케줄러 대안도 있으며, 앱과 리포트 API 자체는 운영체제에 종속되지 않는다.
 
 ## 개발
 
@@ -165,7 +189,7 @@ lib/
   settings/     # LLM 키·Instagram 토큰 설정 저장소(마스킹)
   ui/           # 포맷·차트 헬퍼(순수함수)
 scripts/        # 데모 시드·일일 리포트 스케줄러(launchd)
-docs/           # Instagram 연동 가이드 + 설계 문서
+docs/           # Instagram 연동 가이드 + 스크린샷 + 설계 문서
 ```
 
 ## 로드맵

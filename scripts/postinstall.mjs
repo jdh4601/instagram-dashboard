@@ -1,7 +1,15 @@
 #!/usr/bin/env node
 // npm install 이후 GitHub Star를 부드럽게 권하는 안내 배너.
 // 비대화식(정보 출력만) — CI/자동화 환경에서는 조용히 건너뛴다.
+import { mkdirSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 const REPO = "https://github.com/jdh4601/ai-reels-analyzer";
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+// fresh clone에서 Docker bind mount가 root 소유 data/를 만들지 않도록 먼저 생성한다.
+mkdirSync(join(root, "data"), { recursive: true });
 
 // CI, 또는 이 저장소가 다른 프로젝트의 의존성으로 설치된 경우엔 출력하지 않는다.
 if (process.env.CI || process.env.npm_config_global) {

@@ -1,6 +1,7 @@
-# 매일 아침 자동 리포트 (macOS launchd)
+# 매일 아침 자동 리포트 스케줄링
 
-노트북을 로컬 서버로 두고, 매일 08:00에 인스타그램 계정을 자동 분석해 이메일 리포트를 발송한다.
+실행 중인 로컬 서버를 매일 08:00에 호출해 인스타그램 계정을 자동 분석하고 이메일 리포트를
+발송한다. 아래 설치 절차는 macOS launchd 기준이며, Linux와 Windows 대안은 문서 끝에 있다.
 
 ## 사전 준비
 
@@ -74,10 +75,23 @@ rm ~/Library/LaunchAgents/com.example.instagram-report.plist
 sudo pmset repeat cancel   # 자동 웨이크 해제
 ```
 
-## VPS로 이전할 때
+## Linux / VPS (cron)
 
 스케줄러만 교체하면 된다 — launchd 대신 crontab:
 ```cron
 0 8 * * * /path/to/scripts/daily-report.sh >> /path/to/data/daily-report.log 2>&1
 ```
 나머지(리포트 로직·라우트·Resend)는 그대로 동작한다.
+
+## Windows (작업 스케줄러)
+
+`daily-report.sh`는 Bash 스크립트이므로 WSL 또는 Git Bash에서 실행한다. 작업 스케줄러에 매일
+08:00 트리거를 만들고 다음과 같이 등록한다(경로는 설치 위치에 맞게 변경).
+
+```text
+Program: C:\\Windows\\System32\\wsl.exe
+Arguments: bash -lc 'cd /path/to/ai-reels-analyzer && ./scripts/daily-report.sh >> data/daily-report.log 2>&1'
+```
+
+어느 운영체제든 PC가 절전/종료 상태이면 정시 실행되지 않을 수 있다. 항상 켜진 서버나 호스팅
+플랫폼을 쓸 때는 해당 플랫폼의 cron 기능으로 같은 POST 요청을 예약하면 된다.

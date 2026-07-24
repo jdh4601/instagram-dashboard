@@ -28,9 +28,13 @@ labels. Official docs: <https://developers.facebook.com/docs/instagram-platform/
    afterward.
 2. In the app, open **Instagram → API setup with Instagram login** (a.k.a. "Instagram Business
    Login"). This is the path that issues `graph.instagram.com` tokens.
-3. Under **business login settings / permissions**, make sure these scopes are requested:
-   - `instagram_business_basic` — read profile, media
-   - `instagram_business_manage_insights` — read reel & account insights
+3. Under **business login settings / permissions**, make sure these scopes are requested. These
+   are exactly what the app calls (see `lib/graph/client.ts`):
+
+   | Permission | Used for |
+   |---|---|
+   | `instagram_business_basic` | Profile (`user_id`, `username`, `followers_count`, `media_count`, avatar) and the media list (`me/media`: id, caption, timestamp, permalink, …) |
+   | `instagram_business_manage_insights` | Reel insights (`views`, `reach`, `likes`, `comments`, `saved`, `shares`, plus optional ones like `follows`, `profile_visits`, `ig_reels_avg_watch_time`, `clips_replays_count`) and account insights (`accounts_engaged`, `total_interactions`, `follows_and_unfollows`, …) |
 4. **Add your Instagram account as a tester** and accept the invite from within the Instagram app
    (*Settings → Apps and websites → Tester invites*), if the flow asks for it.
 5. **Generate a token** for your account from the setup screen. You'll get a short-lived token first.
@@ -59,6 +63,10 @@ labels. Official docs: <https://developers.facebook.com/docs/instagram-platform/
   ```
 
   Paste the new token back into `/settings`.
+- **Don't wait for day 60.** A long-lived token can only be refreshed while it is still valid, so
+  set a calendar reminder around **day 50** to run the refresh above and paste the new token into
+  `/settings`. If it has already lapsed, generate a fresh token from the setup screen and
+  re-exchange it for a long-lived one.
 - **Some metrics may be unavailable** depending on your account and API version. Sync continues
   anyway, and the dashboard distinguishes a real `0` from an unsupported/uncollected metric.
 
@@ -98,9 +106,13 @@ Meta 대시보드 UI는 자주 바뀌므로 아래는 큰 흐름으로 보고 �
    생성 후 **Instagram** 제품 추가).
 2. 앱에서 **Instagram → Instagram 로그인 기반 API 설정**으로 이동. 이 경로가 `graph.instagram.com`
    토큰을 발급한다.
-3. 권한(scope)에 다음이 포함되도록 한다.
-   - `instagram_business_basic` — 프로필·미디어 읽기
-   - `instagram_business_manage_insights` — 릴스·계정 인사이트 읽기
+3. 권한(scope)에 다음이 포함되도록 한다. 앱이 실제로 호출하는 항목 기준이다
+   (`lib/graph/client.ts` 참고).
+
+   | 권한 | 사용처 |
+   |---|---|
+   | `instagram_business_basic` | 프로필(`user_id`, `username`, `followers_count`, `media_count`, 아바타)과 미디어 목록(`me/media`: id, 캡션, 게시 시각, permalink 등) |
+   | `instagram_business_manage_insights` | 릴스 인사이트(`views`, `reach`, `likes`, `comments`, `saved`, `shares` 외 `follows`, `profile_visits`, `ig_reels_avg_watch_time`, `clips_replays_count` 등 선택 지표)와 계정 인사이트(`accounts_engaged`, `total_interactions`, `follows_and_unfollows` 등) |
 4. 흐름에서 요구하면 **본인 인스타 계정을 테스터로 추가**하고 인스타 앱에서 초대를 수락한다.
 5. 설정 화면에서 **토큰 생성**(먼저 단기 토큰이 나온다).
 6. **장기 토큰으로 교환**(약 60일). UI에서 지원하면 거기서, 아니면:
@@ -118,5 +130,8 @@ Meta 대시보드 UI는 자주 바뀌므로 아래는 큰 흐름으로 보고 �
 
 - 토큰은 약 60일 후 만료된다. 만료 전 `refresh_access_token`으로 갱신하거나 설정 화면에서 다시
   생성해 `/settings`에 붙여넣는다.
+- **60일까지 기다리지 않는 게 안전하다.** 장기 토큰은 유효할 때만 갱신할 수 있으므로, **50일쯤
+  달력 알림**을 걸어 두고 위 갱신을 실행한 뒤 새 토큰을 `/settings`에 붙여넣자. 이미 만료가
+  지났다면 설정 화면에서 토큰을 새로 생성하고 다시 장기 토큰으로 교환하면 된다.
 - 계정·API 버전에 따라 일부 지표는 미지원일 수 있다. 동기화는 계속되며, 실제 `0`과 미지원/미수집은
   구분해서 표시된다.

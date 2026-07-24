@@ -3,7 +3,7 @@
 <!--
   사용법: 이 파일을 복사한 뒤 아래 두 자리표시자를 본인 환경에 맞게 바꾸세요.
     __LABEL__        예: com.yourname.instagram-report (역도메인 형식 권장)
-    __PROJECT_DIR__  이 저장소의 절대경로. 예: /Users/you/Developer/instagram-dashboard
+    __PROJECT_DIR__  이 저장소의 절대경로. 예: /path/to/ai-reels-analyzer
   그런 다음 ~/Library/LaunchAgents/ 로 복사하고 launchctl load 하세요(README 참고).
 -->
 <plist version="1.0">

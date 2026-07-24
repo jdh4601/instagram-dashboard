@@ -78,7 +78,7 @@ instagram-dashboard/
 - [ ] **Step 1: 의존성 설치**
 
 ```bash
-cd /Users/jayden/Developer/instagram-dashboard
+cd <project-root>
 npm init -y
 npm install next@15 react@19 react-dom@19 recharts zod @anthropic-ai/sdk
 npm install -D typescript @types/react @types/node @types/react-dom \
