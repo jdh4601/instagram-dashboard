@@ -1,20 +1,18 @@
 import type { AccountSnapshot } from "@/lib/schemas";
 import type { MetricInsight } from "@/lib/analysis/insightTypes";
+import { COMPARISON_WINDOW_DAYS, comparisonPair } from "@/lib/analysis/comparisonWindow";
 
 function percentChange(current: number, previous: number): number | undefined {
   if (previous <= 0) return undefined;
   return ((current - previous) / previous) * 100;
 }
 
-function daysBetween(a: string, b: string): number {
-  return Math.abs(new Date(`${a}T00:00:00Z`).getTime() - new Date(`${b}T00:00:00Z`).getTime()) / 86_400_000;
-}
-
 export function buildAccountInsights(snapshots: AccountSnapshot[]): MetricInsight[] {
   if (snapshots.length === 0) return [];
-  const sorted = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
-  const current = sorted[sorted.length - 1];
-  const previous = [...sorted].reverse().find((snapshot) => daysBetween(current.date, snapshot.date) >= 7);
+  // 비교 기준은 accountOverview와 공유한다. 두 모듈이 다른 기준을 쓰면 같은 화면에서
+  // 도달 증감이 서로 반대로 표시된다.
+  const { current, baseline: previous } = comparisonPair(snapshots);
+  if (current === null) return [];
   const insights: MetricInsight[] = [];
 
   const netFollows =
@@ -50,7 +48,7 @@ export function buildAccountInsights(snapshots: AccountSnapshot[]): MetricInsigh
       insights.push({
         id: "reach-trend",
         title: reachChange >= 0 ? "7일 도달이 성장했어요" : "7일 도달이 둔화됐어요",
-        detail: `이전 비교 시점보다 ${Math.abs(reachChange).toFixed(1)}% ${reachChange >= 0 ? "증가" : "감소"}했습니다.`,
+        detail: `${COMPARISON_WINDOW_DAYS}일 전(${previous.date})보다 ${Math.abs(reachChange).toFixed(1)}% ${reachChange >= 0 ? "증가" : "감소"}했습니다.`,
         tone: reachChange >= 0 ? "strength" : "opportunity",
         source: "derived",
         currentValue: current.reachLast7d,

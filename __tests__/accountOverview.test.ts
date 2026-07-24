@@ -34,7 +34,7 @@ const profile: AccountProfile = {
 test("프로필 팔로워/릴스 수와 평균 인게이지먼트를 집계", () => {
   const reels = [reel("a", 2), reel("b", 4)];
   const snaps: AccountSnapshot[] = [
-    { date: "2026-06-28", followerCount: 230, reachLast7d: 4000 },
+    { date: "2026-06-22", followerCount: 230, reachLast7d: 4000 },
     { date: "2026-06-29", followerCount: 238, reachLast7d: 4200 },
   ];
   const o = buildAccountOverview(reels, snaps, profile);
@@ -49,7 +49,9 @@ test("프로필 팔로워/릴스 수와 평균 인게이지먼트를 집계", ()
   expect(o.deltas.reachLast7d).toEqual({ absolute: 200, relativePercent: 5 });
 });
 
-test("최신 스냅샷의 모든 계정 지표를 직전 스냅샷과 비교", () => {
+// 07-21 스냅샷은 07-22에서 하루 전이라 비교 기준이 될 수 없다. 7일 이상 앞선
+// 07-14를 건너뛰지 않고 골라야 한다.
+test("최신 스냅샷의 모든 계정 지표를 7일 전 스냅샷과 비교", () => {
   const o = buildAccountOverview([], [
     {
       date: "2026-07-14",
@@ -83,22 +85,22 @@ test("최신 스냅샷의 모든 계정 지표를 직전 스냅샷과 비교", (
     },
   ], null);
 
-  expect(o.deltas.followers?.absolute).toBe(2);
-  expect(o.deltas.reachLast7d?.absolute).toBe(397);
-  expect(o.deltas.reachLast7d?.relativePercent).toBeCloseTo((397 / 3192) * 100, 5);
-  expect(o.deltas.viewsLast7d?.absolute).toBe(1542);
-  expect(o.deltas.accountsEngagedLast7d?.absolute).toBe(11);
-  expect(o.deltas.totalInteractionsLast7d?.absolute).toBe(31);
+  expect(o.deltas.followers?.absolute).toBe(279 - 260);
+  expect(o.deltas.reachLast7d?.absolute).toBe(3589 - 2800);
+  expect(o.deltas.reachLast7d?.relativePercent).toBeCloseTo((789 / 2800) * 100, 5);
+  expect(o.deltas.viewsLast7d?.absolute).toBe(9832 - 8000);
+  expect(o.deltas.accountsEngagedLast7d?.absolute).toBe(74 - 60);
+  expect(o.deltas.totalInteractionsLast7d?.absolute).toBe(205 - 160);
   expect(o.deltas.followConversionRateLast7d?.absolute).toBeCloseTo(
-    (9 / 3589) * 100 - (7 / 3192) * 100,
+    (9 / 3589) * 100 - (8 / 2800) * 100,
     5,
   );
 });
 
-test("직전 값이 0이면 절대 변화만 제공하고 없는 지표는 비교하지 않음", () => {
+test("비교 기준값이 0이면 절대 변화만 제공하고 없는 지표는 비교하지 않음", () => {
   const o = buildAccountOverview([], [
     {
-      date: "2026-07-21",
+      date: "2026-07-15",
       followerCount: 0,
       reachLast7d: 0,
       viewsLast7d: 0,
