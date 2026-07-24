@@ -31,6 +31,7 @@ test("POST /api/sync는 일부 릴스 실패를 207과 실패 상세로 반환�
   mockSync.mockResolvedValue({
     syncedReels: 2,
     failedReels: 1,
+    removedReels: 0,
     errors: ["media-bad: permission denied"],
     followerCount: 100,
     username: "demo",

@@ -10,6 +10,7 @@ import type { Reel } from "@/lib/schemas";
 export interface SyncResult {
   syncedReels: number;
   failedReels: number;
+  removedReels: number;
   errors: string[];
   followerCount: number;
   username: string;
@@ -123,6 +124,22 @@ export async function syncFromGraph(
     );
   }
 
+  // 인스타그램에서 삭제했거나 보관함으로 옮긴 게시물은 me/media 응답에서 사라진다.
+  // API가 둘을 구분해 주지 않으므로 목록에 없는 저장 레코드는 모두 정리한다.
+  // 다만 목록이 0건이면 토큰 권한 이상일 수 있고, 그때 전체를 지우면 수동 입력한
+  // 자막과 캐시된 LLM 분석까지 복구 불가능하게 사라지므로 건너뛴다.
+  let removed = 0;
+  if (reels.length > 0) {
+    const liveIds = new Set(reels.map((media) => media.id));
+    const staleIds = (await reelRepo.list())
+      .map((reel) => reel.id)
+      .filter((id) => !liveIds.has(id));
+    if (staleIds.length > 0) {
+      removed = await reelRepo.removeMany(staleIds);
+      if (historyRepo) await historyRepo.removeByReelIds(staleIds);
+    }
+  }
+
   await accountRepo.add({
     date: today,
     followerCount: profile.followersCount,
@@ -148,6 +165,7 @@ export async function syncFromGraph(
   return {
     syncedReels: synced,
     failedReels: failed,
+    removedReels: removed,
     errors,
     followerCount: profile.followersCount,
     username: profile.username,
