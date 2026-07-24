@@ -1,4 +1,5 @@
 import { RefreshCw, Settings } from "lucide-react";
+import Link from "next/link";
 import { Button, ThemeToggle } from "@/components/ui";
 
 interface DashboardActionsProps {
@@ -20,14 +21,14 @@ export function DashboardActions({ onSync, syncing }: DashboardActionsProps) {
         >
           {syncing ? "동기화 중…" : "동기화"}
         </Button>
-        <a
+        <Link
           href="/settings"
           title="설정"
           aria-label="설정"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-600 transition-colors hover:bg-surface-muted hover:text-neutral-900"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-neutral-600 transition-colors hover:bg-surface-muted hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 sm:h-8 sm:w-8"
         >
           <Settings size={16} />
-        </a>
+        </Link>
       </div>
     </div>
   );

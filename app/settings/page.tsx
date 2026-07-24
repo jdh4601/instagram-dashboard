@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { Settings as SettingsIcon, ArrowLeft, Camera } from "lucide-react";
 import { Button } from "@/components/ui";
 import { PROVIDER_PRESETS, type ProviderId } from "@/lib/llm/providers";
@@ -81,9 +82,12 @@ export default function SettingsPage() {
         <h1 className="flex items-center gap-2 text-xl font-bold text-neutral-900">
           <SettingsIcon size={20} className="text-brand-600" /> LLM 제공자 설정
         </h1>
-        <a href="/" className="inline-flex items-center gap-1 text-sm text-brand-600 hover:underline">
+        <Link
+          href="/"
+          className="inline-flex min-h-11 items-center gap-1 rounded-lg text-sm text-brand-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 sm:min-h-9"
+        >
           <ArrowLeft size={14} /> 대시보드
-        </a>
+        </Link>
       </div>
       <p className="text-sm text-neutral-500">
         키는 이 PC의 <code>data/settings.json</code>에만 저장되며 화면에는 마스킹되어 표시됩니다.

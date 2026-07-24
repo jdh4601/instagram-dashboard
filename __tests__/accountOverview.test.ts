@@ -45,6 +45,81 @@ test("프로필 팔로워/릴스 수와 평균 인게이지먼트를 집계", ()
   expect(o.reelCount).toBe(12); // 프로필 우선
   expect(o.avgEngagementRate).toBeCloseTo(3, 5);
   expect(o.viewsLast7d).toBeNull();
+  expect(o.deltas.followers).toEqual({ absolute: 8, relativePercent: (8 / 230) * 100 });
+  expect(o.deltas.reachLast7d).toEqual({ absolute: 200, relativePercent: 5 });
+});
+
+test("최신 스냅샷의 모든 계정 지표를 직전 스냅샷과 비교", () => {
+  const o = buildAccountOverview([], [
+    {
+      date: "2026-07-14",
+      followerCount: 260,
+      reachLast7d: 2800,
+      viewsLast7d: 8000,
+      accountsEngagedLast7d: 60,
+      totalInteractionsLast7d: 160,
+      followsLast7d: 8,
+      availableMetrics: ["reach"],
+    },
+    {
+      date: "2026-07-21",
+      followerCount: 277,
+      reachLast7d: 3192,
+      viewsLast7d: 8290,
+      accountsEngagedLast7d: 63,
+      totalInteractionsLast7d: 174,
+      followsLast7d: 7,
+      availableMetrics: ["reach"],
+    },
+    {
+      date: "2026-07-22",
+      followerCount: 279,
+      reachLast7d: 3589,
+      viewsLast7d: 9832,
+      accountsEngagedLast7d: 74,
+      totalInteractionsLast7d: 205,
+      followsLast7d: 9,
+      availableMetrics: ["reach"],
+    },
+  ], null);
+
+  expect(o.deltas.followers?.absolute).toBe(2);
+  expect(o.deltas.reachLast7d?.absolute).toBe(397);
+  expect(o.deltas.reachLast7d?.relativePercent).toBeCloseTo((397 / 3192) * 100, 5);
+  expect(o.deltas.viewsLast7d?.absolute).toBe(1542);
+  expect(o.deltas.accountsEngagedLast7d?.absolute).toBe(11);
+  expect(o.deltas.totalInteractionsLast7d?.absolute).toBe(31);
+  expect(o.deltas.followConversionRateLast7d?.absolute).toBeCloseTo(
+    (9 / 3589) * 100 - (7 / 3192) * 100,
+    5,
+  );
+});
+
+test("직전 값이 0이면 절대 변화만 제공하고 없는 지표는 비교하지 않음", () => {
+  const o = buildAccountOverview([], [
+    {
+      date: "2026-07-21",
+      followerCount: 0,
+      reachLast7d: 0,
+      viewsLast7d: 0,
+      availableMetrics: ["reach"],
+    },
+    {
+      date: "2026-07-22",
+      followerCount: 10,
+      reachLast7d: 100,
+      viewsLast7d: 50,
+      accountsEngagedLast7d: 5,
+      availableMetrics: ["reach"],
+    },
+  ], null);
+
+  expect(o.deltas.followers).toEqual({ absolute: 10, relativePercent: null });
+  expect(o.deltas.reachLast7d).toEqual({ absolute: 100, relativePercent: null });
+  expect(o.deltas.viewsLast7d).toEqual({ absolute: 50, relativePercent: null });
+  expect(o.deltas.accountsEngagedLast7d).toBeNull();
+  expect(o.deltas.totalInteractionsLast7d).toBeNull();
+  expect(o.deltas.followConversionRateLast7d).toBeNull();
 });
 
 test("최신 계정 인사이트를 상단 개요로 전달", () => {

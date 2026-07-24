@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { ArrowLeft, ArrowRight, ExternalLink, Film } from "lucide-react";
 import type { Reel, ReelMetricSnapshot } from "@/lib/schemas";
 import type { AnalyzeResult } from "@/lib/analysis/analyze";
@@ -58,9 +59,12 @@ export default function ReelDetailPage() {
 
   return (
     <main className="mx-auto max-w-5xl space-y-5 p-4 sm:p-6">
-      <a href="/" className="inline-flex items-center gap-1 text-sm text-brand-600 hover:underline">
+      <Link
+        href="/"
+        className="inline-flex min-h-11 items-center gap-1 rounded-lg text-sm text-brand-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 sm:min-h-9"
+      >
         <ArrowLeft size={14} /> 대시보드
-      </a>
+      </Link>
 
       {error && <EmptyState icon={<Film size={26} />} title={error} />}
 
@@ -77,23 +81,36 @@ export default function ReelDetailPage() {
   );
 }
 
-function ReelDetail({ reel, analysis, metricHistory, kpiDeltas, nav, onChange }: DetailResponse & { onChange: () => void }) {
+function ReelDetail({
+  reel,
+  analysis,
+  metricHistory,
+  kpiDeltas,
+  nav,
+  onChange,
+}: DetailResponse & { onChange: () => void }) {
   return (
     <>
       {/* 이전·다음 릴스 이동 */}
       {(nav?.prevId || nav?.nextId) && (
         <div className="flex items-center justify-between text-sm">
           {nav?.prevId ? (
-            <a href={`/reel/${nav.prevId}`} className="inline-flex items-center gap-1 text-neutral-600 hover:text-brand-600">
+            <Link
+              href={`/reel/${nav.prevId}`}
+              className="inline-flex min-h-11 items-center gap-1 rounded-lg text-neutral-600 hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 sm:min-h-9"
+            >
               <ArrowLeft size={14} /> 이전 릴스
-            </a>
+            </Link>
           ) : (
             <span />
           )}
           {nav?.nextId ? (
-            <a href={`/reel/${nav.nextId}`} className="inline-flex items-center gap-1 text-neutral-600 hover:text-brand-600">
+            <Link
+              href={`/reel/${nav.nextId}`}
+              className="inline-flex min-h-11 items-center gap-1 rounded-lg text-neutral-600 hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 sm:min-h-9"
+            >
               다음 릴스 <ArrowRight size={14} />
-            </a>
+            </Link>
           ) : (
             <span />
           )}
@@ -120,7 +137,7 @@ function ReelDetail({ reel, analysis, metricHistory, kpiDeltas, nav, onChange }:
               href={reel.permalink}
               target="_blank"
               rel="noreferrer"
-              className="mt-2 inline-flex items-center gap-1 text-sm text-brand-600 hover:underline"
+              className="mt-1 inline-flex min-h-11 items-center gap-1 rounded-lg text-sm text-brand-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 sm:min-h-9"
             >
               <ExternalLink size={14} /> 인스타그램에서 보기
             </a>
@@ -130,25 +147,31 @@ function ReelDetail({ reel, analysis, metricHistory, kpiDeltas, nav, onChange }:
 
       <ReelPerformanceDashboard reel={reel} deltas={kpiDeltas} />
 
+      {/* 진단 → 처방 → 실행 → 근거/상세 순으로 스토리를 전개한다. */}
+      <BottleneckBanner bottleneck={analysis.diagnosis.bottleneck} delta={analysis.bottleneckDelta} />
+      <DiagnosisCards
+        strengths={analysis.diagnosis.strengths}
+        weaknesses={analysis.diagnosis.weaknesses}
+      />
+      <SolutionsPanel prescriptions={analysis.prescriptions} />
+      <AiGenerationPanel reelId={reel.id} />
+      <InsightList title="이 릴스의 핵심 인사이트" insights={analysis.reelInsights} />
+      <ReelMetricTrend history={metricHistory} />
+      <SrtUploadCard
+        reelId={reel.id}
+        analysis={analysis.transcript}
+        insights={reel.transcriptInsights}
+        onChange={onChange}
+      />
+      <MetricBars verdicts={analysis.diagnosis.verdicts} baselineActive={analysis.baselineActive} />
       <ReelDerivedMetrics reel={reel} />
       <ReelConversionFunnel reel={reel} />
-      <InsightList title="이 릴스의 핵심 인사이트" insights={analysis.reelInsights} />
-      {/* 캡션은 핵심 성과와 인사이트 다음에 둬 긴 본문이 분석을 밀어내지 않게 한다. */}
+      {/* 캡션은 맨 아래에 둬 긴 본문이 분석을 밀어내지 않게 한다. */}
       {reel.caption && (
         <p className="whitespace-pre-line rounded-card border border-border-subtle bg-surface-muted/50 p-3 text-sm leading-relaxed text-neutral-700">
           {reel.caption}
         </p>
       )}
-      <BottleneckBanner bottleneck={analysis.diagnosis.bottleneck} delta={analysis.bottleneckDelta} />
-      <ReelMetricTrend history={metricHistory} />
-      <SrtUploadCard reelId={reel.id} analysis={analysis.transcript} insights={reel.transcriptInsights} onChange={onChange} />
-      <DiagnosisCards
-        strengths={analysis.diagnosis.strengths}
-        weaknesses={analysis.diagnosis.weaknesses}
-      />
-      <MetricBars verdicts={analysis.diagnosis.verdicts} baselineActive={analysis.baselineActive} />
-      <SolutionsPanel prescriptions={analysis.prescriptions} />
-      <AiGenerationPanel reelId={reel.id} />
     </>
   );
 }

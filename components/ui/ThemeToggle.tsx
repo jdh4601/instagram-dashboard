@@ -24,9 +24,9 @@ export function ThemeToggle() {
       aria-label={dark ? "라이트 모드로 전환" : "다크 모드로 전환"}
       aria-pressed={dark}
       title={dark ? "라이트 모드" : "다크 모드"}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-600 transition-colors hover:bg-surface-muted hover:text-neutral-900"
+      className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-neutral-600 transition-colors hover:bg-surface-muted hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 sm:h-8 sm:w-8"
     >
-      {dark ? <Sun size={16} /> : <Moon size={16} />}
+      {dark ? <Sun size={16} aria-hidden="true" /> : <Moon size={16} aria-hidden="true" />}
     </button>
   );
 }

@@ -94,9 +94,10 @@ export function SrtUploadCard({ reelId, analysis, insights, onChange }: Props) {
         action={
           hasTranscript ? (
             <button
+              type="button"
               onClick={removeTranscript}
               disabled={busy}
-              className="inline-flex items-center gap-1 text-xs text-neutral-400 hover:text-band-weak disabled:opacity-50"
+              className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-xs text-neutral-400 hover:text-band-weak focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:opacity-50 sm:min-h-9"
             >
               <Trash2 size={13} /> 자막 삭제
             </button>
@@ -106,7 +107,11 @@ export function SrtUploadCard({ reelId, analysis, insights, onChange }: Props) {
       <CardBody className="space-y-4">
         {!hasTranscript ? (
           <>
-            <div
+            <button
+              type="button"
+              disabled={busy}
+              aria-busy={busy}
+              aria-describedby="srt-upload-hint"
               onDragOver={(e) => {
                 e.preventDefault();
                 setDragOver(true);
@@ -119,30 +124,31 @@ export function SrtUploadCard({ reelId, analysis, insights, onChange }: Props) {
                 if (file) uploadFile(file);
               }}
               onClick={() => inputRef.current?.click()}
-              className={`flex cursor-pointer flex-col items-center gap-2 rounded-card border-2 border-dashed p-6 text-center transition-colors ${
+              className={`flex w-full cursor-pointer flex-col items-center gap-2 rounded-card border-2 border-dashed p-6 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-wait ${
                 dragOver ? "border-brand-500 bg-brand-50" : "border-border-subtle hover:border-brand-300"
               }`}
             >
               <Upload size={22} className="text-neutral-400" />
-              <p className="text-sm font-medium text-neutral-700">
+              <span className="text-sm font-medium text-neutral-700">
                 {busy ? "분석 중…" : "CapCut .srt 자막을 끌어다 놓거나 클릭"}
-              </p>
-              <p className="text-xs text-neutral-500">
+              </span>
+              <span id="srt-upload-hint" className="text-xs text-neutral-500">
                 자막을 올리면 훅·CTA·급락 구간을 지표와 함께 분석해 드려요.
-              </p>
-              <input
-                ref={inputRef}
-                type="file"
-                accept=".srt"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) uploadFile(file);
-                  e.target.value = "";
-                }}
-              />
-            </div>
-            {error && <p className="text-sm text-band-weak">{error}</p>}
+              </span>
+            </button>
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".srt"
+              aria-label="SRT 자막 파일 선택"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) uploadFile(file);
+                e.target.value = "";
+              }}
+            />
+            {error && <p role="alert" className="text-sm text-band-weak">{error}</p>}
           </>
         ) : (
           <>
@@ -176,9 +182,10 @@ export function SrtUploadCard({ reelId, analysis, insights, onChange }: Props) {
                   <Sparkles size={15} className="text-brand-600" /> AI 심층 분석
                 </p>
                 <button
+                  type="button"
                   onClick={analyzeWithAi}
                   disabled={aiBusy}
-                  className="inline-flex items-center gap-1.5 rounded-card bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-60"
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-card bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-60 sm:min-h-9"
                 >
                   <Sparkles size={13} />
                   {aiBusy ? "분석 중…" : insights ? "다시 분석" : "AI로 분석하기"}

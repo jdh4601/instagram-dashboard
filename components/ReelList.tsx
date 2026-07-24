@@ -36,21 +36,32 @@ export function ReelList({ reels }: Props) {
 
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={15} />
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+            size={15}
+            aria-hidden="true"
+          />
           <input
+            aria-label="릴스 제목과 캡션 검색"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="제목·캡션 검색"
-            className="h-9 w-full rounded-lg border border-border-subtle bg-surface pl-9 pr-3 text-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
+            className="h-11 w-full rounded-lg border border-border-subtle bg-surface pl-9 pr-3 text-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100 sm:h-9"
           />
         </div>
-        <div className="flex gap-1 rounded-lg border border-border-subtle bg-surface p-0.5">
+        <div
+          role="group"
+          aria-label="릴스 정렬"
+          className="flex gap-1 rounded-lg border border-border-subtle bg-surface p-0.5"
+        >
           {(Object.keys(SORT_LABELS) as ReelSort[]).map((s) => (
             <button
+              type="button"
               key={s}
               onClick={() => setSort(s)}
+              aria-pressed={sort === s}
               className={cn(
-                "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                "min-h-11 rounded-md px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 sm:min-h-8",
                 sort === s ? "bg-brand-600 text-white" : "text-neutral-600 hover:bg-surface-muted",
               )}
             >
@@ -77,7 +88,7 @@ function ReelRow({ reel }: { reel: Reel }) {
   return (
     <Link
       href={`/reel/${reel.id}`}
-      className="group flex items-center gap-3 p-3 text-left transition-colors hover:bg-surface-muted"
+      className="group flex items-center gap-3 p-3 text-left transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-400"
     >
       <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded-md bg-neutral-100">
         {reel.thumbnailUrl ? (
