@@ -78,8 +78,15 @@ export const WatchTimeBucketSchema = z.object({
 });
 export type WatchTimeBucket = z.infer<typeof WatchTimeBucketSchema>;
 
+// 이 대시보드가 다루는 미디어 종류. 인스타그램의 media_product_type/media_type을
+// 대시보드가 쓰는 두 값으로 좁힌 것이다.
+export const MediaKindSchema = z.enum(["REELS", "CAROUSEL"]);
+export type MediaKind = z.infer<typeof MediaKindSchema>;
+
 export const ReelSchema = z.object({
   id: z.string().min(1),
+  // 없으면 릴스. 이 필드가 생기기 전에 저장된 데이터는 전부 릴스뿐이었다.
+  mediaType: MediaKindSchema.optional(),
   postedAt: z.string(),
   durationSec: z.number().nonnegative(), // 0 = 길이 미상(Graph API 신규 릴스). 스샷/수동으로 보완.
   views: z.number().nonnegative(),
