@@ -235,7 +235,8 @@ export default function Page() {
                 </button>
               </div>
             )}
-            <AccountHeader profile={profile} followerDelta={followerDelta} />
+            {/* 헤더는 필터와 무관한 전체 개수를 보여준다 */}
+            <AccountHeader profile={profile} followerDelta={followerDelta} contentCount={reels.length} />
             <AccountOverview overview={overview} />
             <InsightList
               title="계정 인사이트"

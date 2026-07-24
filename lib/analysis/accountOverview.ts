@@ -7,7 +7,10 @@ export interface AccountOverview {
   followerDelta: number | null;
   reachLast7d: number;
   reachAvailable: boolean;
-  reelCount: number;
+  /** 대시보드가 실제로 분석 중인 게시물 수. 사용자가 목록에서 세는 숫자와 같아야 한다. */
+  contentCount: number;
+  /** Instagram이 보고한 media_count. 실제 수집분과 다를 수 있어 병기용으로만 둔다. */
+  profileMediaCount: number | null;
   avgEngagementRate: number;
   viewsLast7d: number | null;
   accountsEngagedLast7d: number | null;
@@ -92,7 +95,9 @@ export function buildAccountOverview(
   const previousConversion = followConversionAt(previous, earlierThan(previous));
 
   const followers = profile?.followersCount ?? latest?.followerCount ?? 0;
-  const reelCount = profile?.mediaCount ?? reels.length;
+  // Instagram의 media_count(23)와 실제 수집분(36)이 어긋난다. 집계 기준이 다르거나
+  // 갱신이 지연된 값이라, 화면에는 대시보드가 실제로 분석 중인 개수를 쓴다.
+  const contentCount = reels.length;
 
   const rates = reels
     .map((r) => r.derived?.engagementRate)
@@ -105,7 +110,8 @@ export function buildAccountOverview(
     followerDelta: latestFollowerDelta(snapshots),
     reachLast7d: latest?.reachLast7d ?? 0,
     reachAvailable: hasReach(latest),
-    reelCount,
+    contentCount,
+    profileMediaCount: profile?.mediaCount ?? null,
     avgEngagementRate,
     viewsLast7d: latest?.viewsLast7d ?? null,
     accountsEngagedLast7d: latest?.accountsEngagedLast7d ?? null,

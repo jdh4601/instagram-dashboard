@@ -42,7 +42,8 @@ test("프로필 팔로워/릴스 수와 평균 인게이지먼트를 집계", ()
   expect(o.followerDelta).toBe(8);
   expect(o.reachLast7d).toBe(4200);
   expect(o.reachAvailable).toBe(true);
-  expect(o.reelCount).toBe(12); // 프로필 우선
+  expect(o.contentCount).toBe(2); // 실제 분석 대상 수 (프로필 값 12가 아니다)
+  expect(o.profileMediaCount).toBe(12); // 병기용으로 남긴다
   expect(o.avgEngagementRate).toBeCloseTo(3, 5);
   expect(o.viewsLast7d).toBeNull();
   expect(o.deltas.followers).toEqual({ absolute: 8, relativePercent: (8 / 230) * 100 });
@@ -152,7 +153,7 @@ test("프로필이 없으면 스냅샷/릴스에서 추론", () => {
   const o = buildAccountOverview(reels, snaps, null);
   expect(o.followers).toBe(100);
   expect(o.followerDelta).toBeNull();
-  expect(o.reelCount).toBe(1); // 릴스 개수로 대체
+  expect(o.contentCount).toBe(1); // 릴스 개수로 대체
   expect(o.avgEngagementRate).toBeCloseTo(5, 5);
 });
 
@@ -162,7 +163,7 @@ test("데이터가 비면 0/null로 안전 처리", () => {
   expect(o.followerDelta).toBeNull();
   expect(o.reachLast7d).toBe(0);
   expect(o.reachAvailable).toBe(false);
-  expect(o.reelCount).toBe(0);
+  expect(o.contentCount).toBe(0);
   expect(o.avgEngagementRate).toBe(0);
 });
 
