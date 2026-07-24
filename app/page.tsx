@@ -20,6 +20,7 @@ import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { InsightList } from "@/components/InsightList";
 import { buildAccountInsights } from "@/lib/analysis/accountInsights";
 import { filterByMedia, type MediaFilter } from "@/lib/ui/mediaFilter";
+import type { EarlyViewsMap } from "@/lib/ui/reelSelect";
 import { readNdjson } from "@/lib/ui/ndjsonStream";
 import type { SyncProgress, SyncResult } from "@/lib/graph/sync";
 
@@ -33,6 +34,7 @@ const TOKEN_WARN_DAYS = 50;
 
 export default function Page() {
   const [reels, setReels] = useState<Reel[]>([]);
+  const [earlyViews, setEarlyViews] = useState<EarlyViewsMap>({});
   const [snapshots, setSnapshots] = useState<AccountSnapshot[]>([]);
   const [profile, setProfile] = useState<AccountProfile | null>(null);
   const [snapDate, setSnapDate] = useState("");
@@ -94,6 +96,7 @@ export default function Page() {
         refreshedResponses.map((response) => response.json()),
       );
       setReels(reelsRes.reels);
+      setEarlyViews(reelsRes.earlyViews ?? {});
       setSnapshots(snapsRes.snapshots);
       setProfile(profileRes.profile);
       const failed = typeof data.failedReels === "number" ? data.failedReels : 0;
@@ -150,7 +153,10 @@ export default function Page() {
     ]).then(([reelsResult, snapshotsResult, profileResult, settingsResult]) => {
       if (!active) return;
 
-      if (reelsResult.status === "fulfilled") setReels(reelsResult.value.reels ?? []);
+      if (reelsResult.status === "fulfilled") {
+        setReels(reelsResult.value.reels ?? []);
+        setEarlyViews(reelsResult.value.earlyViews ?? {});
+      }
       if (snapshotsResult.status === "fulfilled") setSnapshots(snapshotsResult.value.snapshots ?? []);
       if (profileResult.status === "fulfilled") setProfile(profileResult.value.profile ?? null);
       if (settingsResult.status === "fulfilled") {
@@ -261,6 +267,7 @@ export default function Page() {
               filter={mediaFilter}
               onFilterChange={setMediaFilter}
               syncing={syncing}
+              earlyViews={earlyViews}
             />
 
             <form

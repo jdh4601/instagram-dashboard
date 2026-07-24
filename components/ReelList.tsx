@@ -3,8 +3,9 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Search, Film, Eye, Calendar, Heart, MessageCircle, Share2, Bookmark, RefreshCw } from "lucide-react";
 import type { Reel } from "@/lib/schemas";
+import { AGE_TARGET_HOURS, type AgeNormalizedViews } from "@/lib/analysis/ageNormalized";
 import { reelTitle } from "@/lib/ui/reelTitle";
-import { selectReels, SORT_LABELS, type ReelSort } from "@/lib/ui/reelSelect";
+import { selectReels, SORT_LABELS, type EarlyViewsMap, type ReelSort } from "@/lib/ui/reelSelect";
 import { fmtCount, fmtPct } from "@/lib/ui/format";
 import { cn } from "@/components/ui";
 import { MediaTypeToggle } from "@/components/MediaTypeToggle";
@@ -16,13 +17,24 @@ interface Props {
   onFilterChange: (value: MediaFilter) => void;
   /** 동기화가 진행 중이면 목록이 아직 갱신 전이라는 뜻이다. */
   syncing?: boolean;
+  /** 게시 후 48시간 조회수. 경과일이 다른 게시물을 공정하게 견주는 정렬에 쓴다. */
+  earlyViews?: EarlyViewsMap;
 }
 
-export function ReelList({ reels, filter, onFilterChange, syncing = false }: Props) {
+export function ReelList({
+  reels,
+  filter,
+  onFilterChange,
+  syncing = false,
+  earlyViews,
+}: Props) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<ReelSort>("latest");
 
-  const visible = useMemo(() => selectReels(reels, query, sort), [reels, query, sort]);
+  const visible = useMemo(
+    () => selectReels(reels, query, sort, earlyViews),
+    [reels, query, sort, earlyViews],
+  );
 
   if (reels.length === 0) {
     return (
@@ -99,7 +111,12 @@ export function ReelList({ reels, filter, onFilterChange, syncing = false }: Pro
       ) : (
         <div className="divide-y divide-border-subtle rounded-card border border-border-subtle bg-surface">
           {visible.map((r) => (
-            <ReelRow key={r.id} reel={r} />
+            // 정렬 기준이 보이지 않으면 순서를 이해할 수 없다. 48h 정렬일 때만 병기.
+            <ReelRow
+              key={r.id}
+              reel={r}
+              early={sort === "earlyViews" ? earlyViews?.[r.id] ?? null : undefined}
+            />
           ))}
         </div>
       )}
@@ -107,7 +124,14 @@ export function ReelList({ reels, filter, onFilterChange, syncing = false }: Pro
   );
 }
 
-function ReelRow({ reel }: { reel: Reel }) {
+function ReelRow({
+  reel,
+  early,
+}: {
+  reel: Reel;
+  /** undefined = 표시 안 함, null = 이력이 없어 값을 낼 수 없음 */
+  early?: AgeNormalizedViews | null;
+}) {
   return (
     <Link
       href={`/reel/${reel.id}`}
@@ -137,6 +161,17 @@ function ReelRow({ reel }: { reel: Reel }) {
             <Eye size={11} />
             {fmtCount(reel.views)}
           </span>
+          {early !== undefined && (
+            <span className="text-brand-600">
+              {early === null
+                ? "48h 이력 없음"
+                : `48h ${fmtCount(early.views)}${
+                    Math.round(early.elapsedHours) === AGE_TARGET_HOURS
+                      ? ""
+                      : ` (실제 ${Math.round(early.elapsedHours)}h)`
+                  }`}
+            </span>
+          )}
         </div>
       </div>
 
