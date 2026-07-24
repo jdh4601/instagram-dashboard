@@ -17,6 +17,7 @@ import { SrtUploadCard } from "@/components/SrtUploadCard";
 import { SolutionsPanel } from "@/components/SolutionsPanel";
 import { AiGenerationPanel } from "@/components/AiGenerationPanel";
 import { ReelDerivedMetrics } from "@/components/ReelDerivedMetrics";
+import { DurationInput } from "@/components/DurationInput";
 import { ReelConversionFunnel } from "@/components/ReelConversionFunnel";
 import { InsightList } from "@/components/InsightList";
 import { ReelPerformanceDashboard } from "@/components/ReelPerformanceDashboard";
@@ -175,6 +176,14 @@ function ReelDetail({
           reelId={reel.id}
           analysis={analysis.transcript}
           insights={reel.transcriptInsights}
+          onChange={onChange}
+        />
+      )}
+      {isReel && (
+        <DurationInput
+          reelId={reel.id}
+          durationSec={reel.durationSec}
+          avgWatchTimeSec={reel.avgWatchTimeSec}
           onChange={onChange}
         />
       )}
