@@ -1,5 +1,4 @@
 import { diagnoseRecent, RECENT_REEL_COUNT } from "@/lib/analysis/recentDiagnosis";
-import { buildBaselineThresholds } from "@/lib/analysis/baseline";
 import { BENCHMARKS } from "@/config/benchmarks";
 import type { Reel } from "@/lib/schemas";
 
@@ -61,23 +60,23 @@ test("3초 훅 데이터가 없으면 verdict에서 제외", () => {
   expect(d.verdicts.map((v) => v.key)).not.toContain("hookRetention3s");
 });
 
-// A안: 메인도 상세와 동일한 베이스라인 임계값을 쓴다 (히스토리 ≥5개)
-test("히스토리 5개 이상이면 베이스라인 임계값으로 진단한다", () => {
+// INS-10(B안): 계정 레벨 진단은 히스토리 수와 무관하게 항상 업계 절대 기준을 쓴다.
+// 개인 베이스라인을 쓰면 계정 전체가 기준 미달인 지표가 영원히 약점으로 안 뜬다.
+test("히스토리가 많아도 개인 베이스라인이 아닌 글로벌 절대 기준으로 진단한다", () => {
   const reels = Array.from({ length: 6 }, (_, i) =>
     reel(`r${i}`, `2026-06-0${i + 1}T00:00:00Z`, { hookRetention3s: 50 + i }),
   );
-  const baseline = buildBaselineThresholds(reels)!;
-  const d = diagnoseRecent(reels);
-  const hook = d.verdicts.find((v) => v.key === "hookRetention3s");
-  expect(hook?.threshold).toEqual(baseline.hookRetention3s);
-});
-
-test("히스토리 5개 미만이면 글로벌 벤치마크로 fallback", () => {
-  const reels = [
-    reel("a", "2026-06-01T00:00:00Z"),
-    reel("b", "2026-06-02T00:00:00Z"),
-  ];
   const d = diagnoseRecent(reels);
   const hook = d.verdicts.find((v) => v.key === "hookRetention3s");
   expect(hook?.threshold).toEqual(BENCHMARKS.hookRetention3s);
+});
+
+test("계정 전체가 절대 기준 미달이면 그 지표를 약점으로 드러낸다 (베이스라인 사각지대 해소)", () => {
+  // 저장율이 전부 계정 평균 근처(낮음)라 개인 베이스라인으로는 ok가 됐던 상황
+  const reels = Array.from({ length: 6 }, (_, i) =>
+    reel(`r${i}`, `2026-06-0${i + 1}T00:00:00Z`, { saves: 8, reach: 9000 }),
+  );
+  const d = diagnoseRecent(reels);
+  // 저장율 ≈ 0.09% ≪ REELS 기준 weakBelow 0.3%
+  expect(d.weaknesses.map((v) => v.key)).toContain("saveRate");
 });

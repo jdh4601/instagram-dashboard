@@ -150,6 +150,10 @@ export const AccountSnapshotSchema = z.object({
   followsLast7d: z.number().nonnegative().optional(),
   unfollowsLast7d: z.number().nonnegative().optional(),
   profileLinksTapsLast7d: z.number().nonnegative().optional(),
+  // reach의 follow_type breakdown(계정 레벨만 지원). 도달이 신규 유입인지 기존 팬의
+  // 반복 소비인지 가른다. 게시물 레벨은 미지원이라 없을 수 있어 optional.
+  followerReachLast7d: z.number().nonnegative().optional(),
+  nonFollowerReachLast7d: z.number().nonnegative().optional(),
   availableMetrics: z.array(z.string()).optional(),
   unavailableMetrics: z.array(z.string()).optional(),
 });

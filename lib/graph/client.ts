@@ -197,6 +197,34 @@ export function createGraphClient(opts: Options): GraphClient {
     }
   }
 
+  // reach의 follow_type breakdown. 성공하면 reach_follower/reach_non_follower를,
+  // 실패하면(게시물 레벨처럼 미지원이거나 일시 오류) reach_follow_type을 unavailable로 표시한다.
+  // 이 지표가 없어도 나머지 계정 동기화는 멈추지 않아야 한다.
+  async function followTypeReach(
+    window: Record<string, string>,
+  ): Promise<GraphInsightResult> {
+    try {
+      const json = (await request("me/insights", {
+        ...window,
+        metric: "reach",
+        breakdown: "follow_type",
+      })) as GraphInsightsResponse;
+      const values = flattenInsights(json);
+      const ok = "reach_follower" in values || "reach_non_follower" in values;
+      return {
+        metrics: values,
+        availableMetrics: ok ? ["reach_follow_type"] : [],
+        unavailableMetrics: ok ? [] : ["reach_follow_type"],
+      };
+    } catch (err) {
+      console.warn(
+        `[graph] reach follow_type breakdown 실패 — 팔로워/비팔로워 도달을 건너뜁니다: ` +
+          safeGraphMessage(err instanceof Error ? err.message : String(err)),
+      );
+      return { metrics: {}, availableMetrics: [], unavailableMetrics: ["reach_follow_type"] };
+    }
+  }
+
   return {
     async getProfile() {
       const json = (await request("me", {
@@ -274,12 +302,24 @@ export function createGraphClient(opts: Options): GraphClient {
     },
 
     async getAccountInsights(range) {
-      return optionalInsights("me/insights", ACCOUNT_METRICS, {
+      const window = {
         period: "day",
         metric_type: "total_value",
         since: range.since,
         until: range.until,
-      });
+      };
+      // reach는 breakdown 있이/없이 한 호출에 담을 수 없어(Graph 규약) 따로 요청한다.
+      // 계정 지표와 반드시 같은 기간을 써야 화면에서 두 창의 숫자가 섞이지 않는다(INS-1).
+      const [base, followType] = await Promise.all([
+        optionalInsights("me/insights", ACCOUNT_METRICS, window),
+        followTypeReach(window),
+      ]);
+      return {
+        // followType의 reach는 breakdown 합(추산)이라 base의 정식 reach를 덮지 않게 뒤로 병합하지 않는다.
+        metrics: { ...followType.metrics, ...base.metrics },
+        availableMetrics: [...base.availableMetrics, ...followType.availableMetrics],
+        unavailableMetrics: [...base.unavailableMetrics, ...followType.unavailableMetrics],
+      };
     },
   };
 }

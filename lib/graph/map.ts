@@ -20,13 +20,17 @@ export function flattenInsights(response: GraphInsightsResponse): Record<string,
     const value = item.values?.[0]?.value ?? item.total_value?.value;
     if (typeof value === "number") map[item.name] = value;
 
-    if (item.name === "follows_and_unfollows") {
-      for (const breakdown of item.total_value?.breakdowns ?? []) {
-        for (const result of breakdown.results ?? []) {
-          if (typeof result.value !== "number") continue;
-          const label = (result.dimension_values ?? []).join(" ").toLowerCase();
+    for (const breakdown of item.total_value?.breakdowns ?? []) {
+      for (const result of breakdown.results ?? []) {
+        if (typeof result.value !== "number") continue;
+        const label = (result.dimension_values ?? []).join(" ").toLowerCase();
+        if (item.name === "follows_and_unfollows") {
           if (label.includes("unfollow")) map.unfollows = result.value;
           else if (label.includes("follow")) map.follows = result.value;
+        } else if (item.name === "reach") {
+          // follow_type breakdown. NON_FOLLOWER에도 "follower"가 들어 있어 순서가 중요하다.
+          if (label.includes("non_follower")) map.reach_non_follower = result.value;
+          else if (label.includes("follower")) map.reach_follower = result.value;
         }
       }
     }
