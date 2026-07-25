@@ -12,17 +12,13 @@ import { AccountHeader } from "@/components/AccountHeader";
 import { AccountOverview } from "@/components/AccountOverview";
 import { WeeklyFunnelCard } from "@/components/WeeklyFunnelCard";
 import { AudienceMixCard } from "@/components/AudienceMixCard";
-import { StandardsGapCard } from "@/components/StandardsGapCard";
 import { buildConversionFunnel } from "@/lib/analysis/conversionFunnel";
 import { buildAudienceMix } from "@/lib/analysis/audienceMix";
-import { buildStandardsGaps } from "@/lib/analysis/standardsGaps";
 import { Input, Button, Skeleton } from "@/components/ui";
 import { ReelList } from "@/components/ReelList";
 import { FollowerGrowthChart } from "@/components/FollowerGrowthChart";
 import { EngagementPieChart } from "@/components/EngagementPieChart";
 import { DashboardMetrics } from "@/components/DashboardMetrics";
-import { InsightList } from "@/components/InsightList";
-import { buildAccountInsights } from "@/lib/analysis/accountInsights";
 import { filterByMedia, type MediaFilter } from "@/lib/ui/mediaFilter";
 import type { EarlyViewsMap } from "@/lib/ui/reelSelect";
 import { readNdjson } from "@/lib/ui/ndjsonStream";
@@ -206,13 +202,10 @@ export default function Page() {
   const followerDelta = latestFollowerDelta(snapshots);
   // 평균 시청시간·3초 잔존율은 캐러셀에 존재하지 않는 지표라 항상 릴스만 집계한다.
   const dashboardMetrics = computeDashboardMetrics(filterByMedia(reels, "REELS"));
-  const accountInsights = buildAccountInsights(snapshots);
   // 퍼널은 미디어 필터를 따른다 — "릴스만 볼 때 릴스 전환율"이 자연스럽다.
   const funnel = buildConversionFunnel(visibleReels);
   // 도달 구성은 계정 레벨 지표라 미디어 필터와 무관하다.
   const audienceMix = buildAudienceMix(snapshots);
-  // 업계 기준 미달 진단은 두 포맷 모두를 대상으로 하는 계정 레벨 경고라 전체 릴스를 쓴다.
-  const standardsGaps = buildStandardsGaps(reels);
 
   // 저장 시점을 모르는 토큰은 경고하지 않는다. 토큰을 이 앱에 저장하기 전부터 쓰던
   // 사용자는 갱신 여부와 무관하게 배너가 영구히 떠서, 조치할 수 없는 알림이 된다.
@@ -256,14 +249,10 @@ export default function Page() {
             {/* 헤더는 필터와 무관한 전체 개수를 보여준다 */}
             <AccountHeader profile={profile} followerDelta={followerDelta} contentCount={reels.length} />
             <AccountOverview overview={overview} />
-            <AudienceMixCard mix={audienceMix} />
-            <StandardsGapCard gaps={standardsGaps} />
-            <WeeklyFunnelCard funnel={funnel} />
-            <InsightList
-              title="계정 인사이트"
-              insights={accountInsights}
-              helpText="최근 저장된 7일 계정 스냅샷을 기준으로 Graph API의 도달, 참여 계정, 팔로우·언팔로우를 사용합니다. 참여율은 참여 계정 ÷ 도달, 순 팔로워는 팔로우 − 언팔로우로 계산하며, 7일 이상 이전 스냅샷이 있으면 도달 증감도 비교합니다. 값이 없는 지표는 인사이트에서 제외합니다."
-            />
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+              <WeeklyFunnelCard funnel={funnel} />
+              <AudienceMixCard mix={audienceMix} />
+            </div>
 
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
               <FollowerGrowthChart snapshots={snapshots} />
