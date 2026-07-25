@@ -1,11 +1,12 @@
 import type { MediaKind, Reel } from "@/lib/schemas";
 import { BENCHMARKS_BY_KIND, type MetricKey, type Threshold } from "@/config/benchmarks";
 import { mediaKindOf } from "@/lib/media/kind";
-import { classifyBand, type Band, type MetricVerdict } from "@/lib/analysis/diagnosis";
-import { buildBaselineThresholds } from "@/lib/analysis/baseline";
+import { classifyBand, type MetricVerdict } from "@/lib/analysis/diagnosis";
 import { computeDerivedRates } from "@/lib/analysis/metrics";
 
 export const RECENT_REEL_COUNT = 10;
+
+const KIND_LABEL: Record<MediaKind, string> = { REELS: "릴스", CAROUSEL: "캐러셀" };
 
 export interface RecentDiagnosis {
   /** 최근 N개 릴스에서 평균 성과가 strong/weak/ok 인 지표 */
@@ -58,8 +59,11 @@ function buildVerdict(key: MetricKey, value: number, t: Threshold): MetricVerdic
 export function diagnoseRecent(reels: Reel[], kind: MediaKind = "REELS"): RecentDiagnosis {
   const sameKind = reels.filter((reel) => mediaKindOf(reel) === kind);
   const recent = recentReels(sameKind, RECENT_REEL_COUNT);
-  // A안: 상세(analyzeReel)와 동일한 임계값 소스 — 베이스라인(내 평균), 부족 시 글로벌
-  const thresholds = buildBaselineThresholds(sameKind, kind) ?? BENCHMARKS_BY_KIND[kind];
+  // INS-10(B안): 계정 레벨 진단은 개인 베이스라인이 아니라 업계 절대 기준을 쓴다.
+  // 베이스라인(내 중앙값 ×0.85)을 쓰면 계정 전체가 기준 미달인 지표(예: 캐러셀 저장율)가
+  // 자기 평균은 넘겨 영원히 약점으로 안 뜬다. 게시물 상세(diagnose)는 게시물 간 변별을
+  // 위해 여전히 베이스라인을 쓰고, 절대 기준은 이 계정 레벨 집계에만 둔다.
+  const thresholds = BENCHMARKS_BY_KIND[kind];
   const verdicts: MetricVerdict[] = [];
 
   for (const key of Object.keys(thresholds) as MetricKey[]) {
@@ -74,14 +78,19 @@ export function diagnoseRecent(reels: Reel[], kind: MediaKind = "REELS"): Recent
   const strengths = verdicts.filter((v) => v.band === "strong");
   const weaknesses = verdicts.filter((v) => v.band === "weak");
 
-  const summary = buildSummary(strengths, weaknesses, recent.length);
+  const summary = buildSummary(strengths, weaknesses, recent.length, KIND_LABEL[kind]);
 
   return { verdicts, strengths, weaknesses, reelCount: recent.length, summary };
 }
 
-function buildSummary(strengths: MetricVerdict[], weaknesses: MetricVerdict[], reelCount: number): string {
+function buildSummary(
+  strengths: MetricVerdict[],
+  weaknesses: MetricVerdict[],
+  reelCount: number,
+  label: string,
+): string {
   if (strengths.length === 0 && weaknesses.length === 0) {
-    return "최근 릴스 데이터가 부족해요.";
+    return `최근 ${label} 데이터가 부족해요.`;
   }
 
   const parts: string[] = [];
@@ -93,5 +102,5 @@ function buildSummary(strengths: MetricVerdict[], weaknesses: MetricVerdict[], r
   }
 
   const main = parts.join(", ");
-  return `최근 ${reelCount}개 릴스 기준: ${main}.`;
+  return `최근 ${reelCount}개 ${label} 기준: ${main}.`;
 }
