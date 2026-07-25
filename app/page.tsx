@@ -11,7 +11,9 @@ import { SyncProgressBar } from "@/components/SyncProgressBar";
 import { AccountHeader } from "@/components/AccountHeader";
 import { AccountOverview } from "@/components/AccountOverview";
 import { WeeklyFunnelCard } from "@/components/WeeklyFunnelCard";
+import { AudienceMixCard } from "@/components/AudienceMixCard";
 import { buildConversionFunnel } from "@/lib/analysis/conversionFunnel";
+import { buildAudienceMix } from "@/lib/analysis/audienceMix";
 import { Input, Button, Skeleton } from "@/components/ui";
 import { ReelList } from "@/components/ReelList";
 import { FollowerGrowthChart } from "@/components/FollowerGrowthChart";
@@ -205,6 +207,8 @@ export default function Page() {
   const accountInsights = buildAccountInsights(snapshots);
   // 퍼널은 미디어 필터를 따른다 — "릴스만 볼 때 릴스 전환율"이 자연스럽다.
   const funnel = buildConversionFunnel(visibleReels);
+  // 도달 구성은 계정 레벨 지표라 미디어 필터와 무관하다.
+  const audienceMix = buildAudienceMix(snapshots);
 
   // 저장 시점을 모르는 토큰은 경고하지 않는다. 토큰을 이 앱에 저장하기 전부터 쓰던
   // 사용자는 갱신 여부와 무관하게 배너가 영구히 떠서, 조치할 수 없는 알림이 된다.
@@ -248,6 +252,7 @@ export default function Page() {
             {/* 헤더는 필터와 무관한 전체 개수를 보여준다 */}
             <AccountHeader profile={profile} followerDelta={followerDelta} contentCount={reels.length} />
             <AccountOverview overview={overview} />
+            <AudienceMixCard mix={audienceMix} />
             <WeeklyFunnelCard funnel={funnel} />
             <InsightList
               title="계정 인사이트"

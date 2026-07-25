@@ -223,6 +223,8 @@ export async function syncFromGraph(
     followsLast7d: accountInsights.metrics.follows,
     unfollowsLast7d: accountInsights.metrics.unfollows,
     profileLinksTapsLast7d: accountInsights.metrics.profile_links_taps,
+    followerReachLast7d: accountInsights.metrics.reach_follower,
+    nonFollowerReachLast7d: accountInsights.metrics.reach_non_follower,
     availableMetrics: accountInsights.availableMetrics,
     unavailableMetrics: accountInsights.unavailableMetrics,
   });
