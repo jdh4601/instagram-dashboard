@@ -25,8 +25,11 @@ export function flattenInsights(response: GraphInsightsResponse): Record<string,
         if (typeof result.value !== "number") continue;
         const label = (result.dimension_values ?? []).join(" ").toLowerCase();
         if (item.name === "follows_and_unfollows") {
-          if (label.includes("unfollow")) map.unfollows = result.value;
-          else if (label.includes("follow")) map.follows = result.value;
+          // follow_type breakdown의 실제 값은 FOLLOWER / NON_FOLLOWER다. reach와 같은
+          // 함정 — NON_FOLLOWER에도 "follower"가 들어 있어 순서가 중요하다.
+          // "unfollow"로 검사하면 어느 쪽도 걸리지 않아 언팔 수가 follows를 덮어쓴다.
+          if (label.includes("non_follower")) map.unfollows = result.value;
+          else if (label.includes("follower")) map.follows = result.value;
         } else if (item.name === "reach") {
           // follow_type breakdown. NON_FOLLOWER에도 "follower"가 들어 있어 순서가 중요하다.
           if (label.includes("non_follower")) map.reach_non_follower = result.value;

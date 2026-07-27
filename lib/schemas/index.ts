@@ -149,6 +149,9 @@ export const AccountSnapshotSchema = z.object({
   totalInteractionsLast7d: z.number().nonnegative().optional(),
   followsLast7d: z.number().nonnegative().optional(),
   unfollowsLast7d: z.number().nonnegative().optional(),
+  // 계정 레벨 프로필 방문. 게시물 레벨 profile_visits는 릴스에서 미지원이라
+  // 도달→방문→팔로우 퍼널의 중간 단계를 이 값으로만 채울 수 있다.
+  profileViewsLast7d: z.number().nonnegative().optional(),
   profileLinksTapsLast7d: z.number().nonnegative().optional(),
   // reach의 follow_type breakdown(계정 레벨만 지원). 도달이 신규 유입인지 기존 팬의
   // 반복 소비인지 가른다. 게시물 레벨은 미지원이라 없을 수 있어 optional.

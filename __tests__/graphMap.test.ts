@@ -13,17 +13,44 @@ test("flattenInsights는 Graph 인사이트 배열을 metric→value 맵으로 �
   expect(m.ig_reels_avg_watch_time).toBe(20000);
 });
 
+// 실제 Graph v23.0이 돌려주는 dimension_value는 FOLLOWER / NON_FOLLOWER다.
+// "UNFOLLOWER"는 존재하지 않는다 — 그 값으로 검증하면 NON_FOLLOWER가 follows를
+// 덮어쓰는 버그를 잡지 못한다.
 test("flattenInsights는 total_value와 팔로우 breakdown을 정규화", () => {
   const data = {
     data: [
       { name: "reach", total_value: { value: 900 } },
       { name: "follows_and_unfollows", total_value: { breakdowns: [{ results: [
         { dimension_values: ["FOLLOWER"], value: 12 },
-        { dimension_values: ["UNFOLLOWER"], value: 3 },
+        { dimension_values: ["NON_FOLLOWER"], value: 3 },
       ] }] } },
     ],
   };
   expect(flattenInsights(data)).toMatchObject({ reach: 900, follows: 12, unfollows: 3 });
+});
+
+// @wearedone.kr 계정의 2026-07-20~27 실제 응답. NON_FOLLOWER는 "unfollow"를 포함하지
+// 않아 follows 분기로 새고, 팔로우 27을 언팔로우 4로 덮어썼다.
+test("flattenInsights는 NON_FOLLOWER를 follows로 오인하지 않는다", () => {
+  const real = {
+    data: [
+      {
+        name: "follows_and_unfollows",
+        total_value: {
+          breakdowns: [
+            {
+              dimension_keys: ["follow_type"],
+              results: [
+                { dimension_values: ["FOLLOWER"], value: 27 },
+                { dimension_values: ["NON_FOLLOWER"], value: 4 },
+              ],
+            },
+          ],
+        },
+      },
+    ],
+  };
+  expect(flattenInsights(real)).toEqual({ follows: 27, unfollows: 4 });
 });
 
 test("mapMediaToReel은 집계 지표를 Reel로 매핑(평균시청 ms→초)", () => {
