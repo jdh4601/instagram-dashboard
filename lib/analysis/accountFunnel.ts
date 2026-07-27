@@ -2,6 +2,19 @@ import type { AccountSnapshot } from "@/lib/schemas";
 
 export const ACCOUNT_FUNNEL_WINDOW_DAYS = 7;
 
+/**
+ * 직전 스냅샷 대비 전환율 증감(퍼센트포인트).
+ *
+ * 주의: 각 스냅샷은 7일 롤링 값이라 하루 차이 두 스냅샷은 6일치를 공유한다.
+ * 따라서 이 증감은 "어제 하루의 성과"가 아니라 창에 새로 들어온 하루와 빠져나간
+ * 하루의 차이이며, 실제 변화보다 작게 나타난다.
+ */
+export interface AccountFunnelDeltas {
+  viewRate: number | null;
+  followRate: number | null;
+  linkClickRate: number | null;
+}
+
 export interface AccountFunnel {
   /** 스냅샷 날짜 — 화면에 "언제 기준"인지 밝힌다. */
   date: string;
@@ -23,6 +36,10 @@ export interface AccountFunnel {
   followRate: number | null;
   /** 링크 클릭 ÷ 방문, %. 팔로우와 같은 분모다 — 둘은 순차가 아니라 병렬 결과다. */
   linkClickRate: number | null;
+  /** 증감을 비교한 스냅샷 날짜. 비교 대상이 없으면 null. */
+  previousDate: string | null;
+  /** 직전 스냅샷 대비 전환율 증감(%p). */
+  deltas: AccountFunnelDeltas;
 }
 
 function rate(numerator: number | null, denominator: number | null): number | null {
@@ -32,6 +49,21 @@ function rate(numerator: number | null, denominator: number | null): number | nu
 
 function optional(value: number | undefined): number | null {
   return typeof value === "number" ? value : null;
+}
+
+/** 한 스냅샷의 세 전환율. 증감 계산이 현재/직전에 같은 식을 쓰도록 한곳에 모은다. */
+function ratesOf(snapshot: AccountSnapshot): AccountFunnelDeltas {
+  const profileViews = optional(snapshot.profileViewsLast7d);
+  return {
+    viewRate: rate(profileViews, snapshot.reachLast7d),
+    followRate: rate(optional(snapshot.followsLast7d), profileViews),
+    linkClickRate: rate(optional(snapshot.websiteClicksLast7d), profileViews),
+  };
+}
+
+function diff(current: number | null, previous: number | null): number | null {
+  if (current === null || previous === null) return null;
+  return current - previous;
 }
 
 /**
@@ -61,6 +93,15 @@ export function buildAccountFunnel(snapshots: AccountSnapshot[]): AccountFunnel 
     return null;
   }
 
+  const earlier = snapshots.filter((candidate) => candidate.date < latest.date);
+  const previous =
+    earlier.length === 0
+      ? null
+      : earlier.reduce((best, current) => (current.date > best.date ? current : best));
+
+  const current = ratesOf(latest);
+  const before = previous === null ? null : ratesOf(previous);
+
   return {
     date: latest.date,
     reach: latest.reachLast7d,
@@ -69,8 +110,12 @@ export function buildAccountFunnel(snapshots: AccountSnapshot[]): AccountFunnel 
     unfollows,
     netFollows: follows === null || unfollows === null ? null : follows - unfollows,
     websiteClicks,
-    viewRate: rate(profileViews, latest.reachLast7d),
-    followRate: rate(follows, profileViews),
-    linkClickRate: rate(websiteClicks, profileViews),
+    ...current,
+    previousDate: previous === null ? null : previous.date,
+    deltas: {
+      viewRate: diff(current.viewRate, before?.viewRate ?? null),
+      followRate: diff(current.followRate, before?.followRate ?? null),
+      linkClickRate: diff(current.linkClickRate, before?.linkClickRate ?? null),
+    },
   };
 }

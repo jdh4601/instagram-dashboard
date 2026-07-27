@@ -26,6 +26,8 @@ export function AccountFunnelCard({ funnel }: Props) {
             label="프로필 방문"
             value={funnel.profileViews === null ? "-" : fmtCount(funnel.profileViews)}
             sub={funnel.viewRate === null ? undefined : fmtPct(funnel.viewRate)}
+            delta={funnel.deltas.viewRate}
+            since={funnel.previousDate}
           />
           <ArrowRight size={14} className="shrink-0 text-neutral-300" aria-hidden="true" />
           {/* 팔로우와 링크 클릭은 순차 단계가 아니라 방문에서 갈라지는 병렬 결과다.
@@ -35,12 +37,16 @@ export function AccountFunnelCard({ funnel }: Props) {
               label="팔로우"
               value={funnel.follows === null ? "-" : fmtCount(funnel.follows)}
               sub={funnel.followRate === null ? undefined : fmtPct(funnel.followRate)}
+              delta={funnel.deltas.followRate}
+              since={funnel.previousDate}
               accent
             />
             <Stage
               label="링크 클릭"
               value={funnel.websiteClicks === null ? "-" : fmtCount(funnel.websiteClicks)}
               sub={funnel.linkClickRate === null ? undefined : fmtPct(funnel.linkClickRate)}
+              delta={funnel.deltas.linkClickRate}
+              since={funnel.previousDate}
               accent
             />
           </div>
@@ -54,11 +60,15 @@ function Stage({
   label,
   value,
   sub,
+  delta,
+  since,
   accent,
 }: {
   label: string;
   value: string;
   sub?: string;
+  delta?: number | null;
+  since?: string | null;
   accent?: boolean;
 }) {
   return (
@@ -70,6 +80,34 @@ function Stage({
         {value}
       </p>
       <p className="min-h-4 text-xs text-neutral-400">{sub ?? ""}</p>
+      <RateDelta delta={delta ?? null} since={since ?? null} />
     </div>
+  );
+}
+
+// 전환율의 증감은 퍼센트포인트다. 비율을 비율로 나눈 "몇 % 상승"은 6.0%→6.1%가
+// "+1.7% 상승"으로 보여 오해를 부른다.
+function RateDelta({ delta, since }: { delta: number | null; since: string | null }) {
+  if (delta === null) return <p className="min-h-4" aria-hidden="true" />;
+
+  const rounded = Number(delta.toFixed(2));
+  const title = since === null ? undefined : `${since} 대비`;
+
+  if (rounded === 0) {
+    return (
+      <p className="min-h-4 text-[11px] text-neutral-400 tabular-nums" title={title}>
+        변화 없음
+      </p>
+    );
+  }
+
+  const up = rounded > 0;
+  return (
+    <p
+      className={`min-h-4 text-[11px] tabular-nums ${up ? "text-band-strong" : "text-band-weak"}`}
+      title={title}
+    >
+      {up ? "▲" : "▼"} {Math.abs(rounded).toFixed(2)}%p
+    </p>
   );
 }

@@ -98,6 +98,64 @@ test("링크 클릭만 측정돼도 퍼널을 만든다", () => {
   expect(funnel!.websiteClicks).toBe(24);
 });
 
+// --- 직전 스냅샷 대비 증감 (%p) ---
+
+test("직전 스냅샷 대비 세 전환율의 증감을 %p로 계산", () => {
+  const funnel = buildAccountFunnel([
+    // 방문율 10%, 팔로우율 5%, 링크클릭율 2%
+    snapshot({
+      date: "2026-07-26",
+      reachLast7d: 1000,
+      profileViewsLast7d: 100,
+      followsLast7d: 5,
+      websiteClicksLast7d: 2,
+    }),
+    // 방문율 20%, 팔로우율 4%, 링크클릭율 3%
+    snapshot({
+      date: "2026-07-27",
+      reachLast7d: 1000,
+      profileViewsLast7d: 200,
+      followsLast7d: 8,
+      websiteClicksLast7d: 6,
+    }),
+  ])!;
+
+  expect(funnel.previousDate).toBe("2026-07-26");
+  expect(funnel.deltas.viewRate).toBeCloseTo(10, 5); // 20 − 10
+  expect(funnel.deltas.followRate).toBeCloseTo(-1, 5); // 4 − 5
+  expect(funnel.deltas.linkClickRate).toBeCloseTo(1, 5); // 3 − 2
+});
+
+test("직전 스냅샷이 없으면 증감은 전부 null", () => {
+  const funnel = buildAccountFunnel([snapshot()])!;
+
+  expect(funnel.previousDate).toBeNull();
+  expect(funnel.deltas).toEqual({ viewRate: null, followRate: null, linkClickRate: null });
+});
+
+// 어제는 미수집이고 오늘만 있으면 "올랐다"가 아니다. 0에서 시작한 것처럼 보이면 안 된다.
+test("직전 스냅샷에 지표가 없으면 그 항목만 null", () => {
+  const funnel = buildAccountFunnel([
+    snapshot({ date: "2026-07-26", websiteClicksLast7d: undefined }),
+    snapshot({ date: "2026-07-27" }),
+  ])!;
+
+  expect(funnel.deltas.linkClickRate).toBeNull();
+  expect(funnel.deltas.viewRate).toBeCloseTo(0, 5);
+  expect(funnel.deltas.followRate).toBeCloseTo(0, 5);
+});
+
+test("증감 비교 대상은 가장 가까운 과거 스냅샷", () => {
+  const funnel = buildAccountFunnel([
+    snapshot({ date: "2026-07-20", profileViewsLast7d: 100, reachLast7d: 1000 }),
+    snapshot({ date: "2026-07-26", profileViewsLast7d: 150, reachLast7d: 1000 }),
+    snapshot({ date: "2026-07-27", profileViewsLast7d: 200, reachLast7d: 1000 }),
+  ])!;
+
+  expect(funnel.previousDate).toBe("2026-07-26");
+  expect(funnel.deltas.viewRate).toBeCloseTo(5, 5); // 20 − 15
+});
+
 test("스냅샷이 없으면 null", () => {
   expect(buildAccountFunnel([])).toBeNull();
 });
