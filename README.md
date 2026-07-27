@@ -1,6 +1,6 @@
 <!-- Language: **English** · [한국어](./README.ko.md) -->
 
-# AI Reels Analyzer
+# Instagram Dashboard
 
 > **English** · [한국어](./README.ko.md)
 

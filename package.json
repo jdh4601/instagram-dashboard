@@ -17,7 +17,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jdh4601/ai-reels-analyzer.git"
+    "url": "git+https://github.com/jdh4601/instagram-dashboard.git"
   },
   "keywords": [
     "instagram",
@@ -33,9 +33,9 @@
   "license": "MIT",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/jdh4601/ai-reels-analyzer/issues"
+    "url": "https://github.com/jdh4601/instagram-dashboard/issues"
   },
-  "homepage": "https://github.com/jdh4601/ai-reels-analyzer#readme",
+  "homepage": "https://github.com/jdh4601/instagram-dashboard#readme",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.106.0",
     "lucide-react": "^1.22.0",
