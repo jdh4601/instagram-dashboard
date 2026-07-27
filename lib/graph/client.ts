@@ -55,6 +55,9 @@ const ACCOUNT_METRICS = [
   "accounts_engaged",
   "total_interactions",
   "profile_views",
+  // 바이오 링크 클릭. profile_links_taps와 다르다 — 그쪽은 연락처 버튼(주소·통화·
+  // 이메일·텍스트) 집계라 링크인바이오 성과로 읽으면 안 된다.
+  "website_clicks",
   "profile_links_taps",
 ];
 

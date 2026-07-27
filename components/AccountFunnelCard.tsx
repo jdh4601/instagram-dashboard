@@ -28,19 +28,28 @@ export function AccountFunnelCard({ funnel }: Props) {
             sub={funnel.viewRate === null ? undefined : fmtPct(funnel.viewRate)}
           />
           <ArrowRight size={14} className="shrink-0 text-neutral-300" aria-hidden="true" />
-          <Stage
-            label="팔로우"
-            value={funnel.follows === null ? "-" : fmtCount(funnel.follows)}
-            sub={funnel.followRate === null ? undefined : fmtPct(funnel.followRate)}
-          />
-          <ArrowRight size={14} className="shrink-0 text-neutral-300" aria-hidden="true" />
-          <Stage
-            label="순증"
-            value={funnel.netFollows === null ? "-" : fmtSigned(funnel.netFollows)}
-            sub={funnel.unfollows === null ? undefined : `언팔 ${fmtCount(funnel.unfollows)}`}
-            accent
-          />
+          {/* 팔로우와 링크 클릭은 순차 단계가 아니라 방문에서 갈라지는 병렬 결과다.
+              사이에 화살표를 두면 "팔로워가 링크를 눌렀다"로 읽혀 사실과 달라진다. */}
+          <div className="flex flex-1 items-stretch divide-x divide-neutral-200/60">
+            <Stage
+              label="팔로우"
+              value={funnel.follows === null ? "-" : fmtCount(funnel.follows)}
+              sub={funnel.followRate === null ? undefined : fmtPct(funnel.followRate)}
+              accent
+            />
+            <Stage
+              label="링크 클릭"
+              value={funnel.websiteClicks === null ? "-" : fmtCount(funnel.websiteClicks)}
+              sub={funnel.linkClickRate === null ? undefined : fmtPct(funnel.linkClickRate)}
+              accent
+            />
+          </div>
         </div>
+        <p className="text-xs text-neutral-400">
+          팔로우·링크 클릭은 방문 대비 비율(병렬 결과)
+          {funnel.netFollows === null ? "" : ` · 순증 ${fmtSigned(funnel.netFollows)}`}
+          {funnel.unfollows === null ? "" : ` (언팔 ${fmtCount(funnel.unfollows)})`}
+        </p>
         <p className="text-xs text-neutral-400">
           {funnel.date} 기준 · 게시물 귀속이 아닌 계정 전체 수치라 미디어 필터와 무관합니다.
         </p>

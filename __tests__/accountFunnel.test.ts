@@ -9,6 +9,7 @@ function snapshot(overrides: Partial<AccountSnapshot> = {}): AccountSnapshot {
     profileViewsLast7d: 466,
     followsLast7d: 27,
     unfollowsLast7d: 4,
+    websiteClicksLast7d: 24,
     ...overrides,
   };
 }
@@ -62,6 +63,41 @@ test("도달이 0이면 방문 전환율을 계산하지 않는다", () => {
   expect(funnel!.viewRate).toBeNull();
 });
 
+// 링크 클릭은 팔로우 다음 단계가 아니라 프로필 방문에서 갈라지는 나란한 결과다.
+// 그래서 분모가 팔로우가 아니라 방문이다.
+test("링크 클릭 전환율의 분모는 팔로우가 아니라 프로필 방문", () => {
+  const funnel = buildAccountFunnel([snapshot()]);
+
+  expect(funnel!.websiteClicks).toBe(24);
+  expect(funnel!.linkClickRate).toBeCloseTo((24 / 466) * 100, 5);
+});
+
+test("링크 클릭이 미측정이면 클릭 수와 전환율을 null로 둔다", () => {
+  const funnel = buildAccountFunnel([snapshot({ websiteClicksLast7d: undefined })]);
+
+  expect(funnel!.websiteClicks).toBeNull();
+  expect(funnel!.linkClickRate).toBeNull();
+  // 나머지 단계는 영향받지 않는다
+  expect(funnel!.follows).toBe(27);
+});
+
+test("프로필 방문이 없으면 링크 클릭 수는 남기고 전환율만 null", () => {
+  const funnel = buildAccountFunnel([snapshot({ profileViewsLast7d: undefined })]);
+
+  expect(funnel!.websiteClicks).toBe(24);
+  expect(funnel!.linkClickRate).toBeNull();
+});
+
+// 팔로우·방문이 없어도 링크 클릭이 있으면 보여줄 단계가 남는다.
+test("링크 클릭만 측정돼도 퍼널을 만든다", () => {
+  const funnel = buildAccountFunnel([
+    snapshot({ profileViewsLast7d: undefined, followsLast7d: undefined, unfollowsLast7d: undefined }),
+  ]);
+
+  expect(funnel).not.toBeNull();
+  expect(funnel!.websiteClicks).toBe(24);
+});
+
 test("스냅샷이 없으면 null", () => {
   expect(buildAccountFunnel([])).toBeNull();
 });
@@ -69,7 +105,12 @@ test("스냅샷이 없으면 null", () => {
 // 팔로우·방문이 모두 미측정이면 남는 건 도달 하나뿐이라 퍼널이 아니다.
 test("도달 말고 아무것도 측정되지 않으면 null", () => {
   const funnel = buildAccountFunnel([
-    snapshot({ profileViewsLast7d: undefined, followsLast7d: undefined, unfollowsLast7d: undefined }),
+    snapshot({
+      profileViewsLast7d: undefined,
+      followsLast7d: undefined,
+      unfollowsLast7d: undefined,
+      websiteClicksLast7d: undefined,
+    }),
   ]);
 
   expect(funnel).toBeNull();

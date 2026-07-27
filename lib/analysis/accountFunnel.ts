@@ -15,10 +15,14 @@ export interface AccountFunnel {
   unfollows: number | null;
   /** 팔로우 − 언팔로우. 둘 중 하나라도 없으면 null. */
   netFollows: number | null;
+  /** 바이오 링크 클릭 수. 미측정이면 null. */
+  websiteClicks: number | null;
   /** 방문 ÷ 도달, %. */
   viewRate: number | null;
   /** 팔로우 ÷ 방문, %. */
   followRate: number | null;
+  /** 링크 클릭 ÷ 방문, %. 팔로우와 같은 분모다 — 둘은 순차가 아니라 병렬 결과다. */
+  linkClickRate: number | null;
 }
 
 function rate(numerator: number | null, denominator: number | null): number | null {
@@ -50,9 +54,12 @@ export function buildAccountFunnel(snapshots: AccountSnapshot[]): AccountFunnel 
   const profileViews = optional(latest.profileViewsLast7d);
   const follows = optional(latest.followsLast7d);
   const unfollows = optional(latest.unfollowsLast7d);
+  const websiteClicks = optional(latest.websiteClicksLast7d);
 
   // 도달만 남으면 단계가 하나뿐이라 퍼널로서 읽을 게 없다.
-  if (profileViews === null && follows === null && unfollows === null) return null;
+  if (profileViews === null && follows === null && unfollows === null && websiteClicks === null) {
+    return null;
+  }
 
   return {
     date: latest.date,
@@ -61,7 +68,9 @@ export function buildAccountFunnel(snapshots: AccountSnapshot[]): AccountFunnel 
     follows,
     unfollows,
     netFollows: follows === null || unfollows === null ? null : follows - unfollows,
+    websiteClicks,
     viewRate: rate(profileViews, latest.reachLast7d),
     followRate: rate(follows, profileViews),
+    linkClickRate: rate(websiteClicks, profileViews),
   };
 }
