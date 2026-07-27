@@ -1,6 +1,6 @@
 <!-- 언어: **한국어** · [English](./README.md) -->
 
-# 릴스 분석 AI 대시보드
+# Instagram Dashboard
 
 > **한국어** · [English](./README.md)
 
