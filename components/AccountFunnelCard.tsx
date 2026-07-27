@@ -18,7 +18,7 @@ export function AccountFunnelCard({ funnel }: Props) {
         icon={<UserRoundSearch size={16} className="text-brand-600" />}
         action={<Badge>계정 전체 기준</Badge>}
       />
-      <CardBody className="space-y-2">
+      <CardBody>
         <div className="flex items-center gap-1">
           <Stage label="도달" value={fmtCount(funnel.reach)} />
           <ArrowRight size={14} className="shrink-0 text-neutral-300" aria-hidden="true" />
@@ -45,21 +45,9 @@ export function AccountFunnelCard({ funnel }: Props) {
             />
           </div>
         </div>
-        <p className="text-xs text-neutral-400">
-          팔로우·링크 클릭은 방문 대비 비율(병렬 결과)
-          {funnel.netFollows === null ? "" : ` · 순증 ${fmtSigned(funnel.netFollows)}`}
-          {funnel.unfollows === null ? "" : ` (언팔 ${fmtCount(funnel.unfollows)})`}
-        </p>
-        <p className="text-xs text-neutral-400">
-          {funnel.date} 기준 · 게시물 귀속이 아닌 계정 전체 수치라 미디어 필터와 무관합니다.
-        </p>
       </CardBody>
     </Card>
   );
-}
-
-function fmtSigned(value: number): string {
-  return value > 0 ? `+${fmtCount(value)}` : fmtCount(value);
 }
 
 function Stage({
