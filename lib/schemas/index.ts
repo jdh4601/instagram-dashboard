@@ -149,6 +149,12 @@ export const AccountSnapshotSchema = z.object({
   totalInteractionsLast7d: z.number().nonnegative().optional(),
   followsLast7d: z.number().nonnegative().optional(),
   unfollowsLast7d: z.number().nonnegative().optional(),
+  // 계정 레벨 프로필 방문. 게시물 레벨 profile_visits는 릴스에서 미지원이라
+  // 도달→방문→팔로우 퍼널의 중간 단계를 이 값으로만 채울 수 있다.
+  profileViewsLast7d: z.number().nonnegative().optional(),
+  // 바이오 링크 클릭 수. 프로필 방문에서 팔로우와 나란히 갈라지는 결과다.
+  websiteClicksLast7d: z.number().nonnegative().optional(),
+  // 연락처 버튼(주소·통화·이메일·텍스트) 누름. 바이오 링크가 아니다.
   profileLinksTapsLast7d: z.number().nonnegative().optional(),
   // reach의 follow_type breakdown(계정 레벨만 지원). 도달이 신규 유입인지 기존 팬의
   // 반복 소비인지 가른다. 게시물 레벨은 미지원이라 없을 수 있어 optional.

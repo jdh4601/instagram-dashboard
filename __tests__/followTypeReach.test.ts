@@ -75,6 +75,72 @@ test("getAccountInsights는 다른 계정 지표와 같은 기간으로 breakdow
   expect(breakdownCall).toContain(`until=${RANGE.until}`);
 });
 
+// follows_and_unfollows는 breakdown=follow_type 없이 요청하면 total_value 자체가 없는
+// 껍데기를 돌려준다. 그래서 계정 지표 묶음에 섞어 보내면 영구히 "미지원"으로 잡힌다.
+// reach와 같은 breakdown 축이라 한 호출에 함께 실어 호출 수를 늘리지 않는다.
+test("getAccountInsights는 팔로우/언팔로우를 follow_type breakdown에서 가져온다", async () => {
+  const seen: string[] = [];
+  const combined = {
+    data: [
+      breakdownResponse(226, 3654).data[0],
+      {
+        name: "follows_and_unfollows",
+        total_value: {
+          breakdowns: [
+            {
+              dimension_keys: ["follow_type"],
+              results: [
+                { dimension_values: ["FOLLOWER"], value: 27 },
+                { dimension_values: ["NON_FOLLOWER"], value: 4 },
+              ],
+            },
+          ],
+        },
+      },
+    ],
+  };
+  const client = createGraphClient({
+    accessToken: "tok",
+    fetchImpl: (async (url: string) => {
+      seen.push(url);
+      return fakeFetch([
+        ["breakdown=follow_type", combined],
+        ["/me/insights", { data: [{ name: "reach", total_value: { value: 3887 } }] }],
+      ])(url);
+    }) as unknown as typeof fetch,
+  });
+
+  const result = await client.getAccountInsights!(RANGE);
+
+  expect(result.metrics.follows).toBe(27);
+  expect(result.metrics.unfollows).toBe(4);
+  expect(result.availableMetrics).toContain("follows_and_unfollows");
+  // 정식 reach(중복 제거)는 breakdown 합(3880)이 아니라 base 값을 쓴다
+  expect(result.metrics.reach).toBe(3887);
+  // breakdown 축이 같으므로 호출은 하나로 끝나야 한다
+  expect(seen.filter((url) => url.includes("breakdown=follow_type"))).toHaveLength(1);
+});
+
+test("getAccountInsights는 profile_views를 계정 지표로 요청한다", async () => {
+  const seen: string[] = [];
+  const client = createGraphClient({
+    accessToken: "tok",
+    fetchImpl: (async (url: string) => {
+      seen.push(url);
+      return fakeFetch([
+        ["breakdown=follow_type", breakdownResponse(226, 3654)],
+        ["/me/insights", { data: [{ name: "profile_views", total_value: { value: 466 } }] }],
+      ])(url);
+    }) as unknown as typeof fetch,
+  });
+
+  const result = await client.getAccountInsights!(RANGE);
+
+  expect(result.metrics.profile_views).toBe(466);
+  const baseCall = seen.find((url) => !url.includes("breakdown=follow_type"));
+  expect(decodeURIComponent(baseCall ?? "")).toContain("profile_views");
+});
+
 test("breakdown 요청이 실패해도 나머지 계정 지표는 살아남는다", async () => {
   const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
   const client = createGraphClient({

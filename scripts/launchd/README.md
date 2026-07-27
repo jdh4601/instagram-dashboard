@@ -90,7 +90,7 @@ sudo pmset repeat cancel   # 자동 웨이크 해제
 
 ```text
 Program: C:\\Windows\\System32\\wsl.exe
-Arguments: bash -lc 'cd /path/to/ai-reels-analyzer && ./scripts/daily-report.sh >> data/daily-report.log 2>&1'
+Arguments: bash -lc 'cd /path/to/instagram-dashboard && ./scripts/daily-report.sh >> data/daily-report.log 2>&1'
 ```
 
 어느 운영체제든 PC가 절전/종료 상태이면 정시 실행되지 않을 수 있다. 항상 켜진 서버나 호스팅

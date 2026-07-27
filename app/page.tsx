@@ -10,9 +10,9 @@ import { DashboardActions } from "@/components/DashboardActions";
 import { SyncProgressBar } from "@/components/SyncProgressBar";
 import { AccountHeader } from "@/components/AccountHeader";
 import { AccountOverview } from "@/components/AccountOverview";
-import { WeeklyFunnelCard } from "@/components/WeeklyFunnelCard";
+import { AccountFunnelCard } from "@/components/AccountFunnelCard";
 import { AudienceMixCard } from "@/components/AudienceMixCard";
-import { buildConversionFunnel } from "@/lib/analysis/conversionFunnel";
+import { buildAccountFunnel } from "@/lib/analysis/accountFunnel";
 import { buildAudienceMix } from "@/lib/analysis/audienceMix";
 import { Input, Button, Skeleton } from "@/components/ui";
 import { ReelList } from "@/components/ReelList";
@@ -202,8 +202,9 @@ export default function Page() {
   const followerDelta = latestFollowerDelta(snapshots);
   // 평균 시청시간·3초 잔존율은 캐러셀에 존재하지 않는 지표라 항상 릴스만 집계한다.
   const dashboardMetrics = computeDashboardMetrics(filterByMedia(reels, "REELS"));
-  // 퍼널은 미디어 필터를 따른다 — "릴스만 볼 때 릴스 전환율"이 자연스럽다.
-  const funnel = buildConversionFunnel(visibleReels);
+  // 퍼널은 계정 레벨이다. Graph가 릴스에 profile_visits/follows를 주지 않고, 게시물
+  // 귀속 팔로우는 실제 증가분의 일부만 설명해서 미디어 필터를 따를 수 없다.
+  const funnel = buildAccountFunnel(snapshots);
   // 도달 구성은 계정 레벨 지표라 미디어 필터와 무관하다.
   const audienceMix = buildAudienceMix(snapshots);
 
@@ -250,7 +251,7 @@ export default function Page() {
             <AccountHeader profile={profile} followerDelta={followerDelta} contentCount={reels.length} />
             <AccountOverview overview={overview} />
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-              <WeeklyFunnelCard funnel={funnel} />
+              <AccountFunnelCard funnel={funnel} />
               <AudienceMixCard mix={audienceMix} />
             </div>
 

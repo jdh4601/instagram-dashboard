@@ -47,14 +47,22 @@ const METRICS_BY_KIND: Record<MediaKind, { required: string[]; optional: string[
   CAROUSEL: { required: REQUIRED_CAROUSEL_METRICS, optional: OPTIONAL_CAROUSEL_METRICS },
 };
 
+// follows_and_unfollows는 여기 없다 — breakdown=follow_type 없이 요청하면 Graph가
+// total_value 없는 껍데기를 돌려줘 영구히 "미지원"으로 잡힌다. followTypeInsights가 맡는다.
 const ACCOUNT_METRICS = [
   "views",
   "reach",
   "accounts_engaged",
   "total_interactions",
-  "follows_and_unfollows",
+  "profile_views",
+  // 바이오 링크 클릭. profile_links_taps와 다르다 — 그쪽은 연락처 버튼(주소·통화·
+  // 이메일·텍스트) 집계라 링크인바이오 성과로 읽으면 안 된다.
+  "website_clicks",
   "profile_links_taps",
 ];
+
+// follow_type breakdown을 공유하는 계정 지표. 한 호출에 함께 실어 보낸다.
+const FOLLOW_TYPE_METRICS = ["reach", "follows_and_unfollows"];
 
 export interface GraphInsightResult {
   metrics: Record<string, number>;
@@ -197,31 +205,37 @@ export function createGraphClient(opts: Options): GraphClient {
     }
   }
 
-  // reach의 follow_type breakdown. 성공하면 reach_follower/reach_non_follower를,
-  // 실패하면(게시물 레벨처럼 미지원이거나 일시 오류) reach_follow_type을 unavailable로 표시한다.
-  // 이 지표가 없어도 나머지 계정 동기화는 멈추지 않아야 한다.
-  async function followTypeReach(
+  // follow_type breakdown 묶음. 성공하면 reach_follower/reach_non_follower와
+  // follows/unfollows를, 실패하면(미지원이거나 일시 오류) 해당 지표를 unavailable로
+  // 표시한다. 이 지표가 없어도 나머지 계정 동기화는 멈추지 않아야 한다.
+  async function followTypeInsights(
     window: Record<string, string>,
   ): Promise<GraphInsightResult> {
+    const failed: GraphInsightResult = {
+      metrics: {},
+      availableMetrics: [],
+      unavailableMetrics: ["reach_follow_type", "follows_and_unfollows"],
+    };
     try {
       const json = (await request("me/insights", {
         ...window,
-        metric: "reach",
+        metric: FOLLOW_TYPE_METRICS.join(","),
         breakdown: "follow_type",
       })) as GraphInsightsResponse;
       const values = flattenInsights(json);
-      const ok = "reach_follower" in values || "reach_non_follower" in values;
-      return {
-        metrics: values,
-        availableMetrics: ok ? ["reach_follow_type"] : [],
-        unavailableMetrics: ok ? [] : ["reach_follow_type"],
-      };
+      const reachOk = "reach_follower" in values || "reach_non_follower" in values;
+      const followsOk = "follows" in values || "unfollows" in values;
+      const available: string[] = [];
+      const unavailable: string[] = [];
+      (reachOk ? available : unavailable).push("reach_follow_type");
+      (followsOk ? available : unavailable).push("follows_and_unfollows");
+      return { metrics: values, availableMetrics: available, unavailableMetrics: unavailable };
     } catch (err) {
       console.warn(
-        `[graph] reach follow_type breakdown 실패 — 팔로워/비팔로워 도달을 건너뜁니다: ` +
+        `[graph] follow_type breakdown 실패 — 팔로워/비팔로워 도달과 팔로우·언팔로우를 건너뜁니다: ` +
           safeGraphMessage(err instanceof Error ? err.message : String(err)),
       );
-      return { metrics: {}, availableMetrics: [], unavailableMetrics: ["reach_follow_type"] };
+      return failed;
     }
   }
 
@@ -308,11 +322,11 @@ export function createGraphClient(opts: Options): GraphClient {
         since: range.since,
         until: range.until,
       };
-      // reach는 breakdown 있이/없이 한 호출에 담을 수 없어(Graph 규약) 따로 요청한다.
+      // breakdown 있이/없이는 한 호출에 담을 수 없어(Graph 규약) 따로 요청한다.
       // 계정 지표와 반드시 같은 기간을 써야 화면에서 두 창의 숫자가 섞이지 않는다(INS-1).
       const [base, followType] = await Promise.all([
         optionalInsights("me/insights", ACCOUNT_METRICS, window),
-        followTypeReach(window),
+        followTypeInsights(window),
       ]);
       return {
         // followType의 reach는 breakdown 합(추산)이라 base의 정식 reach를 덮지 않게 뒤로 병합하지 않는다.

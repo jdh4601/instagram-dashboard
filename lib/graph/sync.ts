@@ -222,6 +222,8 @@ export async function syncFromGraph(
     totalInteractionsLast7d: accountInsights.metrics.total_interactions,
     followsLast7d: accountInsights.metrics.follows,
     unfollowsLast7d: accountInsights.metrics.unfollows,
+    profileViewsLast7d: accountInsights.metrics.profile_views,
+    websiteClicksLast7d: accountInsights.metrics.website_clicks,
     profileLinksTapsLast7d: accountInsights.metrics.profile_links_taps,
     followerReachLast7d: accountInsights.metrics.reach_follower,
     nonFollowerReachLast7d: accountInsights.metrics.reach_non_follower,

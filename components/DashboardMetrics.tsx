@@ -71,10 +71,9 @@ export function DashboardMetrics({ metrics }: Props) {
 
   return (
     <section className="space-y-5">
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <WatchTimeCompletionChart series={series} />
-        <Retention3sChart series={series} />
-      </div>
+      {/* 차트는 가로 스크롤 캔버스를 쓰므로 2열로 나누면 폭이 좁아 읽기 어렵다. 세로로 쌓는다. */}
+      <WatchTimeCompletionChart series={series} />
+      <Retention3sChart series={series} />
     </section>
   );
 }
