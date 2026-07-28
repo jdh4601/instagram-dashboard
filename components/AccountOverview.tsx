@@ -122,6 +122,7 @@ export function AccountOverview({ overview }: AccountOverviewProps) {
         }
       />
       <Stat
+        labelQualifier="도달 대비"
         label="팔로우 전환율"
         value={overview.followConversionRateLast7d === null ? "-" : fmtPct(overview.followConversionRateLast7d)}
         icon={<UserPlus size={16} />}

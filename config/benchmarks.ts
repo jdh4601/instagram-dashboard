@@ -57,6 +57,17 @@ export const BENCHMARKS_BY_KIND: Record<MediaKind, ThresholdTable> = {
  */
 export const BENCHMARKS = REELS_BENCHMARKS;
 
+// 계정 레벨 퍼널(도달→방문→팔로우/링크클릭) 판정 기준.
+// 출처가 확인된 값이 아니라 일반적으로 알려진 인스타그램 업계 벤치마크 추정치다.
+// 게시물 단위 REELS_BENCHMARKS/CAROUSEL_BENCHMARKS와는 분모가 달라 별도 테이블로 둔다.
+export type AccountFunnelMetricKey = "viewRate" | "followRate" | "linkClickRate";
+
+export const ACCOUNT_FUNNEL_BENCHMARKS: Record<AccountFunnelMetricKey, Threshold> = {
+  viewRate:      { weakBelow: 1, strongAbove: 3, weight: 1, label: "계정 방문률" },
+  followRate:    { weakBelow: 2, strongAbove: 5, weight: 1, label: "팔로우 전환율" },
+  linkClickRate: { weakBelow: 1, strongAbove: 3, weight: 1, label: "링크 클릭률" },
+};
+
 export const DROP_THRESHOLD_PCT_PER_SEC = 8; // 잔존곡선 급락 플래그 기준 (%p/초)
 export const HOOK_WINDOW_SEC = 3;            // 0~3초 훅 이탈은 별도 보고
 export const BASELINE_MIN_REELS = 5;         // 개인화 베이스라인 전환 최소 릴스 수

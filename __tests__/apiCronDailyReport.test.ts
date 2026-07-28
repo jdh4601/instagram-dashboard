@@ -7,16 +7,16 @@ jest.mock("@/lib/report/generateAndSendDailyReport", () => ({
   generateAndSendDailyReport: jest.fn(),
 }));
 
-import { POST } from "@/app/api/cron/daily-report/route";
+import { GET, POST } from "@/app/api/cron/daily-report/route";
 import { generateAndSendDailyReport } from "@/lib/report/generateAndSendDailyReport";
 
 const mockGenerate = generateAndSendDailyReport as unknown as jest.Mock;
 
 const SECRET = "test-cron-secret";
 
-function cronRequest(headers: Record<string, string> = {}): Request {
+function cronRequest(headers: Record<string, string> = {}, method = "POST"): Request {
   return new Request("http://localhost:3000/api/cron/daily-report", {
-    method: "POST",
+    method,
     headers: { host: "localhost:3000", ...headers },
   });
 }
@@ -70,5 +70,49 @@ describe("POST /api/cron/daily-report 인증", () => {
     const res = await POST(cronRequest({ "x-cron-secret": SECRET }));
     expect(res.status).toBe(500);
     expect(mockGenerate).not.toHaveBeenCalled();
+  });
+});
+
+// Vercel Cron은 GET으로 호출하며, CRON_SECRET 환경변수가 설정돼 있으면
+// Authorization: Bearer 헤더로 시크릿을 자동으로 실어 보낸다.
+describe("GET /api/cron/daily-report (Vercel Cron)", () => {
+  const prevSecret = process.env.CRON_SECRET;
+
+  beforeEach(() => {
+    process.env.CRON_SECRET = SECRET;
+    mockGenerate.mockReset();
+    mockGenerate.mockResolvedValue({
+      date: "2026-07-23",
+      metrics: { followerCount: 100, followerDelta: 2, reelsAnalyzed: 3 },
+    });
+  });
+
+  afterAll(() => {
+    if (prevSecret === undefined) delete process.env.CRON_SECRET;
+    else process.env.CRON_SECRET = prevSecret;
+  });
+
+  test("Authorization: Bearer 시크릿이 맞으면 리포트 생성으로 진행한다", async () => {
+    const res = await GET(cronRequest({ authorization: `Bearer ${SECRET}` }, "GET"));
+    expect(res.status).toBe(200);
+    expect(mockGenerate).toHaveBeenCalledTimes(1);
+  });
+
+  test("Authorization: Bearer 시크릿이 틀리면 401", async () => {
+    const res = await GET(cronRequest({ authorization: "Bearer wrong" }, "GET"));
+    expect(res.status).toBe(401);
+    expect(mockGenerate).not.toHaveBeenCalled();
+  });
+
+  test("Authorization 헤더가 없으면 401", async () => {
+    const res = await GET(cronRequest({}, "GET"));
+    expect(res.status).toBe(401);
+    expect(mockGenerate).not.toHaveBeenCalled();
+  });
+
+  test("x-cron-secret 헤더로도 GET 호출이 통과한다(로컬 curl 테스트 호환)", async () => {
+    const res = await GET(cronRequest({ "x-cron-secret": SECRET }, "GET"));
+    expect(res.status).toBe(200);
+    expect(mockGenerate).toHaveBeenCalledTimes(1);
   });
 });
