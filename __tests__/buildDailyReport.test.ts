@@ -1,10 +1,11 @@
 import { buildDailyReport } from "@/lib/report/buildDailyReport";
+import { buildAccountFunnel, accountFunnelVerdicts } from "@/lib/analysis/accountFunnel";
 import type { Reel, AccountSnapshot } from "@/lib/schemas";
 
 function reel(p: Partial<Reel> & { id: string }): Reel {
   return {
-    // 기본값: 리포트 날짜(2026-07-05) 기준 최근 1달 창(cutoff 2026-06-05) 안쪽
-    postedAt: "2026-06-25T00:00:00+0000",
+    // 기본값: 리포트 날짜(2026-07-05) 기준 최근 7일 창(cutoff 2026-06-28) 안쪽
+    postedAt: "2026-07-04T00:00:00+0000",
     durationSec: 0,
     views: 0,
     reach: 0,
@@ -18,6 +19,27 @@ function reel(p: Partial<Reel> & { id: string }): Reel {
 }
 
 const snapshots: AccountSnapshot[] = [
+  {
+    date: "2026-07-03",
+    followerCount: 240,
+    reachLast7d: 1000,
+    profileViewsLast7d: 80,
+    followsLast7d: 10,
+    unfollowsLast7d: 2,
+    websiteClicksLast7d: 5,
+  },
+  {
+    date: "2026-07-04",
+    followerCount: 252,
+    reachLast7d: 1500,
+    profileViewsLast7d: 120,
+    followsLast7d: 18,
+    unfollowsLast7d: 3,
+    websiteClicksLast7d: 9,
+  },
+];
+
+const snapshotsNoFunnel: AccountSnapshot[] = [
   { date: "2026-07-03", followerCount: 240, reachLast7d: 1000 },
   { date: "2026-07-04", followerCount: 252, reachLast7d: 1500 },
 ];
@@ -78,10 +100,10 @@ test("선정 이유에 참여율의 평균 대비 위치를 반영", () => {
   expect(report.worst[0].reason).toContain("평균 이하");
 });
 
-test("최근 1달(30일) 이내 업로드된 릴스만 분석 대상에 포함", () => {
+test("기본 분석 창은 최근 7일 — 7일보다 오래된 릴스는 제외한다", () => {
   const mixed: Reel[] = [
-    reel({ id: "recent", postedAt: "2026-07-01T00:00:00+0000", views: 500, reach: 400 }),
-    reel({ id: "old", postedAt: "2026-05-20T00:00:00+0000", views: 9999, reach: 9000 }),
+    reel({ id: "recent", postedAt: "2026-07-04T00:00:00+0000", views: 500, reach: 400 }),
+    reel({ id: "old", postedAt: "2026-06-20T00:00:00+0000", views: 9999, reach: 9000 }),
   ];
   const report = buildDailyReport(mixed, snapshots, "2026-07-05");
   expect(report.metrics.reelsAnalyzed).toBe(1);
@@ -90,24 +112,49 @@ test("최근 1달(30일) 이내 업로드된 릴스만 분석 대상에 포함",
   expect(report.diagnosis.reelCount).toBe(1);
 });
 
-test("경계: 정확히 30일 전(cutoff) 릴스는 포함한다", () => {
-  // 2026-07-05 − 30일 = 2026-06-05
-  const edge: Reel[] = [reel({ id: "edge", postedAt: "2026-06-05T12:00:00+0000", views: 1 })];
+test("경계: 정확히 7일 전(cutoff) 릴스는 포함한다", () => {
+  // 2026-07-05 − 7일 = 2026-06-28
+  const edge: Reel[] = [reel({ id: "edge", postedAt: "2026-06-28T12:00:00+0000", views: 1 })];
   const report = buildDailyReport(edge, snapshots, "2026-07-05");
   expect(report.metrics.reelsAnalyzed).toBe(1);
 });
 
-test("경계: 30일보다 하루 더 오래된 릴스는 제외한다", () => {
-  const stale: Reel[] = [reel({ id: "stale", postedAt: "2026-06-04T12:00:00+0000", views: 1 })];
+test("경계: 7일보다 하루 더 오래된 릴스는 제외한다", () => {
+  const stale: Reel[] = [reel({ id: "stale", postedAt: "2026-06-27T12:00:00+0000", views: 1 })];
   const report = buildDailyReport(stale, snapshots, "2026-07-05");
   expect(report.metrics.reelsAnalyzed).toBe(0);
 });
 
-test("windowDays 옵션으로 분석 창을 조절할 수 있다", () => {
+test("windowDays 옵션으로 분석 창을 조절할 수 있다(과거 확장)", () => {
   const mixed: Reel[] = [
     reel({ id: "d10", postedAt: "2026-06-28T00:00:00+0000", views: 1 }),
     reel({ id: "d40", postedAt: "2026-05-26T00:00:00+0000", views: 1 }),
   ];
   const report = buildDailyReport(mixed, snapshots, "2026-07-05", { windowDays: 60 });
   expect(report.metrics.reelsAnalyzed).toBe(2);
+});
+
+test("windowDays: 30을 명시하면 30일 경계가 그대로 동작한다", () => {
+  const edge: Reel[] = [reel({ id: "edge30", postedAt: "2026-06-05T12:00:00+0000", views: 1 })];
+  const stale: Reel[] = [reel({ id: "stale30", postedAt: "2026-06-04T12:00:00+0000", views: 1 })];
+  expect(buildDailyReport(edge, snapshots, "2026-07-05", { windowDays: 30 }).metrics.reelsAnalyzed).toBe(1);
+  expect(buildDailyReport(stale, snapshots, "2026-07-05", { windowDays: 30 }).metrics.reelsAnalyzed).toBe(0);
+});
+
+test("전환 퍼널(funnel)을 buildAccountFunnel과 동일하게 포함한다", () => {
+  const report = buildDailyReport(reels, snapshots, "2026-07-05");
+  expect(report.funnel).toEqual(buildAccountFunnel(snapshots));
+  expect(report.funnel?.followRate).not.toBeNull();
+});
+
+test("퍼널 판정(funnelVerdicts)을 accountFunnelVerdicts와 동일하게 포함한다", () => {
+  const report = buildDailyReport(reels, snapshots, "2026-07-05");
+  const funnel = buildAccountFunnel(snapshots);
+  expect(report.funnelVerdicts).toEqual(funnel ? accountFunnelVerdicts(funnel) : null);
+});
+
+test("퍼널 데이터가 없는 스냅샷이면 funnel/funnelVerdicts는 null", () => {
+  const report = buildDailyReport(reels, snapshotsNoFunnel, "2026-07-05");
+  expect(report.funnel).toBeNull();
+  expect(report.funnelVerdicts).toBeNull();
 });
