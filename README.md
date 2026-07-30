@@ -1,122 +1,228 @@
-<!-- Language: **English** · [한국어](./README.ko.md) -->
+<!-- markdownlint-disable MD013 -->
 
 # Instagram Dashboard
 
+[![CI](https://github.com/jdh4601/instagram-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/jdh4601/instagram-dashboard/actions/workflows/ci.yml)
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![Node.js 22.16+](https://img.shields.io/badge/node-%3E%3D22.16-339933.svg)](./package.json)
+
 > **English** · [한국어](./README.ko.md)
 
-A **local AI dashboard for Instagram Reels accounts**. It reads Instagram Graph API metrics,
-**diagnoses where your Reels funnel leaks** (3-second hook → CTA → follow), and **suggests fixes**
-— optionally emailing you a **daily best/worst report with an LLM-written summary**.
+A local-first, self-hosted analytics dashboard for Instagram professional accounts. It syncs
+Reels and carousel metrics, finds account-funnel bottlenecks, and turns transcripts and performance
+data into practical content recommendations.
 
-![Reels dashboard populated with fictional demo data](./docs/screenshots/dashboard.png)
+![Instagram Dashboard populated with fictional demo data](./docs/screenshots/dashboard.png)
 
-## Features
+## Why this project?
 
-- **Diagnosis** — classifies 7 metrics (hook, completion, share, save, like, comment, follow
-  conversion) into strengths / weaknesses / bottleneck, deterministic and reproducible (rule-based,
-  not LLM)
-- **AI generation** — from a diagnosis + transcript, generates hook/ending options and
-  per-segment prescriptions
-- **Trend charts** — views, reach, and follower growth over time
-- **Daily email report** — optional best/worst reels + LLM summary every morning
-- **Bring your own LLM** — Anthropic (Claude) / OpenAI / Kimi (Moonshot) / Gemini
+Instagram Insights gives you numbers, but it does not always make the next action obvious. This
+project combines deterministic analysis with an optional LLM layer:
 
-## Quick start (demo data, no Instagram account needed)
+- **Account funnel** — reach → profile visits → follows or bio-link clicks, with 7-day changes
+- **Reels and carousel analytics** — views, reach, engagement, saves, shares, watch time, and replay
+  signals where the API supports them
+- **Audience mix** — follower versus non-follower reach
+- **Rule-based diagnosis** — reproducible strengths, weaknesses, and bottlenecks
+- **Transcript analysis** — upload SRT captions and generate hooks, endings, and segment-level fixes
+- **Graph API sync** — pagination, optional-metric fallback, history snapshots, and deleted-post
+  cleanup
+- **Daily email report** — optional recent-performance summary through Resend
+- **Bring your own LLM** — Anthropic, OpenAI, Kimi, or Google Gemini
 
-Requires Node.js 22.16 or newer.
+The demo account and screenshot are fictional. You can explore the full dashboard without an
+Instagram account or paid API key.
+
+## Quick start
+
+### Requirements
+
+- Node.js 22.16 or newer
+- npm 10 or newer
+- `ffprobe` from FFmpeg for automatic Reel-duration detection during real-account sync
+
+### Run with demo data
 
 ```bash
+git clone https://github.com/jdh4601/instagram-dashboard.git
+cd instagram-dashboard
 npm install
-npm run seed:demo   # loads a fictional sample account into data/
-npm run doctor      # checks storage, auth, ffprobe, and optional integrations
+npm run seed:demo
+npm run doctor
 npm run dev
 ```
 
-Open <http://localhost:3000> — the dashboard comes pre-populated with reels, diagnosis, and
-follower charts.
+Open <http://localhost:3000>. The dashboard will contain fictional Reels, account snapshots, and
+diagnoses.
 
-For real-account sync, install `ffmpeg` so its bundled `ffprobe` can read Reel durations. The
-Docker image already includes it; without it, sync still works but duration-based metrics may be
-unavailable.
+`ffprobe` is optional for the demo. On macOS, install it with `brew install ffmpeg`; on
+Ubuntu/Debian, use `sudo apt-get install ffmpeg`. The Docker image already includes it.
 
-Before an upgrade or a large sync, create a credential-free local backup:
+## Connect an Instagram account
 
-```bash
-npm run data:backup
-```
+You need an Instagram **Business or Creator** account and a Meta developer app using Instagram API
+with Instagram Login. The app requests:
 
-The backup is written under `backups/` and intentionally excludes `data/settings.json`.
-Both JSON and live SQLite data are supported.
+- `instagram_business_basic`
+- `instagram_business_manage_insights`
 
-## Storage adapters
+The recommended connection flow is OAuth:
 
-JSON remains the zero-configuration default. Choose a backend in `.env`:
+1. Copy the example configuration.
 
-```bash
-STORAGE_ADAPTER=json       # local files; backwards-compatible default
-STORAGE_ADAPTER=sqlite     # one local process/server
-STORAGE_ADAPTER=postgres   # shared storage; DATABASE_URL is required
-```
+   ```bash
+   cp .env.example .env.local
+   ```
 
-To move existing JSON analytics data to SQLite:
+2. In `.env.local`, set:
+
+   ```dotenv
+   INSTAGRAM_APP_ID=your-app-id
+   INSTAGRAM_APP_SECRET=your-app-secret
+   INSTAGRAM_OAUTH_REDIRECT_URI=http://localhost:3000/api/auth/instagram/callback
+   ```
+
+3. Register the same redirect URI in the Meta app, restart the dashboard, and open
+   <http://localhost:3000/settings>.
+4. Select **Connect with Instagram**, then return to the dashboard and select **Sync**.
+
+The server validates a short-lived OAuth state, exchanges the authorization code, and stores only
+the long-lived token in owner-only `data/settings.json`. You can also paste a long-lived token
+manually. For multi-instance deployments, inject it as `INSTAGRAM_ACCESS_TOKEN` instead.
+
+See [the complete Instagram setup guide](./docs/INSTAGRAM_SETUP.md) for Meta app setup, tester
+access, token refresh, and troubleshooting.
+
+## Configure an LLM
+
+Open **Settings** at `/settings`, choose a provider and model, and add the API key. LLM features are
+optional; metric collection and rule-based diagnosis work without them.
+
+| Provider        | Default model                   |
+| --------------- | ------------------------------- |
+| Anthropic       | `claude-opus-4-8`               |
+| OpenAI          | `gpt-4o`                        |
+| Kimi (Moonshot) | `moonshot-v1-8k-vision-preview` |
+| Google Gemini   | `gemini-2.0-flash`              |
+
+Keys entered through the UI are stored in `data/settings.json`, excluded from Git, restricted to
+the file owner on supported systems, and masked in API responses.
+
+## Choose a storage backend
+
+Analytics repositories share one adapter contract, so the application code works with JSON,
+SQLite, or PostgreSQL.
+
+| Adapter    | Best for                                       | Configuration                               | Notes                                    |
+| ---------- | ---------------------------------------------- | ------------------------------------------- | ---------------------------------------- |
+| JSON       | Trying the app, existing local installs        | `STORAGE_ADAPTER=json`                      | Zero configuration; default              |
+| SQLite     | A persistent single-host deployment            | `STORAGE_ADAPTER=sqlite`                    | One database under `DATA_DIR` by default |
+| PostgreSQL | Multiple instances or non-persistent app disks | `STORAGE_ADAPTER=postgres` + `DATABASE_URL` | Shared analytics storage                 |
+
+To migrate existing JSON analytics to SQLite:
 
 ```bash
 npm run data:backup
 npm run storage:migrate:sqlite
-# then set STORAGE_ADAPTER=sqlite
+# Set STORAGE_ADAPTER=sqlite, then restart the app.
 ```
 
-SQLite needs a persistent filesystem and is not durable on ephemeral/serverless deployments.
-Use PostgreSQL for multiple app instances or platforms without persistent local disks, and inject
-the Instagram token as a platform secret with `INSTAGRAM_ACCESS_TOKEN`. On local/single-host
-installs, credentials remain in owner-only `data/settings.json`; analytics backups intentionally
-never include them.
+The migration refuses to merge into a populated SQLite database unless `--merge` is explicitly
+provided. SQLite needs a persistent filesystem and is not durable on ephemeral/serverless disks.
 
-## Connecting a real account
+Credential settings are deliberately separate from analytics storage. For horizontally scaled
+deployments, provide the supported runtime credentials (`INSTAGRAM_ACCESS_TOKEN` and
+`ANTHROPIC_API_KEY`) through your platform's secret manager. Other LLM providers currently require
+a settings file on each instance.
 
-Requires a **professional (Business/Creator) Instagram account**. Full walkthrough:
-[docs/INSTAGRAM_SETUP.md](./docs/INSTAGRAM_SETUP.md).
+## Back up data
 
-1. Create a Meta developer app with the required Instagram permissions.
-2. Configure the three `INSTAGRAM_*` OAuth variables and click **Instagram connect** in
-   **⚙️ Settings**, or paste a long-lived token manually.
-3. Click **Sync** to pull your reels and followers.
+Create a credential-free backup before upgrades or large syncs:
 
-## ⚠️ Security notice
+```bash
+npm run data:backup
+```
 
-This app supports optional **HTTP Basic Auth**. Without `DASHBOARD_USER` and
-`DASHBOARD_PASSWORD`, anyone who can reach it can change stored tokens and LLM keys or trigger
-paid LLM calls.
+Backups are written under `backups/`. JSON analytics and a consistent live SQLite snapshot are
+included; `settings.json` is intentionally excluded because it contains credentials.
 
-- Run it **only on localhost or a trusted LAN.**
-- If exposing it to the internet, set both Basic Auth variables from [`.env.example`](./.env.example)
-  or put a stronger authentication layer in front of it. Never deploy it bare on a public IP.
+## Docker
 
-## LLM provider setup
+```bash
+cp .env.example .env
+docker compose up --build
+```
 
-Set your API key and model in **⚙️ Settings** (`/settings`). Keys are stored locally
-(`data/settings.json`, gitignored) and shown masked in the UI.
+Open <http://localhost:3000>. Compose mounts `./data` at `/app/data`, so JSON, SQLite, and local
+settings survive container replacement. When using PostgreSQL, set `STORAGE_ADAPTER=postgres` and
+`DATABASE_URL` in `.env`.
 
-| Provider | Default model |
-|---|---|
-| Anthropic (Claude) | `claude-opus-4-8` |
-| OpenAI | `gpt-4o` |
-| Kimi (Moonshot) | `moonshot-v1-8k-vision-preview` |
-| Google Gemini | `gemini-2.0-flash` |
+The production image runs as a non-root user and includes FFmpeg.
+
+## Environment reference
+
+All variables are documented in [`.env.example`](./.env.example). The main groups are:
+
+| Purpose                   | Variables                                                                  |
+| ------------------------- | -------------------------------------------------------------------------- |
+| Storage                   | `DATA_DIR`, `STORAGE_ADAPTER`, `SQLITE_DATABASE_PATH`, `DATABASE_URL`      |
+| Instagram OAuth           | `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET`, `INSTAGRAM_OAUTH_REDIRECT_URI` |
+| Stateless Instagram token | `INSTAGRAM_ACCESS_TOKEN`                                                   |
+| Dashboard protection      | `DASHBOARD_USER`, `DASHBOARD_PASSWORD`                                     |
+| LLM fallback              | `ANTHROPIC_API_KEY`                                                        |
+| Daily report              | `CRON_SECRET`, `RESEND_API_KEY`, `REPORT_EMAIL_FROM`, `REPORT_EMAIL_TO`    |
+
+Run `npm run doctor` after changing configuration. It checks the Node version, data-directory
+access, storage selection, auth completeness, FFmpeg, file permissions, and optional integrations
+without printing secret values.
+
+## Deployment security
+
+This is a local-first, single-operator application. Basic Auth is disabled by default.
+
+Before exposing it outside localhost or a trusted network:
+
+- set both `DASHBOARD_USER` and `DASHBOARD_PASSWORD`;
+- use HTTPS;
+- keep `.env*` and `data/settings.json` outside source control;
+- use a persistent disk for JSON/SQLite, or PostgreSQL for shared/ephemeral deployments;
+- configure `CRON_SECRET` before enabling the daily-report endpoint;
+- run `npm run doctor`.
+
+If only one Basic Auth variable is set, the application fails closed with `503`. See the
+[security policy](./SECURITY.md) for vulnerability reporting and the supported deployment model.
 
 ## Development
 
 ```bash
-npm test            # Vitest unit tests
-npm run typecheck   # tsc --noEmit
-npm run build       # production build
+npm run doctor
+npm test
+npm run typecheck
+npm run build
 ```
 
-Daily email report setup (cron/launchd) is documented in
-[`scripts/launchd/README.md`](./scripts/launchd/README.md).
-Repository privacy findings and the owner-approved history rewrite procedure are in
-[`docs/OPEN_SOURCE_AUDIT.md`](./docs/OPEN_SOURCE_AUDIT.md).
+CI runs the production dependency audit, PostgreSQL integration test, Vitest suite, TypeScript
+check, and Next.js production build.
+
+```text
+app/              Next.js pages and API routes
+components/       Dashboard and reusable UI components
+lib/analysis/     Deterministic metrics and diagnosis
+lib/graph/        Instagram Graph API client and sync
+lib/store/        JSON, SQLite, and PostgreSQL adapters
+lib/settings/     Credential settings and masking
+scripts/          Doctor, backup, migration, and report helpers
+```
+
+Contributions are welcome. Read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a pull request.
+
+## Additional documentation
+
+- [Instagram account setup](./docs/INSTAGRAM_SETUP.md)
+- [Daily report and launchd setup](./scripts/launchd/README.md)
+- [Open-source readiness and history audit](./docs/OPEN_SOURCE_AUDIT.md)
+- [Security policy](./SECURITY.md)
 
 ## License
 
-[MIT](./LICENSE) © 2026 DongHyun Jung · [Security policy](./SECURITY.md)
+[MIT](./LICENSE) © 2026 DongHyun Jung
