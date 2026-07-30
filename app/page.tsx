@@ -17,7 +17,6 @@ import { buildAudienceMix } from "@/lib/analysis/audienceMix";
 import { Input, Button, Skeleton } from "@/components/ui";
 import { ReelList } from "@/components/ReelList";
 import { FollowerGrowthChart } from "@/components/FollowerGrowthChart";
-import { EngagementPieChart } from "@/components/EngagementPieChart";
 import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { filterByMedia, type MediaFilter } from "@/lib/ui/mediaFilter";
 import type { EarlyViewsMap } from "@/lib/ui/reelSelect";
@@ -258,13 +257,11 @@ export default function Page() {
             <AccountOverview overview={overview} />
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
               <AccountFunnelCard funnel={funnel} />
-              <AudienceMixCard mix={audienceMix} />
+              <AudienceMixCard mix={audienceMix} reels={visibleReels} />
             </div>
 
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-              <FollowerGrowthChart snapshots={snapshots} />
-              <EngagementPieChart reels={visibleReels} />
-            </div>
+            {/* 추이는 가로가 길수록 읽기 쉬우므로 한 행을 다 쓴다. */}
+            <FollowerGrowthChart snapshots={snapshots} />
 
             <DashboardMetrics metrics={dashboardMetrics} />
 

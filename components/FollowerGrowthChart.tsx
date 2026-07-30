@@ -56,7 +56,7 @@ export function FollowerGrowthChart({ snapshots }: { snapshots: AccountSnapshot[
             <p className="mt-2 text-xs text-neutral-400">스냅샷 3건부터 추이 그래프가 표시됩니다.</p>
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={180}>
+          <ResponsiveContainer width="100%" height={300}>
             <AreaChart data={sorted} margin={{ top: 6, right: 8, bottom: 0, left: -8 }}>
               <defs>
                 <linearGradient id="followerFill" x1="0" y1="0" x2="0" y2="1">
