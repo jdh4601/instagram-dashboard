@@ -104,7 +104,7 @@ test("generateNarrative에 생성된 리포트를 전달한다", async () => {
 });
 
 test("총평 생성이 실패해도 정량 리포트는 발송한다", async () => {
-  const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+  const spy = vi.spyOn(console, "error").mockImplementation(() => {});
   const { deps, sent } = makeDeps({
     generateNarrative: async () => {
       throw new Error("LLM timeout");

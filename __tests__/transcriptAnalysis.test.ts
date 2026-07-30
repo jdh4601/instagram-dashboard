@@ -1,5 +1,4 @@
 import { analyzeTranscript } from "@/lib/analysis/transcriptAnalysis";
-import type { DropSegment } from "@/lib/analysis/dropDetection";
 import type { Reel, TranscriptLine } from "@/lib/schemas";
 
 function reel(p: Partial<Reel> & { id: string }): Reel {
@@ -28,7 +27,7 @@ describe("analyzeTranscript", () => {
       hookRetention3s: 40,
       transcript: [line(5, 8, "본론으로 들어가서")],
     });
-    const a = analyzeTranscript(r, []);
+    const a = analyzeTranscript(r);
     const w = a.insights.find((i) => i.kind === "weakness" && i.title.includes("3초"));
     expect(w).toBeDefined();
     expect(w!.detail).toContain("40");
@@ -40,7 +39,7 @@ describe("analyzeTranscript", () => {
       hookRetention3s: 62,
       transcript: [line(0.5, 3, "딱 3초만 보세요")],
     });
-    const a = analyzeTranscript(r, []);
+    const a = analyzeTranscript(r);
     expect(a.hasHookLine).toBe(true);
     expect(a.insights.some((i) => i.kind === "strength" && i.detail.includes("62"))).toBe(true);
   });
@@ -52,7 +51,7 @@ describe("analyzeTranscript", () => {
       saves: 1,
       transcript: [line(0.5, 3, "안녕하세요"), line(10, 14, "오늘 내용입니다")],
     });
-    const a = analyzeTranscript(r, []);
+    const a = analyzeTranscript(r);
     expect(a.hasCta).toBe(false);
     expect(a.insights.some((i) => i.kind === "weakness" && i.title.includes("CTA"))).toBe(true);
   });
@@ -65,34 +64,14 @@ describe("analyzeTranscript", () => {
       durationSec: 20,
       transcript: [line(0.5, 3, "안녕하세요"), line(17, 20, "마음에 들면 저장하세요")],
     });
-    const a = analyzeTranscript(r, []);
+    const a = analyzeTranscript(r);
     expect(a.hasCta).toBe(true);
     expect(a.insights.some((i) => i.kind === "strength" && i.title.includes("CTA"))).toBe(true);
   });
 
-  test("급락 구간에 자막이 없으면 무음 약점으로 보고", () => {
-    const drops: DropSegment[] = [
-      { startSec: 8, endSec: 12, dropPct: 25, isHook: false, lines: [] },
-    ];
-    const r = reel({ id: "e", transcript: [line(0, 3, "훅")] });
-    const a = analyzeTranscript(r, drops);
-    const w = a.insights.find((i) => i.kind === "weakness" && i.detail.includes("무음"));
-    expect(w).toBeDefined();
-    expect(w!.detail).toContain("8");
-  });
-
-  test("급락 구간에 자막이 있으면 해당 자막을 원인으로 제시", () => {
-    const drops: DropSegment[] = [
-      { startSec: 8, endSec: 12, dropPct: 25, isHook: false, lines: [line(8, 12, "장황한 설명입니다")] },
-    ];
-    const r = reel({ id: "f", transcript: [line(8, 12, "장황한 설명입니다")] });
-    const a = analyzeTranscript(r, drops);
-    expect(a.insights.some((i) => i.kind === "weakness" && i.detail.includes("장황한 설명입니다"))).toBe(true);
-  });
-
   test("자막 커버리지(영상 길이 대비)를 계산한다", () => {
     const r = reel({ id: "g", durationSec: 30, transcript: [line(0, 5, "a"), line(10, 15, "b")] });
-    const a = analyzeTranscript(r, []);
+    const a = analyzeTranscript(r);
     expect(a.coveragePct).toBeCloseTo(50, 5);
   });
 
@@ -104,7 +83,7 @@ describe("analyzeTranscript", () => {
       avgWatchTimeSec: 6,
       transcript: [line(0, 5, "시작"), line(10, 15, "중간")],
     });
-    const a = analyzeTranscript(r, []);
+    const a = analyzeTranscript(r);
     expect(a.insights.some((i) => i.kind === "weakness" && i.title.includes("후반"))).toBe(true);
   });
 
@@ -115,13 +94,13 @@ describe("analyzeTranscript", () => {
       avgWatchTimeSec: 7,
       transcript: [line(0, 5, "시작"), line(65, 70, "끝")],
     });
-    const a = analyzeTranscript(r, []);
+    const a = analyzeTranscript(r);
     expect(a.coveragePct).toBeNull();
     expect(a.insights.some((i) => i.title.includes("후반"))).toBe(false);
   });
 
   test("자막이 비어 있으면 lineCount 0, insights 빈 배열", () => {
-    const a = analyzeTranscript(reel({ id: "i", transcript: [] }), []);
+    const a = analyzeTranscript(reel({ id: "i", transcript: [] }));
     expect(a.lineCount).toBe(0);
     expect(a.insights).toEqual([]);
   });

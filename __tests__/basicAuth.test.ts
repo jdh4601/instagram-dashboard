@@ -34,6 +34,13 @@ describe("checkBasicAuth", () => {
     expect(checkBasicAuth(reqWithAuth())).toBeNull();
   });
 
+  test("둘 중 하나만 설정되면 인증 없이 열지 않고 503을 반환한다", async () => {
+    delete process.env.DASHBOARD_PASSWORD;
+    const res = checkBasicAuth(reqWithAuth());
+    expect(res?.status).toBe(503);
+    expect(await res?.json()).toEqual({ error: "대시보드 인증 설정이 불완전합니다" });
+  });
+
   test("Authorization 헤더가 없으면 401과 WWW-Authenticate를 반환한다", () => {
     const res = checkBasicAuth(reqWithAuth());
     expect(res?.status).toBe(401);

@@ -50,9 +50,6 @@ test("동기화는 API 집계 수치를 갱신하고 기존 EDIT 분석값은 �
     hookRetention3s: 42,
     skipRate: 31,
     skipRateSource: "EDIT",
-    retentionCurve: [{ sec: 0, pct: 100 }, { sec: 3, pct: 42 }],
-    reachSources: { reelsTab: 70, explore: 20 },
-    watchTimeBuckets: [{ label: "0~3초", pct: 40 }],
     followsFromReel: 12,
     profileVisits: 80,
     transcript: [{ startSec: 0, endSec: 3, text: "도입" }],
@@ -68,8 +65,6 @@ test("동기화는 API 집계 수치를 갱신하고 기존 EDIT 분석값은 �
   expect(updated?.hookRetention3s).toBe(55); // API Skip Rate에서 계산
   expect(updated?.skipRate).toBe(45);
   expect(updated?.skipRateSource).toBe("API");
-  expect(updated?.reachSources).toBeUndefined();
-  expect(updated?.watchTimeBuckets).toBeUndefined();
   expect(updated?.followsFromReel).toBe(20); // Graph 값으로 갱신
   expect(updated?.profileVisits).toBe(100); // Graph 값으로 갱신
   expect(updated?.transcript?.[0].text).toBe("도입"); // 자막 보존

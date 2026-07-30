@@ -27,7 +27,17 @@ interface MaskedProvider {
 interface MaskedSettings {
   textProvider: ProviderId;
   providers: Record<ProviderId, MaskedProvider>;
-  instagram: { configured: boolean; maskedKey: string | null };
+  instagram: {
+    configured: boolean;
+    maskedKey: string | null;
+    managedByEnvironment: boolean;
+  };
+  instagramOAuth: {
+    configured: boolean;
+    redirectUri: string | null;
+    configurationError: boolean;
+  };
+  instagramTokenExpiresAt: string | null;
 }
 
 export default function SettingsPage() {
@@ -37,6 +47,12 @@ export default function SettingsPage() {
   const [modelInputs, setModelInputs] = useState<Record<string, string>>({});
   const [igToken, setIgToken] = useState("");
   const [status, setStatus] = useState("");
+
+  useEffect(() => {
+    const instagramResult = new URLSearchParams(window.location.search).get("instagram");
+    if (instagramResult === "connected") setStatus("Instagram 연결됨 ✓");
+    if (instagramResult === "error") setStatus("Instagram 연결 실패 — 앱 설정과 권한을 확인하세요.");
+  }, []);
 
   function load(d: MaskedSettings) {
     setData(d);
@@ -72,6 +88,22 @@ export default function SettingsPage() {
     setKeyInputs({});
     setIgToken("");
     setStatus("저장됨 ✓");
+  }
+
+  async function disconnectInstagram() {
+    if (!window.confirm("이 앱에 저장된 Instagram 토큰을 삭제할까요?")) return;
+    const response = await fetch("/api/auth/instagram/disconnect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    if (!response.ok) {
+      setStatus("Instagram 연결 해제 실패");
+      return;
+    }
+    const refreshed = await fetch("/api/settings");
+    load(await refreshed.json());
+    setStatus("Instagram 연결 해제됨");
   }
 
   if (!data) return <main className="p-6">불러오는 중…</main>;
@@ -144,23 +176,64 @@ export default function SettingsPage() {
             <Camera size={16} className="text-brand-600" /> Instagram 연동 (자동 수집)
           </h2>
           <p className="text-xs text-neutral-500">
-            Meta 개발자 앱에서 발급한 Instagram 액세스 토큰을 붙여넣으세요. 대시보드의
-            "Instagram 동기화"로 릴스 집계 지표·팔로워 수가 자동 갱신됩니다.
+            Meta 앱 OAuth로 연결하거나, 발급받은 장기 액세스 토큰을 직접 붙여넣으세요.
+            대시보드의 "Instagram 동기화"로 릴스 집계 지표·팔로워 수가 자동 갱신됩니다.
             {data.instagram.configured && (
-              <span className="text-green-600"> · 현재 등록됨({data.instagram.maskedKey})</span>
+              <span className="text-green-600">
+                {" · "}
+                {data.instagram.managedByEnvironment
+                  ? "서버 환경변수로 등록됨"
+                  : `현재 등록됨(${data.instagram.maskedKey})`}
+              </span>
             )}
           </p>
+          {data.instagramTokenExpiresAt && (
+            <p className="text-xs text-neutral-500">
+              OAuth 토큰 만료 예정: {new Date(data.instagramTokenExpiresAt).toLocaleDateString()}
+            </p>
+          )}
+          {data.instagramOAuth.configured ? (
+            <div className="space-y-1">
+              <a
+                href="/api/auth/instagram/start"
+                className="inline-flex min-h-10 items-center rounded-lg bg-brand-600 px-3 text-sm font-medium text-white hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+              >
+                Instagram으로 연결
+              </a>
+              <p className="text-xs text-neutral-500">
+                Meta 앱에 등록할 리디렉션 URI: <code>{data.instagramOAuth.redirectUri}</code>
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs text-amber-700">
+              OAuth 버튼을 사용하려면 서버에 INSTAGRAM_APP_ID, INSTAGRAM_APP_SECRET,
+              INSTAGRAM_OAUTH_REDIRECT_URI를 함께 설정하세요.
+              {data.instagramOAuth.configurationError && " 현재 설정은 일부 값만 있어 비활성화됐습니다."}
+            </p>
+          )}
           <input
             type="password"
             className="border rounded px-2 py-1 w-full text-sm"
             placeholder={
-              data.instagram.configured
+              data.instagram.managedByEnvironment
+                ? "INSTAGRAM_ACCESS_TOKEN 환경변수로 관리 중"
+                : data.instagram.configured
                 ? `등록됨 (${data.instagram.maskedKey}) — 변경 시에만 입력`
                 : "Instagram 액세스 토큰 붙여넣기"
             }
             value={igToken}
             onChange={(e) => setIgToken(e.target.value)}
+            disabled={data.instagram.managedByEnvironment}
           />
+          {data.instagram.configured && !data.instagram.managedByEnvironment && (
+            <button
+              type="button"
+              className="text-xs text-red-600 hover:underline"
+              onClick={disconnectInstagram}
+            >
+              저장된 Instagram 연결 해제
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-3">

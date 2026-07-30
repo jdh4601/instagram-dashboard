@@ -63,21 +63,6 @@ test("buildTranscriptInsightsPrompt는 각 참여 지표에 계정 기준(벤치
   expect(userText).toMatch(/약점권|강점권|중간/);
 });
 
-test("buildTranscriptInsightsPrompt는 과거 잔존곡선 데이터를 컨텍스트에 넣지 않는다", () => {
-  const withCurve: Reel = {
-    ...reel,
-    durationSec: 12,
-    retentionCurve: [
-      { sec: 0, pct: 100 },
-      { sec: 6, pct: 90 },
-      { sec: 8, pct: 50 }, // 6→8초 40%p 급락
-    ],
-  };
-  const { userText } = buildTranscriptInsightsPrompt(withCurve);
-  expect(userText).not.toMatch(/급락 구간/);
-  expect(userText).not.toMatch(/잔존 40/);
-});
-
 test("시스템 프롬프트는 약점에 rewrite(새 자막) 작성을 요구하고 주제 요약을 금지한다", () => {
   const { system } = buildTranscriptInsightsPrompt(reel);
   expect(system).toMatch(/rewrite/);

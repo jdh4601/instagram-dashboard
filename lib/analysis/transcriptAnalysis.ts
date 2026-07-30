@@ -1,9 +1,8 @@
 import type { Reel, TranscriptLine } from "@/lib/schemas";
-import type { DropSegment } from "@/lib/analysis/dropDetection";
 import { computeDerivedRates } from "@/lib/analysis/metrics";
 import { BENCHMARKS, HOOK_WINDOW_SEC } from "@/config/benchmarks";
 
-export interface TranscriptInsight {
+interface TranscriptInsight {
   kind: "strength" | "weakness";
   title: string;   // 짧은 헤드라인
   detail: string;  // 지표를 곁들인 원인 분석 문장
@@ -95,26 +94,6 @@ function analyzeCta(
   return hasCta;
 }
 
-function analyzeDrops(drops: DropSegment[], out: TranscriptInsight[]): void {
-  for (const d of drops.slice(0, 2)) {
-    const at = `${Math.round(d.startSec)}~${Math.round(d.endSec)}초`;
-    if (d.lines.length === 0) {
-      out.push({
-        kind: "weakness",
-        title: "급락 구간이 무음",
-        detail: `${at} 구간에서 잔존이 ${round1(d.dropPct)}%p 급락했는데 이 구간에 자막이 없습니다(무음·정적 구간). 빈 시간이 길어 이탈했을 가능성이 큽니다.`,
-      });
-    } else {
-      const quote = d.lines.map((l) => l.text).join(" ");
-      out.push({
-        kind: "weakness",
-        title: "급락 구간 자막",
-        detail: `${at} 구간에서 잔존이 ${round1(d.dropPct)}%p 급락했습니다. 해당 자막: "${quote}" — 메시지가 늘어지거나 흥미가 떨어지는 지점일 수 있어요.`,
-      });
-    }
-  }
-}
-
 function analyzeCoverage(
   coveragePct: number | null,
   lastEndSec: number,
@@ -134,7 +113,7 @@ function analyzeCoverage(
   });
 }
 
-export function analyzeTranscript(reel: Reel, drops: DropSegment[]): TranscriptAnalysis {
+export function analyzeTranscript(reel: Reel): TranscriptAnalysis {
   const transcript = reel.transcript ?? [];
 
   if (transcript.length === 0) {
@@ -151,7 +130,6 @@ export function analyzeTranscript(reel: Reel, drops: DropSegment[]): TranscriptA
   const hookRet = hookRetentionOf(reel);
   const hasHookLine = analyzeHook(transcript, hookRet, insights);
   const hasCta = analyzeCta(transcript, derived, insights);
-  analyzeDrops(drops, insights);
   analyzeCoverage(coveragePct, lastEndSec, reel, derived, insights);
 
   return { lineCount: transcript.length, coveragePct, lastLineSec: lastEndSec, hasHookLine, hasCta, insights };

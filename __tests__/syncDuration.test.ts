@@ -31,7 +31,7 @@ function clientWith(media: GraphMedia[]): GraphClient {
   };
 }
 
-async function runSync(media: GraphMedia[], probe: jest.Mock, seed?: { id: string; durationSec: number }) {
+async function runSync(media: GraphMedia[], probe: Mock, seed?: { id: string; durationSec: number }) {
   const reelRepo = createJsonReelRepository(tmpDir());
   const accountRepo = createJsonAccountRepository(tmpDir());
   if (seed) {
@@ -47,7 +47,7 @@ async function runSync(media: GraphMedia[], probe: jest.Mock, seed?: { id: strin
 }
 
 test("길이를 모르는 릴스는 media_url에서 길이를 수집해 저장한다", async () => {
-  const probe = jest.fn().mockResolvedValue(62.5);
+  const probe = vi.fn().mockResolvedValue(62.5);
   const { reelRepo } = await runSync([REEL], probe);
 
   expect(probe).toHaveBeenCalledWith("https://cdn.example/reel-1.mp4");
@@ -55,7 +55,7 @@ test("길이를 모르는 릴스는 media_url에서 길이를 수집해 저장�
 });
 
 test("수집한 길이는 완료율 계산에 즉시 반영된다", async () => {
-  const probe = jest.fn().mockResolvedValue(70);
+  const probe = vi.fn().mockResolvedValue(70);
   const { reelRepo } = await runSync([REEL], probe);
 
   // 평균 시청 7초 / 길이 70초 = 10%
@@ -63,7 +63,7 @@ test("수집한 길이는 완료율 계산에 즉시 반영된다", async () => 
 });
 
 test("이미 길이가 있는 릴스는 ffprobe를 호출하지 않는다", async () => {
-  const probe = jest.fn().mockResolvedValue(62.5);
+  const probe = vi.fn().mockResolvedValue(62.5);
   const { reelRepo } = await runSync([REEL], probe, { id: "reel-1", durationSec: 45 });
 
   expect(probe).not.toHaveBeenCalled();
@@ -71,7 +71,7 @@ test("이미 길이가 있는 릴스는 ffprobe를 호출하지 않는다", asyn
 });
 
 test("캐러셀의 media_url은 첫 장 이미지라 길이를 재지 않는다", async () => {
-  const probe = jest.fn().mockResolvedValue(62.5);
+  const probe = vi.fn().mockResolvedValue(62.5);
   const carousel: GraphMedia = {
     id: "carousel-1", media_type: "CAROUSEL_ALBUM",
     media_url: "https://cdn.example/first-slide.jpg", timestamp: "2026-06-01T00:00:00+0000",
@@ -82,7 +82,7 @@ test("캐러셀의 media_url은 첫 장 이미지라 길이를 재지 않는다"
 });
 
 test("media_url이 없으면 조용히 건너뛴다", async () => {
-  const probe = jest.fn();
+  const probe = vi.fn();
   const { result } = await runSync([{ ...REEL, media_url: undefined }], probe);
 
   expect(probe).not.toHaveBeenCalled();
@@ -90,7 +90,7 @@ test("media_url이 없으면 조용히 건너뛴다", async () => {
 });
 
 test("길이 수집이 실패해도 동기화는 정상 집계된다", async () => {
-  const probe = jest.fn().mockResolvedValue(null);
+  const probe = vi.fn().mockResolvedValue(null);
   const { result, reelRepo } = await runSync([REEL], probe);
 
   expect(result.syncedReels).toBe(1);
@@ -99,8 +99,8 @@ test("길이 수집이 실패해도 동기화는 정상 집계된다", async () 
 });
 
 test("길이 수집이 예외를 던져도 게시물 동기화를 실패로 만들지 않는다", async () => {
-  const error = jest.spyOn(console, "error").mockImplementation(() => {});
-  const probe = jest.fn().mockRejectedValue(new Error("ffprobe 폭발"));
+  const error = vi.spyOn(console, "error").mockImplementation(() => {});
+  const probe = vi.fn().mockRejectedValue(new Error("ffprobe 폭발"));
   const { result, reelRepo } = await runSync([REEL], probe);
 
   expect(result.syncedReels).toBe(1);
@@ -108,3 +108,4 @@ test("길이 수집이 예외를 던져도 게시물 동기화를 실패로 만�
   expect((await reelRepo.get("reel-1"))?.views).toBe(1000);
   error.mockRestore();
 });
+import type { Mock } from "vitest";

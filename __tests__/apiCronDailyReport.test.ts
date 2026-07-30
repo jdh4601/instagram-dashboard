@@ -1,16 +1,16 @@
 // cron/daily-report 라우트 인증 테스트. 다운스트림(리포트 생성/발송)은 mock으로
 // 대체해 side effect 없이 secretMatches 동작만 검증한다.
-jest.mock("@/lib/email/sendReport", () => ({
-  createReportSender: jest.fn(() => jest.fn()),
+vi.mock("@/lib/email/sendReport", () => ({
+  createReportSender: vi.fn(() => vi.fn()),
 }));
-jest.mock("@/lib/report/generateAndSendDailyReport", () => ({
-  generateAndSendDailyReport: jest.fn(),
+vi.mock("@/lib/report/generateAndSendDailyReport", () => ({
+  generateAndSendDailyReport: vi.fn(),
 }));
 
 import { GET, POST } from "@/app/api/cron/daily-report/route";
 import { generateAndSendDailyReport } from "@/lib/report/generateAndSendDailyReport";
 
-const mockGenerate = generateAndSendDailyReport as unknown as jest.Mock;
+const mockGenerate = generateAndSendDailyReport as unknown as Mock;
 
 const SECRET = "test-cron-secret";
 
@@ -116,3 +116,4 @@ describe("GET /api/cron/daily-report (Vercel Cron)", () => {
     expect(mockGenerate).toHaveBeenCalledTimes(1);
   });
 });
+import type { Mock } from "vitest";

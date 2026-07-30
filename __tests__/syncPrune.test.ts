@@ -57,10 +57,10 @@ function clientWith(list: GraphMedia[], extraIds: string[] = []): GraphClient {
 
 beforeEach(() => {
   // 대량삭제 가드가 내보내는 경고가 테스트 출력을 더럽히지 않도록 잠근다.
-  jest.spyOn(console, "warn").mockImplementation(() => {});
+  vi.spyOn(console, "warn").mockImplementation(() => {});
 });
 afterEach(() => {
-  jest.restoreAllMocks();
+  vi.restoreAllMocks();
 });
 
 test("API 목록에 없는 저장 게시물은 삭제되고 removedReels에 집계된다", async () => {

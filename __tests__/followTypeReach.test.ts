@@ -142,7 +142,7 @@ test("getAccountInsights는 profile_views를 계정 지표로 요청한다", asy
 });
 
 test("breakdown 요청이 실패해도 나머지 계정 지표는 살아남는다", async () => {
-  const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
   const client = createGraphClient({
     accessToken: "tok",
     fetchImpl: (async (url: string) => {

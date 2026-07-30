@@ -6,7 +6,7 @@ export function sortByDate(snapshots: AccountSnapshot[]): AccountSnapshot[] {
 }
 
 // 추이 차트를 그릴 최소 데이터 포인트. 2개면 직선이라 +N 증가를 과장 → 카드로.
-export const MIN_TREND_POINTS = 3;
+const MIN_TREND_POINTS = 3;
 
 export type FollowerTrendMode = "empty" | "card" | "chart";
 

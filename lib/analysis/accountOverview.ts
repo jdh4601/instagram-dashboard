@@ -28,7 +28,7 @@ export interface MetricDelta {
   relativePercent: number | null;
 }
 
-export interface AccountOverviewDeltas {
+interface AccountOverviewDeltas {
   followers: MetricDelta | null;
   reachLast7d: MetricDelta | null;
   viewsLast7d: MetricDelta | null;
@@ -85,9 +85,8 @@ export function buildAccountOverview(
   profile: AccountProfile | null,
 ): AccountOverview {
   const sorted = sortByDate(snapshots);
-  // 비교 기준은 accountInsights와 공유한다. "직전 스냅샷"은 스냅샷 주기가 불규칙해
-  // 하루 전일 수도 닷새 전일 수도 있고, 7일 롤링 지표를 그런 값과 비교하면 두 창이
-  // 겹쳐 증감이 노이즈가 된다.
+  // "직전 스냅샷"은 스냅샷 주기가 불규칙해 하루 전일 수도 닷새 전일 수도 있고,
+  // 7일 롤링 지표를 그런 값과 비교하면 두 창이 겹쳐 증감이 노이즈가 된다.
   const { current: latest, baseline: previous } = comparisonPair(sorted);
   const earlierThan = (snapshot: AccountSnapshot | null) =>
     snapshot === null ? [] : sorted.filter((s) => s.date < snapshot.date);

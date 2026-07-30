@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const TranscriptLineSchema = z.object({
+const TranscriptLineSchema = z.object({
   startSec: z.number().nonnegative(),
   endSec: z.number().nonnegative(),
   text: z.string(),
@@ -8,14 +8,12 @@ export const TranscriptLineSchema = z.object({
 export type TranscriptLine = z.infer<typeof TranscriptLineSchema>;
 
 // LLM 자막 심층 분석 결과 (버튼 호출 → 릴스에 캐시)
-export const TranscriptInsightItemSchema = z.object({
+const TranscriptInsightItemSchema = z.object({
   title: z.string(),
   detail: z.string(),
   metric: z.string().optional(), // 연결된 지표 키(예: skipRate, shareRate)
   rewrite: z.string().optional(), // 약점일 때만: 바로 쓸 수 있는 새 자막 대사 제안
 });
-export type TranscriptInsightItem = z.infer<typeof TranscriptInsightItemSchema>;
-
 export const TranscriptInsightsSchema = z.object({
   summary: z.string(),
   strengths: z.array(TranscriptInsightItemSchema),
@@ -24,22 +22,7 @@ export const TranscriptInsightsSchema = z.object({
 });
 export type TranscriptInsights = z.infer<typeof TranscriptInsightsSchema>;
 
-export const RetentionPointSchema = z.object({
-  sec: z.number().nonnegative(),
-  pct: z.number().min(0).max(100),
-});
-export type RetentionPoint = z.infer<typeof RetentionPointSchema>;
-
-export const ReachSourcesSchema = z.object({
-  reelsTab: z.number().min(0).max(100).optional(),
-  explore: z.number().min(0).max(100).optional(),
-  home: z.number().min(0).max(100).optional(),
-  profile: z.number().min(0).max(100).optional(),
-  other: z.number().min(0).max(100).optional(),
-});
-export type ReachSources = z.infer<typeof ReachSourcesSchema>;
-
-export const DerivedRatesSchema = z.object({
+const DerivedRatesSchema = z.object({
   shareRate: z.number(),
   saveRate: z.number(),
   likeRate: z.number(),
@@ -64,16 +47,9 @@ export const DerivedRatesSchema = z.object({
 });
 export type DerivedRates = z.infer<typeof DerivedRatesSchema>;
 
-// 과거 저장 데이터와의 호환을 위한 시청 지속 시간 분포
-export const WatchTimeBucketSchema = z.object({
-  label: z.string(), // 예: "0~3초", "3~10초", "10초~"
-  pct: z.number().min(0).max(100),
-});
-export type WatchTimeBucket = z.infer<typeof WatchTimeBucketSchema>;
-
 // 이 대시보드가 다루는 미디어 종류. 인스타그램의 media_product_type/media_type을
 // 대시보드가 쓰는 두 값으로 좁힌 것이다.
-export const MediaKindSchema = z.enum(["REELS", "CAROUSEL"]);
+const MediaKindSchema = z.enum(["REELS", "CAROUSEL"]);
 export type MediaKind = z.infer<typeof MediaKindSchema>;
 
 export const ReelSchema = z.object({
@@ -97,8 +73,6 @@ export const ReelSchema = z.object({
   hookRetention3s: z.number().min(0).max(100).optional(),
   skipRate: z.number().min(0).max(100).optional(), // Instagram 스킵 비율(%). 3초 후 잔존률 = 100 - skipRate
   skipRateSource: z.enum(["API", "EDIT"]).optional(),
-  retentionCurve: z.array(RetentionPointSchema).optional(),
-  reachSources: ReachSourcesSchema.optional(),
   followsFromReel: z.number().nonnegative().optional(),
   profileVisits: z.number().nonnegative().optional(),
   caption: z.string().optional(),
@@ -107,7 +81,6 @@ export const ReelSchema = z.object({
   transcript: z.array(TranscriptLineSchema).optional(),
   transcriptInsights: TranscriptInsightsSchema.optional(),
   derived: DerivedRatesSchema.optional(),
-  watchTimeBuckets: z.array(WatchTimeBucketSchema).optional(),
 });
 export type Reel = z.infer<typeof ReelSchema>;
 

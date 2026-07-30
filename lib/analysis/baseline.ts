@@ -49,9 +49,7 @@ export function buildBaselineThresholds(
       // 자기 평균보다 조금 나은 게시물이 "강점"으로 뜬다. 실제로 캐러셀 저장율
       // 중앙값이 0.15%라 0.64%짜리가 강점으로 판정됐다 — 업계 합격선은 1%다.
       //
-      // 약점 판정은 여기서 개인 기준을 그대로 둬 게시물 간 비교력을 유지한다. 그 대신
-      // 계정 전체가 기준 미달인 지표는 게시물 상세가 아니라 계정 화면에서 절대 기준으로
-      // 드러낸다(INS-10, B안: diagnoseRecent → buildStandardsGaps → StandardsGapCard).
+      // 약점 판정은 개인 기준을 그대로 둬 게시물 간 비교력을 유지한다.
       strongAbove: Math.max(m * 1.15, global.weakBelow),
     };
   }

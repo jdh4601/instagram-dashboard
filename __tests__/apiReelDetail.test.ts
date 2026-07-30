@@ -1,15 +1,15 @@
 // reels/[id] 상세 라우트 테스트. 저장소는 mock으로 대체한다.
-jest.mock("@/lib/store", () => ({
-  getRepository: jest.fn(),
-  getReelHistoryRepository: jest.fn(),
+vi.mock("@/lib/store", () => ({
+  getRepository: vi.fn(),
+  getReelHistoryRepository: vi.fn(),
 }));
 
 import { GET } from "@/app/api/reels/[id]/route";
 import { getRepository, getReelHistoryRepository } from "@/lib/store";
 import type { Reel } from "@/lib/schemas";
 
-const mockGetRepository = getRepository as unknown as jest.Mock;
-const mockGetHistoryRepository = getReelHistoryRepository as unknown as jest.Mock;
+const mockGetRepository = getRepository as unknown as Mock;
+const mockGetHistoryRepository = getReelHistoryRepository as unknown as Mock;
 
 const base = {
   durationSec: 0,
@@ -30,13 +30,13 @@ const reels: Reel[] = [
 ];
 
 const fakeRepo = {
-  list: jest.fn(async () => reels),
-  get: jest.fn(async (id: string) => reels.find((r) => r.id === id) ?? null),
+  list: vi.fn(async () => reels),
+  get: vi.fn(async (id: string) => reels.find((r) => r.id === id) ?? null),
 };
-const fakeHistoryRepo = { list: jest.fn(async () => []) };
+const fakeHistoryRepo = { list: vi.fn(async () => []) };
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   mockGetRepository.mockReturnValue(fakeRepo);
   mockGetHistoryRepository.mockReturnValue(fakeHistoryRepo);
 });
@@ -98,8 +98,8 @@ test("베이스라인은 같은 종류만 쓴다 — 릴스가 섞이면 캐러�
   );
   const mixed = [...carousels, ...lowShareReels];
   mockGetRepository.mockReturnValue({
-    list: jest.fn(async () => mixed),
-    get: jest.fn(async (id: string) => mixed.find((r) => r.id === id) ?? null),
+    list: vi.fn(async () => mixed),
+    get: vi.fn(async (id: string) => mixed.find((r) => r.id === id) ?? null),
   });
 
   const { body } = await detail("캐러셀-대상");
@@ -110,3 +110,4 @@ test("베이스라인은 같은 종류만 쓴다 — 릴스가 섞이면 캐러�
   );
   expect(shareVerdict.band).toBe("ok");
 });
+import type { Mock } from "vitest";

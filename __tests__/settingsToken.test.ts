@@ -61,3 +61,18 @@ test("settings.json은 소유자 전용(0o600)으로 저장된다", async () => 
   const mode = statSync(join(dir, "settings.json")).mode & 0o777;
   expect(mode).toBe(0o600);
 });
+
+test("OAuth credential은 실제 만료 시각을 저장하고 연결 해제로 완전히 지운다", async () => {
+  const { store } = tmp();
+  const expiresAt = "2026-09-01T00:00:00.000Z";
+  await store.saveInstagramCredential({ accessToken: "oauth-long-token", expiresAt });
+  expect(await store.get()).toMatchObject({
+    instagram: { accessToken: "oauth-long-token" },
+    instagramTokenExpiresAt: expiresAt,
+  });
+  await store.clearInstagramCredential();
+  const cleared = await store.get();
+  expect(cleared.instagram?.accessToken).toBeUndefined();
+  expect(cleared.instagramTokenIssuedAt).toBeUndefined();
+  expect(cleared.instagramTokenExpiresAt).toBeUndefined();
+});

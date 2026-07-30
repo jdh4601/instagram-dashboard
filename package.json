@@ -2,18 +2,21 @@
   "name": "instagram-dashboard",
   "version": "1.0.0",
   "description": "Local AI dashboard that diagnoses Instagram Reels funnel bottlenecks from Graph API metrics and emails a daily best/worst report.",
-  "main": "index.js",
-  "directories": {
-    "doc": "docs"
+  "engines": {
+    "node": ">=22.16",
+    "npm": ">=10"
   },
   "scripts": {
     "dev": "next dev -H 0.0.0.0",
     "build": "next build",
     "start": "next start -H 0.0.0.0",
-    "test": "jest",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "seed:demo": "node scripts/seed-demo.mjs",
-    "postinstall": "node -e \"(async()=>{const fs=require('node:fs');fs.mkdirSync('data',{recursive:true});if(fs.existsSync('scripts/postinstall.mjs'))await import('./scripts/postinstall.mjs')})().catch(error=>{console.error(error);process.exit(1)})\""
+    "doctor": "node scripts/doctor.mjs",
+    "data:backup": "node scripts/backup-data.mjs",
+    "storage:migrate:sqlite": "node scripts/migrate-to-sqlite.mjs",
+    "postinstall": "node scripts/postinstall.mjs"
   },
   "repository": {
     "type": "git",
@@ -39,8 +42,9 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.106.0",
     "lucide-react": "^1.22.0",
-    "next": "^15.5.19",
+    "next": "^15.5.22",
     "openai": "^6.45.0",
+    "postgres": "^3.4.9",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "recharts": "^3.9.0",
@@ -49,15 +53,18 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.1",
-    "@types/jest": "^30.0.0",
     "@types/node": "^26.0.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "jest": "^30.4.2",
-    "jest-environment-jsdom": "^30.4.1",
     "postcss": "^8.5.15",
     "tailwindcss": "^4.3.1",
-    "ts-jest": "^29.4.11",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "next": {
+      "postcss": "^8.5.25",
+      "sharp": "^0.35.3"
+    }
   }
 }

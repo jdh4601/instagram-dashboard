@@ -1,7 +1,7 @@
 // 영상 길이 수동 입력(PATCH) 테스트. Graph API가 길이를 주지 않아 사용자가 채운다.
-jest.mock("@/lib/store", () => ({
-  getRepository: jest.fn(),
-  getReelHistoryRepository: jest.fn(),
+vi.mock("@/lib/store", () => ({
+  getRepository: vi.fn(),
+  getReelHistoryRepository: vi.fn(),
 }));
 
 import { PATCH } from "@/app/api/reels/[id]/route";
@@ -10,7 +10,7 @@ import { computeDerivedRates } from "@/lib/analysis/metrics";
 import { diagnose } from "@/lib/analysis/diagnosis";
 import type { Reel } from "@/lib/schemas";
 
-const mockGetRepository = getRepository as unknown as jest.Mock;
+const mockGetRepository = getRepository as unknown as Mock;
 
 const reel: Reel = {
   id: "릴스-1",
@@ -30,15 +30,15 @@ const reel: Reel = {
 
 let stored: Reel;
 const fakeRepo = {
-  get: jest.fn(async (id: string) => (id === reel.id ? stored : null)),
-  upsert: jest.fn(async (next: Reel) => {
+  get: vi.fn(async (id: string) => (id === reel.id ? stored : null)),
+  upsert: vi.fn(async (next: Reel) => {
     stored = next;
     return next;
   }),
 };
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   stored = { ...reel };
   mockGetRepository.mockReturnValue(fakeRepo);
 });
@@ -108,3 +108,4 @@ test("없는 id는 404", async () => {
   const { status } = await patch("없는-id", { durationSec: 15 });
   expect(status).toBe(404);
 });
+import type { Mock } from "vitest";

@@ -43,10 +43,10 @@ function flakyClient(reels: GraphMedia[], failIds: string[]): GraphClient {
 
 beforeEach(() => {
   // 개별 실패 케이스의 콘솔 에러 로그가 테스트 출력을 오염시키지 않도록 잠근다
-  jest.spyOn(console, "error").mockImplementation(() => {});
+  vi.spyOn(console, "error").mockImplementation(() => {});
 });
 afterEach(() => {
-  jest.restoreAllMocks();
+  vi.restoreAllMocks();
 });
 
 test("모든 릴스가 실패하면 throw하고 계정 스냅샷을 남기지 않는다", async () => {

@@ -1,4 +1,4 @@
-import { bandColor, fmtPct, fmtDelta, fmtCount, fmtDuration } from "@/lib/ui/format";
+import { bandColor, fmtPct, fmtCount, fmtDuration } from "@/lib/ui/format";
 
 test("밴드별 색 클래스 (토큰 기반)", () => {
   expect(bandColor("weak")).toContain("band-weak");
@@ -8,12 +8,6 @@ test("밴드별 색 클래스 (토큰 기반)", () => {
 
 test("퍼센트 포맷", () => {
   expect(fmtPct(1.7)).toBe("1.70%");
-});
-
-test("델타 부호 표기", () => {
-  expect(fmtDelta(7)).toBe("▲7.0%p");
-  expect(fmtDelta(-3.2)).toBe("▼3.2%p");
-  expect(fmtDelta(0)).toBe("—");
 });
 
 test("조회수 컴팩트 포맷(만 단위)", () => {

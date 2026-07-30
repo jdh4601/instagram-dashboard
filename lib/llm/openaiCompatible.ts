@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import type { TextModel } from "@/lib/llm/types";
 
 // 테스트 주입용 최소 인터페이스 (OpenAI SDK의 chat.completions.create 부분만)
-export interface OpenAILike {
+interface OpenAILike {
   chat: {
     completions: {
       create(args: unknown): Promise<{ choices: Array<{ message: { content: string | null } }> }>;

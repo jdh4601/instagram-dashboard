@@ -11,7 +11,7 @@ import {
 
 const CAPTION_MAX = 80;
 
-export interface DailyReportMetrics {
+interface DailyReportMetrics {
   /** 최신 스냅샷 기준 팔로워 수 */
   followerCount: number;
   /** 직전 스냅샷 대비 증감. 스냅샷이 2개 미만이면 null */
@@ -22,7 +22,7 @@ export interface DailyReportMetrics {
   reelsAnalyzed: number;
 }
 
-export interface ReelHighlight {
+interface ReelHighlight {
   id: string;
   caption: string;
   views: number;

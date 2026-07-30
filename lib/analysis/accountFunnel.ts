@@ -11,7 +11,7 @@ export const ACCOUNT_FUNNEL_WINDOW_DAYS = 7;
  * 따라서 이 증감은 "어제 하루의 성과"가 아니라 창에 새로 들어온 하루와 빠져나간
  * 하루의 차이이며, 실제 변화보다 작게 나타난다.
  */
-export interface AccountFunnelDeltas {
+interface AccountFunnelDeltas {
   viewRate: number | null;
   followRate: number | null;
   linkClickRate: number | null;

@@ -21,14 +21,14 @@ test("길이로 볼 수 없는 출력은 null이다", () => {
 });
 
 test("정상 응답이면 초를 돌려준다", async () => {
-  const run = jest.fn().mockResolvedValue("76.7\n");
+  const run = vi.fn().mockResolvedValue("76.7\n");
   await expect(probeDurationSec(URL, run)).resolves.toBe(76.7);
   expect(run).toHaveBeenCalledTimes(1);
 });
 
 test("ffprobe가 없어도 예외를 던지지 않고 null을 돌려준다", async () => {
-  const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
-  const run = jest.fn().mockRejectedValue(new Error("spawn ffprobe ENOENT"));
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const run = vi.fn().mockRejectedValue(new Error("spawn ffprobe ENOENT"));
 
   await expect(probeDurationSec(URL, run)).resolves.toBeNull();
   expect(warn).toHaveBeenCalled();
@@ -36,9 +36,9 @@ test("ffprobe가 없어도 예외를 던지지 않고 null을 돌려준다", asy
 });
 
 test("실패 로그에 서명된 CDN URL을 남기지 않는다", async () => {
-  const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
   // execFile 오류 메시지에는 실행 명령 전체(=URL)가 들어간다
-  const run = jest.fn().mockRejectedValue(new Error(`Command failed: ffprobe ${URL}`));
+  const run = vi.fn().mockRejectedValue(new Error(`Command failed: ffprobe ${URL}`));
 
   await probeDurationSec(URL, run);
 
@@ -48,7 +48,7 @@ test("실패 로그에 서명된 CDN URL을 남기지 않는다", async () => {
 });
 
 test("http(s)가 아닌 입력에는 ffprobe를 실행하지 않는다", async () => {
-  const run = jest.fn();
+  const run = vi.fn();
   await expect(probeDurationSec("file:///etc/passwd", run)).resolves.toBeNull();
   await expect(probeDurationSec("", run)).resolves.toBeNull();
   expect(run).not.toHaveBeenCalled();

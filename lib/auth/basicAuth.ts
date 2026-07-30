@@ -15,6 +15,13 @@ function unauthorized(): NextResponse {
   );
 }
 
+function misconfigured(): NextResponse {
+  return NextResponse.json(
+    { error: "대시보드 인증 설정이 불완전합니다" },
+    { status: 503 },
+  );
+}
+
 function timingSafeStringEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let mismatch = 0;
@@ -46,7 +53,9 @@ function parseBasicAuth(header: string | null): { user: string; password: string
 export function checkBasicAuth(req: Request): NextResponse | null {
   const expectedUser = process.env.DASHBOARD_USER;
   const expectedPassword = process.env.DASHBOARD_PASSWORD;
-  if (!expectedUser || !expectedPassword) return null;
+  if (!expectedUser && !expectedPassword) return null;
+  // 둘 중 하나만 설정된 공개 배포가 인증 없이 열리지 않도록 fail closed 한다.
+  if (!expectedUser || !expectedPassword) return misconfigured();
 
   const credentials = parseBasicAuth(req.headers.get("authorization"));
   if (!credentials) return unauthorized();
