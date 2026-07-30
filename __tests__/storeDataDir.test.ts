@@ -11,17 +11,20 @@ const reel: Reel = {
 
 describe("DATA_DIR override", () => {
   const original = process.env.DATA_DIR;
+  const originalAdapter = process.env.STORAGE_ADAPTER;
 
   afterEach(() => {
     if (original === undefined) delete process.env.DATA_DIR;
     else process.env.DATA_DIR = original;
-    jest.resetModules();
+    if (originalAdapter === undefined) delete process.env.STORAGE_ADAPTER;
+    else process.env.STORAGE_ADAPTER = originalAdapter;
+    vi.resetModules();
   });
 
   test("getRepository() writes under DATA_DIR when the env var is set", async () => {
     const dir = mkdtempSync(join(tmpdir(), "store-datadir-"));
     process.env.DATA_DIR = dir;
-    jest.resetModules();
+    vi.resetModules();
 
     // Repos are cached singletons, so re-import after setting the env var.
     const store = await import("@/lib/store");
@@ -37,7 +40,7 @@ describe("DATA_DIR override", () => {
   test("all repositories honor DATA_DIR", async () => {
     const dir = mkdtempSync(join(tmpdir(), "store-datadir-all-"));
     process.env.DATA_DIR = dir;
-    jest.resetModules();
+    vi.resetModules();
 
     const store = await import("@/lib/store");
     await store.getAccountRepository().add({ date: "2026-06-01", followerCount: 1000, reachLast7d: 4000 });
@@ -53,5 +56,37 @@ describe("DATA_DIR override", () => {
     expect(existsSync(join(dir, "snapshots.json"))).toBe(true);
     expect(existsSync(join(dir, "profile.json"))).toBe(true);
     expect(existsSync(join(dir, "reel-history.json"))).toBe(true);
+  });
+
+  test("credential settings use the same DATA_DIR as analytics", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "settings-datadir-"));
+    process.env.DATA_DIR = dir;
+    vi.resetModules();
+
+    const settings = await import("@/lib/settings");
+    await settings.getSettingsStore().save({
+      instagram: { accessToken: "test-token" },
+    });
+
+    expect(existsSync(join(dir, "settings.json"))).toBe(true);
+  });
+
+  test("STORAGE_ADAPTER=sqlite routes all analytics repositories to one database", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "store-sqlite-"));
+    process.env.DATA_DIR = dir;
+    process.env.STORAGE_ADAPTER = "sqlite";
+    vi.resetModules();
+
+    const store = await import("@/lib/store");
+    await store.getRepository().upsert(reel);
+    await store.getAccountRepository().add({
+      date: "2026-06-01",
+      followerCount: 100,
+      reachLast7d: 400,
+    });
+
+    expect(existsSync(join(dir, "instagram-dashboard.sqlite"))).toBe(true);
+    expect(existsSync(join(dir, "reels.json"))).toBe(false);
+    expect(await store.getRepository().get("r1")).toMatchObject({ id: "r1" });
   });
 });

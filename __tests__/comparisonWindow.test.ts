@@ -4,11 +4,8 @@ import {
   findComparisonSnapshot,
 } from "@/lib/analysis/comparisonWindow";
 import { buildAccountOverview } from "@/lib/analysis/accountOverview";
-import { buildAccountInsights } from "@/lib/analysis/accountInsights";
 
-// 스크린샷에서 보고된 모순을 그대로 재현하는 데이터.
-// 상단 카드는 2일 전(07-22)과 비교해 +2.1%, 인사이트는 7일 전(07-17)과 비교해 -13.3%를
-// 동시에 보고했다. 7일 롤링 지표를 2일 전 값과 비교하면 창이 5/7 겹쳐 의미가 없다.
+// 7일 롤링 지표를 2일 전 값과 비교하면 창이 5/7 겹쳐 의미가 없다.
 const CONTRADICTION: AccountSnapshot[] = [
   { date: "2026-07-17", followerCount: 270, reachLast7d: 4292, availableMetrics: ["reach"] },
   { date: "2026-07-22", followerCount: 279, reachLast7d: 3642, availableMetrics: ["reach"] },
@@ -59,27 +56,12 @@ describe("findComparisonSnapshot", () => {
   });
 });
 
-describe("도달 비교 기준 통일 (INS-1)", () => {
-  test("상단 개요와 계정 인사이트가 같은 기준점을 쓴다", () => {
+describe("계정 개요의 도달 비교 기준", () => {
+  test("7일 이상 앞선 가장 가까운 기준점을 쓴다", () => {
     const overview = buildAccountOverview([], CONTRADICTION, null);
-    const insights = buildAccountInsights(CONTRADICTION);
-    const trend = insights.find((insight) => insight.id === "reach-trend");
 
-    expect(trend).toBeDefined();
-    // 두 모듈 모두 07-17(4,292)을 기준으로 삼아야 한다.
+    // 07-17(4,292)을 기준으로 삼아야 한다.
     expect(overview.deltas.reachLast7d?.absolute).toBe(3720 - 4292);
-    expect(trend?.benchmarkValue).toBe(4292);
-  });
-
-  test("상단 개요와 계정 인사이트의 증감 부호가 일치한다", () => {
-    const overview = buildAccountOverview([], CONTRADICTION, null);
-    const trend = buildAccountInsights(CONTRADICTION).find((i) => i.id === "reach-trend");
-
-    const overviewIncreased = (overview.deltas.reachLast7d?.absolute ?? 0) > 0;
-    const insightIncreased = trend?.tone === "strength";
-
-    expect(overviewIncreased).toBe(insightIncreased);
-    expect(overviewIncreased).toBe(false); // 실제로는 감소한 주다
   });
 
   test("7일 전 스냅샷이 없으면 델타를 만들지 않는다", () => {
@@ -92,6 +74,5 @@ describe("도달 비교 기준 통일 (INS-1)", () => {
     // 기준점이 없으면 아무 스냅샷이나 집어오지 않고 비교를 포기한다.
     expect(overview.deltas.reachLast7d).toBeNull();
     expect(overview.deltas.followers).toBeNull();
-    expect(buildAccountInsights(tooClose).some((i) => i.id === "reach-trend")).toBe(false);
   });
 });

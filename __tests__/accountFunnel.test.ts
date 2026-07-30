@@ -1,4 +1,4 @@
-import { buildAccountFunnel } from "@/lib/analysis/accountFunnel";
+import { accountFunnelVerdicts, buildAccountFunnel } from "@/lib/analysis/accountFunnel";
 import type { AccountSnapshot } from "@/lib/schemas";
 
 function snapshot(overrides: Partial<AccountSnapshot> = {}): AccountSnapshot {
@@ -172,4 +172,51 @@ test("도달 말고 아무것도 측정되지 않으면 null", () => {
   ]);
 
   expect(funnel).toBeNull();
+});
+
+// --- 계정 퍼널 전환율 판정 (강점/약점/보통) ---
+
+test("세 전환율이 모두 기준선 초과면 강점으로 판정", () => {
+  // 방문률 13.48%, 전환율 6.79%, 링크클릭률 6.16% — 스크린샷 실측 사례
+  const funnel = buildAccountFunnel([
+    snapshot({ reachLast7d: 3493, profileViewsLast7d: 471, followsLast7d: 32, websiteClicksLast7d: 29 }),
+  ])!;
+
+  const verdicts = accountFunnelVerdicts(funnel);
+
+  expect(verdicts.viewRate).toBe("strong");
+  expect(verdicts.followRate).toBe("strong");
+  expect(verdicts.linkClickRate).toBe("strong");
+});
+
+test("세 전환율이 모두 기준선 미만이면 약점으로 판정", () => {
+  const funnel = buildAccountFunnel([
+    snapshot({ reachLast7d: 10000, profileViewsLast7d: 50, followsLast7d: 0, websiteClicksLast7d: 0 }),
+  ])!;
+
+  const verdicts = accountFunnelVerdicts(funnel);
+
+  expect(verdicts.viewRate).toBe("weak"); // 0.5%
+  expect(verdicts.followRate).toBe("weak"); // 0%
+  expect(verdicts.linkClickRate).toBe("weak"); // 0%
+});
+
+test("기준선 사이 값은 보통으로 판정", () => {
+  // 방문률 2% — weakBelow 1, strongAbove 3 사이
+  const funnel = buildAccountFunnel([
+    snapshot({ reachLast7d: 1000, profileViewsLast7d: 20, followsLast7d: 1, websiteClicksLast7d: 1 }),
+  ])!;
+
+  const verdicts = accountFunnelVerdicts(funnel);
+
+  expect(verdicts.viewRate).toBe("ok");
+});
+
+test("측정 안 된 지표는 null로 판정", () => {
+  const funnel = buildAccountFunnel([snapshot({ profileViewsLast7d: undefined })])!;
+
+  const verdicts = accountFunnelVerdicts(funnel);
+
+  expect(verdicts.viewRate).toBeNull();
+  expect(verdicts.followRate).toBeNull();
 });

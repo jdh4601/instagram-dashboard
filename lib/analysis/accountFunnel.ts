@@ -1,3 +1,5 @@
+import { ACCOUNT_FUNNEL_BENCHMARKS, type AccountFunnelMetricKey } from "@/config/benchmarks";
+import { classifyBand, type Band } from "@/lib/analysis/diagnosis";
 import type { AccountSnapshot } from "@/lib/schemas";
 
 export const ACCOUNT_FUNNEL_WINDOW_DAYS = 7;
@@ -9,7 +11,7 @@ export const ACCOUNT_FUNNEL_WINDOW_DAYS = 7;
  * 따라서 이 증감은 "어제 하루의 성과"가 아니라 창에 새로 들어온 하루와 빠져나간
  * 하루의 차이이며, 실제 변화보다 작게 나타난다.
  */
-export interface AccountFunnelDeltas {
+interface AccountFunnelDeltas {
   viewRate: number | null;
   followRate: number | null;
   linkClickRate: number | null;
@@ -118,4 +120,26 @@ export function buildAccountFunnel(snapshots: AccountSnapshot[]): AccountFunnel 
       linkClickRate: diff(current.linkClickRate, before?.linkClickRate ?? null),
     },
   };
+}
+
+export type AccountFunnelVerdicts = Record<AccountFunnelMetricKey, Band | null>;
+
+/**
+ * 계정 퍼널 전환율 세 개를 일반적인 업계 벤치마크 추정치(ACCOUNT_FUNNEL_BENCHMARKS)로
+ * 판정한다. 게시물 진단(diagnose)과 같은 classifyBand를 쓰되, 표본이 계정 전체
+ * 7일 도달이라 항상 충분히 커서 MIN_REACH_FOR_VERDICT 같은 최소 표본 검사는 두지 않는다.
+ */
+export function accountFunnelVerdicts(funnel: AccountFunnel): AccountFunnelVerdicts {
+  const rates: Record<AccountFunnelMetricKey, number | null> = {
+    viewRate: funnel.viewRate,
+    followRate: funnel.followRate,
+    linkClickRate: funnel.linkClickRate,
+  };
+
+  return Object.fromEntries(
+    (Object.keys(rates) as AccountFunnelMetricKey[]).map((key) => {
+      const value = rates[key];
+      return [key, value === null ? null : classifyBand(value, ACCOUNT_FUNNEL_BENCHMARKS[key])];
+    }),
+  ) as AccountFunnelVerdicts;
 }

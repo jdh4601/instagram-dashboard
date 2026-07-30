@@ -29,8 +29,8 @@ test("flattenInsights는 total_value와 팔로우 breakdown을 정규화", () =>
   expect(flattenInsights(data)).toMatchObject({ reach: 900, follows: 12, unfollows: 3 });
 });
 
-// @wearedone.kr 계정의 2026-07-20~27 실제 응답. NON_FOLLOWER는 "unfollow"를 포함하지
-// 않아 follows 분기로 새고, 팔로우 27을 언팔로우 4로 덮어썼다.
+// 익명화한 실제 응답 형태. NON_FOLLOWER는 "unfollow"를 포함하지 않아 follows
+// 분기로 새고, 팔로우 값을 언팔로우 값으로 덮어쓰는 회귀가 있었다.
 test("flattenInsights는 NON_FOLLOWER를 follows로 오인하지 않는다", () => {
   const real = {
     data: [

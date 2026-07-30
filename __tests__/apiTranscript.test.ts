@@ -1,16 +1,16 @@
 // reels/[id]/transcript 업로드 검증 테스트. 저장소는 mock으로 대체한다.
-jest.mock("@/lib/store", () => ({
-  getRepository: jest.fn(),
+vi.mock("@/lib/store", () => ({
+  getRepository: vi.fn(),
 }));
 
 import { POST } from "@/app/api/reels/[id]/transcript/route";
 import { getRepository } from "@/lib/store";
 
-const mockGetRepository = getRepository as unknown as jest.Mock;
+const mockGetRepository = getRepository as unknown as Mock;
 
 const fakeRepo = {
-  get: jest.fn(async () => ({ id: "r1", postedAt: "2026-06-01T00:00:00Z" })),
-  upsert: jest.fn(async (reel: unknown) => reel),
+  get: vi.fn(async () => ({ id: "r1", postedAt: "2026-06-01T00:00:00Z" })),
+  upsert: vi.fn(async (reel: unknown) => reel),
 };
 
 function ctx(id = "r1"): { params: Promise<{ id: string }> } {
@@ -26,7 +26,7 @@ function srtRequest(body: unknown, contentType = "application/json"): Request {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   mockGetRepository.mockReturnValue(fakeRepo);
 });
 
@@ -41,7 +41,7 @@ test("Content-Length가 512KB를 초과하면 본문 파싱 전에 413으로 거
   const req = srtRequest({ srt: "작은 본문" });
   req.headers.set("content-length", String(512 * 1024 + 1));
 
-  const jsonSpy = jest.spyOn(req, "json");
+  const jsonSpy = vi.spyOn(req, "json");
   const res = await POST(req, ctx());
 
   expect(res.status).toBe(413);
@@ -80,3 +80,4 @@ test("정상 SRT는 파싱해 저장한다", async () => {
   expect(body.lineCount).toBe(1);
   expect(fakeRepo.upsert).toHaveBeenCalledTimes(1);
 });
+import type { Mock } from "vitest";

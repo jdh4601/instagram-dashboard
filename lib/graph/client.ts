@@ -70,7 +70,7 @@ export interface GraphInsightResult {
   unavailableMetrics: string[];
 }
 
-export interface GraphProfile {
+interface GraphProfile {
   userId: string;
   username: string;
   followersCount: number;
@@ -96,7 +96,7 @@ interface Options {
   fetchImpl?: FetchLike;
 }
 
-export interface MediaListing {
+interface MediaListing {
   /** 분석 대상으로 분류된 미디어(릴스·캐러셀) */
   analyzable: GraphMedia[];
   /**
@@ -130,8 +130,19 @@ export function createGraphClient(opts: Options): GraphClient {
     // 장기 토큰을 포함하므로, 요청 URL 전체를 그대로 로깅하는 코드는 절대 추가하지 말 것.
     const query = new URLSearchParams({ ...params, access_token: opts.accessToken });
     const url = `${base}/${VERSION}/${path}?${query.toString()}`;
-    const res = await fetchImpl(url);
-    const json: unknown = await res.json();
+    let res: FetchResult;
+    try {
+      res = await fetchImpl(url);
+    } catch {
+      // fetch 구현체가 토큰이 든 URL을 원문 오류에 포함할 수 있어 일반화한다.
+      throw new Error("Graph API 요청에 실패했습니다");
+    }
+    let json: unknown;
+    try {
+      json = await res.json();
+    } catch {
+      throw new Error(`Graph API 응답을 읽지 못했습니다 (${path})`);
+    }
     if (!res.ok) {
       const message =
         (json as { error?: { message?: string } })?.error?.message ?? `Graph API 오류 (${path})`;

@@ -1,4 +1,4 @@
-import { selectReels, type ReelSort } from "@/lib/ui/reelSelect";
+import { selectReels } from "@/lib/ui/reelSelect";
 import type { Reel } from "@/lib/schemas";
 
 function reel(p: Partial<Reel> & { id: string }): Reel {

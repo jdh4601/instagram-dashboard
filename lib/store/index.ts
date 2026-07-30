@@ -1,32 +1,47 @@
-import { join } from "node:path";
 import { createJsonReelRepository, type ReelRepository } from "@/lib/store/reelRepository";
 import { createJsonAccountRepository, type AccountRepository } from "@/lib/store/accountRepository";
 import { createJsonProfileRepository, type ProfileRepository } from "@/lib/store/profileRepository";
 import { createJsonReelHistoryRepository, type ReelHistoryRepository } from "@/lib/store/reelHistoryRepository";
+import { resolveRuntimeConfig } from "@/lib/runtime/config";
+import { createSqliteRepositories } from "@/lib/store/sqliteRepositories";
+import { createPostgresRepositories } from "@/lib/store/postgresRepositories";
+import type { WorkspaceRepositories } from "@/lib/store/workspace";
 
-const dataDir = () => process.env.DATA_DIR || join(process.cwd(), "data");
+let workspace: WorkspaceRepositories | null = null;
 
-let repo: ReelRepository | null = null;
-let accountRepo: AccountRepository | null = null;
-let profileRepo: ProfileRepository | null = null;
-let reelHistoryRepo: ReelHistoryRepository | null = null;
+function getWorkspace(): WorkspaceRepositories {
+  if (workspace) return workspace;
+  const config = resolveRuntimeConfig();
+  if (config.storageAdapter === "postgres") {
+    if (!config.postgresDatabaseUrl) {
+      throw new Error("DATABASE_URL is required when STORAGE_ADAPTER=postgres.");
+    }
+    workspace = createPostgresRepositories(config.postgresDatabaseUrl);
+  } else if (config.storageAdapter === "sqlite") {
+    workspace = createSqliteRepositories(config.sqliteDatabasePath);
+  } else {
+    workspace = {
+          reels: createJsonReelRepository(config.dataDir),
+          accounts: createJsonAccountRepository(config.dataDir),
+          profile: createJsonProfileRepository(config.dataDir),
+          reelHistory: createJsonReelHistoryRepository(config.dataDir),
+    };
+  }
+  return workspace;
+}
 
 export function getRepository(): ReelRepository {
-  if (!repo) repo = createJsonReelRepository(dataDir());
-  return repo;
+  return getWorkspace().reels;
 }
 
 export function getAccountRepository(): AccountRepository {
-  if (!accountRepo) accountRepo = createJsonAccountRepository(dataDir());
-  return accountRepo;
+  return getWorkspace().accounts;
 }
 
 export function getProfileRepository(): ProfileRepository {
-  if (!profileRepo) profileRepo = createJsonProfileRepository(dataDir());
-  return profileRepo;
+  return getWorkspace().profile;
 }
 
 export function getReelHistoryRepository(): ReelHistoryRepository {
-  if (!reelHistoryRepo) reelHistoryRepo = createJsonReelHistoryRepository(dataDir());
-  return reelHistoryRepo;
+  return getWorkspace().reelHistory;
 }

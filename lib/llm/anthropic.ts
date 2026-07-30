@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { TextModel } from "@/lib/llm/types";
 
 // 테스트 주입용 최소 인터페이스
-export interface AnthropicLike {
+interface AnthropicLike {
   messages: {
     create(args: unknown): Promise<{ content: Array<{ type: string; text?: string }> }>;
   };

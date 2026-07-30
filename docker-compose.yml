@@ -6,15 +6,26 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
+      - DATA_DIR=/app/data
+      - STORAGE_ADAPTER=${STORAGE_ADAPTER:-json}
+      - SQLITE_DATABASE_PATH=${SQLITE_DATABASE_PATH:-}
+      - DATABASE_URL=${DATABASE_URL:-}
+      # 세 값을 모두 설정하면 /settings에서 Instagram OAuth 연결을 사용할 수 있다.
+      - INSTAGRAM_APP_ID=${INSTAGRAM_APP_ID:-}
+      - INSTAGRAM_APP_SECRET=${INSTAGRAM_APP_SECRET:-}
+      - INSTAGRAM_OAUTH_REDIRECT_URI=${INSTAGRAM_OAUTH_REDIRECT_URI:-}
+      - INSTAGRAM_ACCESS_TOKEN=${INSTAGRAM_ACCESS_TOKEN:-}
       # 폴백용 LLM 키(설정 화면 /settings 에 키가 없을 때만 사용).
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      # 인터넷에 노출할 때 대시보드와 일반 API를 보호한다.
+      - DASHBOARD_USER=${DASHBOARD_USER:-}
+      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:-}
       # ── 매일 아침 이메일 리포트 (/api/cron/daily-report) ──
       # 이 값들이 없으면 크론 엔드포인트가 500/502로 실패한다. .env.example 참고.
       - CRON_SECRET=${CRON_SECRET:-}
       - RESEND_API_KEY=${RESEND_API_KEY:-}
       - REPORT_EMAIL_FROM=${REPORT_EMAIL_FROM:-}
       - REPORT_EMAIL_TO=${REPORT_EMAIL_TO:-}
-      - REPORT_URL=${REPORT_URL:-}
     volumes:
       # 컨테이너를 날려도 data 폴더의 데이터(릴스·설정·토큰)는 유지된다.
       - ./data:/app/data

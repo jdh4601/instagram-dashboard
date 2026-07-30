@@ -21,14 +21,7 @@ test("병목 처방은 severity high", () => {
   expect(hookRec!.severity).toBe("high");
 });
 
-test("급락 구간이 있으면 컷편집 처방 추가", () => {
-  const recs = buildPlaybook(diagnose(weakHook), [
-    { startSec: 8, endSec: 10, dropPct: 22, isHook: false, lines: [] },
-  ]);
-  expect(recs.some((r) => r.metric === "dropSegment")).toBe(true);
-});
-
-test("약점이 없으면 빈 배열(급락도 없을 때)", () => {
+test("약점이 없으면 빈 배열", () => {
   const strong: Reel = { ...weakHook, hookRetention3s: 70, shares: 200, comments: 50, saves: 100 };
   expect(buildPlaybook(diagnose(strong))).toEqual([]);
 });

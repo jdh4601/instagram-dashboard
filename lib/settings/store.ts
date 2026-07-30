@@ -29,15 +29,18 @@ const StoredSettingsSchema = z.object({
   providers: ProvidersSchema,
   instagram: InstagramSchema.optional(),
   instagramTokenIssuedAt: z.string().optional(),
+  instagramTokenExpiresAt: z.string().optional(),
 });
 
 // 정규화된 런타임 설정: 자막 분석과 생성에 사용할 텍스트 제공자.
-export interface Settings {
+interface Settings {
   textProvider: ProviderId;
   providers: z.infer<typeof ProvidersSchema>;
   instagram?: z.infer<typeof InstagramSchema>;
   /** Instagram 토큰이 새로 저장/변경된 시각(ISO). 장기 토큰은 60일에 만료된다. */
   instagramTokenIssuedAt?: string;
+  /** OAuth token endpoint가 알려 준 실제 만료 시각. 수동 입력 토큰에는 없을 수 있다. */
+  instagramTokenExpiresAt?: string;
 }
 
 // 클라이언트가 보내는 부분 업데이트 (apiKey 비우면 기존 유지)
@@ -54,18 +57,23 @@ export const SettingsInputSchema = z.object({
     .optional(),
   instagram: InstagramSchema.optional(),
 });
-export type SettingsInput = z.infer<typeof SettingsInputSchema>;
+type SettingsInput = z.infer<typeof SettingsInputSchema>;
 
-export interface MaskedProvider {
+interface MaskedProvider {
   configured: boolean;
   maskedKey: string | null;
   model: string;
 }
-export interface MaskedSettings {
+interface MaskedSettings {
   textProvider: ProviderId;
   providers: Record<ProviderId, MaskedProvider>;
-  instagram: { configured: boolean; maskedKey: string | null };
+  instagram: {
+    configured: boolean;
+    maskedKey: string | null;
+    managedByEnvironment: boolean;
+  };
   instagramTokenIssuedAt: string | null;
+  instagramTokenExpiresAt: string | null;
 }
 
 function defaultSettings(): Settings {
@@ -83,12 +91,18 @@ function normalize(raw: z.infer<typeof StoredSettingsSchema>): Settings {
     providers: raw.providers,
     instagram: raw.instagram,
     instagramTokenIssuedAt: raw.instagramTokenIssuedAt,
+    instagramTokenExpiresAt: raw.instagramTokenExpiresAt,
   };
 }
 
 export interface SettingsStore {
   get(): Promise<Settings>;
   save(incoming: SettingsInput): Promise<Settings>;
+  saveInstagramCredential(credential: {
+    accessToken: string;
+    expiresAt?: string;
+  }): Promise<Settings>;
+  clearInstagramCredential(): Promise<Settings>;
   masked(): Promise<MaskedSettings>;
 }
 
@@ -118,6 +132,7 @@ export function createSettingsStore(dataDir: string): SettingsStore {
         providers: { ...cur.providers },
         instagram: { ...cur.instagram },
         instagramTokenIssuedAt: cur.instagramTokenIssuedAt,
+        instagramTokenExpiresAt: cur.instagramTokenExpiresAt,
       };
       if (incoming.instagram) {
         const incToken = incoming.instagram.accessToken?.trim();
@@ -125,6 +140,7 @@ export function createSettingsStore(dataDir: string): SettingsStore {
           // 토큰이 새로 저장/변경될 때만 발급일을 기록한다(빈 값·동일 값은 유지).
           next.instagram = { accessToken: incToken };
           next.instagramTokenIssuedAt = new Date().toISOString();
+          next.instagramTokenExpiresAt = undefined;
         }
       }
       for (const id of PROVIDER_IDS) {
@@ -137,6 +153,39 @@ export function createSettingsStore(dataDir: string): SettingsStore {
           model: inc.model !== undefined ? inc.model : existing.model,
         };
       }
+      await write(next);
+      return next;
+    });
+  }
+
+  function saveInstagramCredential(credential: {
+    accessToken: string;
+    expiresAt?: string;
+  }): Promise<Settings> {
+    return withFileLock(file, async () => {
+      const current = await get();
+      const accessToken = credential.accessToken.trim();
+      if (!accessToken) throw new Error("Instagram access token must not be empty.");
+      const next: Settings = {
+        ...current,
+        instagram: { accessToken },
+        instagramTokenIssuedAt: new Date().toISOString(),
+        instagramTokenExpiresAt: credential.expiresAt,
+      };
+      await write(next);
+      return next;
+    });
+  }
+
+  function clearInstagramCredential(): Promise<Settings> {
+    return withFileLock(file, async () => {
+      const current = await get();
+      const next: Settings = {
+        ...current,
+        instagram: undefined,
+        instagramTokenIssuedAt: undefined,
+        instagramTokenExpiresAt: undefined,
+      };
       await write(next);
       return next;
     });
@@ -160,10 +209,12 @@ export function createSettingsStore(dataDir: string): SettingsStore {
       instagram: {
         configured: Boolean(igToken),
         maskedKey: igToken ? maskApiKey(igToken) : null,
+        managedByEnvironment: false,
       },
       instagramTokenIssuedAt: s.instagramTokenIssuedAt ?? null,
+      instagramTokenExpiresAt: s.instagramTokenExpiresAt ?? null,
     };
   }
 
-  return { get, save, masked };
+  return { get, save, saveInstagramCredential, clearInstagramCredential, masked };
 }

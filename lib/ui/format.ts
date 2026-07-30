@@ -15,12 +15,6 @@ export function fmtPct(n: number): string {
   return `${n.toFixed(2)}%`;
 }
 
-export function fmtDelta(n: number): string {
-  if (n === 0) return "—";
-  const arrow = n > 0 ? "▲" : "▼";
-  return `${arrow}${Math.abs(n).toFixed(1)}%p`;
-}
-
 // 큰 수를 만 단위로 축약 (10000 → "1만", 12000 → "1.2만")
 export function fmtCount(n: number): string {
   if (n < 10000) return n.toLocaleString();

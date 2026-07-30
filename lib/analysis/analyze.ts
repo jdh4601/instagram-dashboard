@@ -1,6 +1,5 @@
 import type { Reel } from "@/lib/schemas";
 import { diagnose, type Diagnosis } from "@/lib/analysis/diagnosis";
-import type { DropSegment } from "@/lib/analysis/dropDetection";
 import { buildPlaybook, type Prescription } from "@/lib/recommend/playbook";
 import { buildBaselineThresholds, deltaVsRecent } from "@/lib/analysis/baseline";
 import { analyzeTranscript, type TranscriptAnalysis } from "@/lib/analysis/transcriptAnalysis";
@@ -11,7 +10,6 @@ import { mediaKindOf } from "@/lib/media/kind";
 
 export interface AnalyzeResult {
   diagnosis: Diagnosis;
-  drops: DropSegment[];
   prescriptions: Prescription[];
   baselineActive: boolean;
   bottleneckDelta: number | null; // 병목 지표의 최근 3개 대비 델타
@@ -25,9 +23,8 @@ export function analyzeReel(reel: Reel, history: Reel[]): AnalyzeResult {
   const baseline = buildBaselineThresholds(history, kind);
   const thresholds = baseline ?? BENCHMARKS_BY_KIND[kind];
   const diagnosis = diagnose(reel, thresholds);
-  const drops: DropSegment[] = [];
-  const prescriptions = buildPlaybook(diagnosis, drops);
-  const transcript = analyzeTranscript(reel, drops);
+  const prescriptions = buildPlaybook(diagnosis);
+  const transcript = analyzeTranscript(reel);
   const reelInsights = buildReelInsights(reel, history);
 
   const recent = history.slice(-3);
@@ -35,5 +32,5 @@ export function analyzeReel(reel: Reel, history: Reel[]): AnalyzeResult {
     ? deltaVsRecent(reel, recent, diagnosis.bottleneck.key as MetricKey)
     : null;
 
-  return { diagnosis, drops, prescriptions, baselineActive: baseline !== null, bottleneckDelta, transcript, reelInsights };
+  return { diagnosis, prescriptions, baselineActive: baseline !== null, bottleneckDelta, transcript, reelInsights };
 }

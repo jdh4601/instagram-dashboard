@@ -1,6 +1,6 @@
 # syntax=docker.io/docker/dockerfile:1
 
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 
 # 1. 의존성 설치
 FROM base AS deps
@@ -27,6 +27,9 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+
+# Reel duration probing uses ffprobe at runtime.
+RUN apk add --no-cache ffmpeg
 
 # 보안: 비루트 유저로 실행
 RUN addgroup --system --gid 1001 nodejs

@@ -8,7 +8,7 @@ export const AGE_TARGET_HOURS = 48;
  * (실측: 26일간 14일치) 정확히 48시간짜리 기록이 없는 경우가 흔하다.
  * 이 범위를 넘으면 초기 성과가 아니라 누적 성과라 비교에 쓸 수 없다.
  */
-export const AGE_SLACK_HOURS = 48;
+const AGE_SLACK_HOURS = 48;
 
 export interface AgeNormalizedViews {
   views: number;

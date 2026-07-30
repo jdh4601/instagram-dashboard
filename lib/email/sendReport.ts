@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 import type { DailyReportEmail } from "@/lib/report/generateAndSendDailyReport";
 
-export interface ResendSendResult {
+interface ResendSendResult {
   data: { id: string } | null;
   error: { message: string } | null;
 }

@@ -24,11 +24,11 @@ export async function POST(req: Request) {
   const history = (await repo.list())
     .filter((r) => r.id !== reel.id)
     .sort((a, b) => a.postedAt.localeCompare(b.postedAt));
-  const { diagnosis, drops } = analyzeReel(reel, history);
+  const { diagnosis } = analyzeReel(reel, history);
 
   try {
     const model = await getTextModel();
-    const generation = await generateRecommendations(reel, diagnosis, drops, model);
+    const generation = await generateRecommendations(reel, diagnosis, model);
     return NextResponse.json(generation);
   } catch (err) {
     const message = err instanceof Error ? err.message : "생성 실패";

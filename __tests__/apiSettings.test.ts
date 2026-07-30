@@ -1,11 +1,11 @@
 // settings GET 마스킹 테스트. 실제 settings store(임시 디렉터리)를 통해
 // 라우트가 원문 키/토큰을 응답에 노출하지 않는지 검증한다.
-jest.mock("@/lib/settings", () => {
-  const { mkdtempSync } = jest.requireActual<typeof import("node:fs")>("node:fs");
-  const { tmpdir } = jest.requireActual<typeof import("node:os")>("node:os");
-  const { join } = jest.requireActual<typeof import("node:path")>("node:path");
+vi.mock("@/lib/settings", async () => {
+  const { mkdtempSync } = await vi.importActual<typeof import("node:fs")>("node:fs");
+  const { tmpdir } = await vi.importActual<typeof import("node:os")>("node:os");
+  const { join } = await vi.importActual<typeof import("node:path")>("node:path");
   const { createSettingsStore } =
-    jest.requireActual<typeof import("@/lib/settings/store")>("@/lib/settings/store");
+    await vi.importActual<typeof import("@/lib/settings/store")>("@/lib/settings/store");
   const store = createSettingsStore(mkdtempSync(join(tmpdir(), "settings-route-")));
   return { getSettingsStore: () => store };
 });

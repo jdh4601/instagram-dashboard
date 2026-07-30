@@ -44,6 +44,7 @@ export default function Page() {
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [tokenIssuedAt, setTokenIssuedAt] = useState<string | null>(null);
+  const [tokenExpiresAt, setTokenExpiresAt] = useState<string | null>(null);
   const [tokenBannerDismissed, setTokenBannerDismissed] = useState(false);
   // 기본값 릴스 — 토글 도입 전 동작을 유지한다.
   const [mediaFilter, setMediaFilter] = useState<MediaFilter>("REELS");
@@ -162,6 +163,8 @@ export default function Page() {
       if (settingsResult.status === "fulfilled") {
         const issuedAt = settingsResult.value.instagramTokenIssuedAt;
         setTokenIssuedAt(typeof issuedAt === "string" ? issuedAt : null);
+        const expiresAt = settingsResult.value.instagramTokenExpiresAt;
+        setTokenExpiresAt(typeof expiresAt === "string" ? expiresAt : null);
       }
 
       if ([reelsResult, snapshotsResult, profileResult].some((result) => result.status === "rejected")) {
@@ -211,8 +214,11 @@ export default function Page() {
   // 저장 시점을 모르는 토큰은 경고하지 않는다. 토큰을 이 앱에 저장하기 전부터 쓰던
   // 사용자는 갱신 여부와 무관하게 배너가 영구히 떠서, 조치할 수 없는 알림이 된다.
   const tokenSavedAtMs = tokenIssuedAt ? Date.parse(tokenIssuedAt) : Number.NaN;
+  const tokenExpiryMs = tokenExpiresAt ? Date.parse(tokenExpiresAt) : Number.NaN;
   const tokenAgeMs = Number.isFinite(tokenSavedAtMs) ? Date.now() - tokenSavedAtMs : null;
-  const tokenNeedsReview = tokenAgeMs !== null && tokenAgeMs > TOKEN_WARN_DAYS * 24 * 60 * 60 * 1000;
+  const tokenNeedsReview = Number.isFinite(tokenExpiryMs)
+    ? tokenExpiryMs - Date.now() < 10 * 24 * 60 * 60 * 1000
+    : tokenAgeMs !== null && tokenAgeMs > TOKEN_WARN_DAYS * 24 * 60 * 60 * 1000;
   const showTokenBanner = !tokenBannerDismissed && tokenNeedsReview;
 
   return (

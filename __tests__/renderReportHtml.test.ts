@@ -1,5 +1,6 @@
 import { renderReportHtml } from "@/lib/report/renderReportHtml";
 import type { DailyReport } from "@/lib/report/buildDailyReport";
+import type { AccountFunnel, AccountFunnelVerdicts } from "@/lib/analysis/accountFunnel";
 
 const report: DailyReport = {
   date: "2026-07-05",
@@ -22,6 +23,29 @@ const report: DailyReport = {
     reelCount: 3,
     summary: "최근 릴스는 참여율이 강점입니다.",
   },
+  funnel: null,
+  funnelVerdicts: null,
+};
+
+const funnel: AccountFunnel = {
+  date: "2026-07-05",
+  reach: 1500,
+  profileViews: 120,
+  follows: 18,
+  unfollows: 3,
+  netFollows: 15,
+  websiteClicks: 9,
+  viewRate: 8,
+  followRate: 15,
+  linkClickRate: 7.5,
+  previousDate: "2026-07-04",
+  deltas: { viewRate: 0.5, followRate: -2.5, linkClickRate: 1.2 },
+};
+
+const funnelVerdicts: AccountFunnelVerdicts = {
+  viewRate: "strong",
+  followRate: "weak",
+  linkClickRate: "ok",
 };
 
 test("완전한 HTML 문서를 반환", () => {
@@ -43,11 +67,12 @@ test("팔로워 감소 시 음수 부호로 표시", () => {
   expect(html).toContain("-5");
 });
 
-test("베스트/워스트 릴스 캡션과 링크를 렌더", () => {
+test("베스트/워스트 콘텐츠 섹션은 더 이상 렌더하지 않는다", () => {
   const html = renderReportHtml(report);
-  expect(html).toContain("잘된 릴스");
-  expect(html).toContain("아쉬운 릴스");
-  expect(html).toContain("https://instagram.com/p/top");
+  expect(html).not.toContain("잘된 릴스");
+  expect(html).not.toContain("아쉬운 릴스");
+  expect(html).not.toContain("베스트 콘텐츠");
+  expect(html).not.toContain("아쉬운 콘텐츠");
 });
 
 test("심층 진단 요약을 렌더", () => {
@@ -76,18 +101,19 @@ const reportWithVerdicts: DailyReport = {
   },
 };
 
-test("강점 지표를 라벨·수치·강점 기준치와 함께 렌더", () => {
+test("강점 지표를 라벨과 수치로 렌더하고 벤치마크 문구는 넣지 않는다", () => {
   const html = renderReportHtml(reportWithVerdicts);
   expect(html).toContain("공유율");
-  expect(html).toContain("1.2"); // value.toFixed(1)
-  expect(html).toContain("0.8"); // strongAbove
+  expect(html).toContain("1.23");
+  expect(html).not.toContain("벤치마크");
+  expect(html).not.toContain("초과");
 });
 
-test("약점 지표를 라벨·수치·목표치와 함께 렌더", () => {
+test("약점 지표를 라벨과 수치로 렌더하고 목표치 문구는 넣지 않는다", () => {
   const html = renderReportHtml(reportWithVerdicts);
   expect(html).toContain("3초 훅 잔존");
-  expect(html).toContain("38.5");
-  expect(html).toContain("45"); // weakBelow
+  expect(html).toContain("38.50");
+  expect(html).not.toContain("미달");
 });
 
 test("LLM 총평이 있으면 렌더하고 줄바꿈을 <br>로 변환", () => {
@@ -108,56 +134,32 @@ test("총평의 HTML 특수문자를 이스케이프", () => {
   expect(html).toContain("&lt;b&gt;");
 });
 
-test("릴스 선정 이유(reason)를 렌더", () => {
-  const html = renderReportHtml({
-    ...report,
-    best: [{ id: "t", caption: "잘된 릴스", views: 9000, engagementRate: 5.5, reason: "최근 1달 조회수 1위 · 참여율도 평균 이상" }],
-  });
-  expect(html).toContain("최근 1달 조회수 1위 · 참여율도 평균 이상");
+test("전환율 섹션에 방문율·팔로우전환율·링크클릭율과 전일 대비 증감을 렌더", () => {
+  const html = renderReportHtml({ ...report, funnel, funnelVerdicts });
+  expect(html).toContain("전환율");
+  expect(html).toContain("8.00"); // viewRate
+  expect(html).toContain("15.00"); // followRate
+  expect(html).toContain("7.50"); // linkClickRate
+  expect(html).toContain("+0.50");
+  expect(html).toContain("-2.50");
+  expect(html).toContain("+1.20");
 });
 
-test("reason이 없으면 이유 줄을 렌더하지 않는다", () => {
-  const html = renderReportHtml({
-    ...report,
-    worst: [{ id: "w", caption: "이유 없음", views: 1, engagementRate: 0 }],
-  });
-  expect(html).toContain("이유 없음");
+test("전환율 수치가 긴 소수점이어도 2자리로 반올림해서 렌더", () => {
+  const messyFunnel: AccountFunnel = {
+    ...funnel,
+    viewRate: 13.484111079301462,
+    deltas: { ...funnel.deltas, viewRate: 1.0179262310360668 },
+  };
+  const html = renderReportHtml({ ...report, funnel: messyFunnel, funnelVerdicts });
+  expect(html).toContain("13.48");
+  expect(html).toContain("+1.02");
+  expect(html).not.toContain("13.484111079301462");
+  expect(html).not.toContain("1.0179262310360668");
 });
 
-test("베스트 릴스에 썸네일 이미지를 렌더", () => {
-  const html = renderReportHtml({
-    ...report,
-    best: [
-      { id: "t", caption: "잘된 릴스", views: 9000, engagementRate: 5.56, thumbnailUrl: "https://cdn.example.com/thumb.jpg" },
-    ],
-  });
-  expect(html).toContain("<img");
-  expect(html).toContain("https://cdn.example.com/thumb.jpg");
-});
-
-test("썸네일이 없으면 깨진 이미지 대신 플레이스홀더를 렌더", () => {
-  const html = renderReportHtml({
-    ...report,
-    best: [{ id: "t", caption: "썸네일 없음", views: 1, engagementRate: 0 }],
-  });
-  expect(html).not.toContain('src=""');
-  expect(html).toContain("썸네일 없음");
-});
-
-test("썸네일 URL의 특수문자를 이스케이프", () => {
-  const html = renderReportHtml({
-    ...report,
-    best: [{ id: "t", caption: "x", views: 1, engagementRate: 0, thumbnailUrl: 'https://cdn.example.com/a.jpg?x=1&y="2"' }],
-  });
-  expect(html).not.toContain('y="2"');
-  expect(html).toContain("&amp;");
-});
-
-test("HTML 특수문자가 포함된 캡션을 이스케이프", () => {
-  const html = renderReportHtml({
-    ...report,
-    best: [{ id: "x", caption: "<script>alert(1)</script> & \"quote\"", views: 1, engagementRate: 0 }],
-  });
-  expect(html).not.toContain("<script>alert(1)</script>");
-  expect(html).toContain("&lt;script&gt;");
+test("전환 퍼널 데이터가 없으면 안내 문구를 렌더", () => {
+  const html = renderReportHtml(report);
+  expect(html).toContain("전환율");
+  expect(html).toMatch(/수집되지 않|데이터가 없/);
 });

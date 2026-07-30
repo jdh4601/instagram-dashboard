@@ -1,20 +1,20 @@
-jest.mock("@/lib/graph", () => ({
-  getInstagramClient: jest.fn(async () => ({})),
+vi.mock("@/lib/graph", () => ({
+  getInstagramClient: vi.fn(async () => ({})),
 }));
-jest.mock("@/lib/store", () => ({
-  getRepository: jest.fn(() => ({})),
-  getAccountRepository: jest.fn(() => ({})),
-  getProfileRepository: jest.fn(() => ({})),
-  getReelHistoryRepository: jest.fn(() => ({})),
+vi.mock("@/lib/store", () => ({
+  getRepository: vi.fn(() => ({})),
+  getAccountRepository: vi.fn(() => ({})),
+  getProfileRepository: vi.fn(() => ({})),
+  getReelHistoryRepository: vi.fn(() => ({})),
 }));
-jest.mock("@/lib/graph/sync", () => ({
-  syncFromGraph: jest.fn(),
+vi.mock("@/lib/graph/sync", () => ({
+  syncFromGraph: vi.fn(),
 }));
 
 import { POST } from "@/app/api/sync/route";
 import { syncFromGraph } from "@/lib/graph/sync";
 
-const mockSync = syncFromGraph as jest.MockedFunction<typeof syncFromGraph>;
+const mockSync = syncFromGraph as MockedFunction<typeof syncFromGraph>;
 
 function syncRequest(headers: Record<string, string> = {}): Request {
   return new Request("http://localhost:3000/api/sync", {
@@ -119,3 +119,4 @@ test("스트리밍 중 동기화가 실패하면 error 이벤트로 끝낸다", 
     error: "릴스 동기화 전체 실패",
   });
 });
+import type { MockedFunction } from "vitest";

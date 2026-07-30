@@ -31,6 +31,16 @@ function secretMatches(provided: string | null, expected: string): boolean {
   return timingSafeEqual(a, b);
 }
 
+// launchd/cron(curl)은 x-cron-secret 헤더를 쓰고, Vercel Cron은 CRON_SECRET
+// 환경변수를 Authorization: Bearer 헤더로 자동으로 실어 보낸다. 둘 다 허용한다.
+function providedCronSecret(request: Request): string | null {
+  const authHeader = request.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    return authHeader.slice("Bearer ".length);
+  }
+  return request.headers.get("x-cron-secret");
+}
+
 async function handle(request: Request): Promise<NextResponse> {
   const secret = process.env.CRON_SECRET;
   if (!secret) {
@@ -39,7 +49,7 @@ async function handle(request: Request): Promise<NextResponse> {
       { status: 500 },
     );
   }
-  if (!secretMatches(request.headers.get("x-cron-secret"), secret)) {
+  if (!secretMatches(providedCronSecret(request), secret)) {
     return unauthorized();
   }
 
@@ -89,5 +99,10 @@ async function handle(request: Request): Promise<NextResponse> {
 export async function POST(request: Request): Promise<NextResponse> {
   const blocked = assertJsonRequest(request);
   if (blocked) return blocked;
+  return handle(request);
+}
+
+// Vercel Cron은 GET으로 호출한다.
+export async function GET(request: Request): Promise<NextResponse> {
   return handle(request);
 }

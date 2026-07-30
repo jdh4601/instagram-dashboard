@@ -13,3 +13,12 @@ next-env.d.ts
 *.tsbuildinfo
 
 .playwright-cli/
+.vercel
+
+# Local review screenshots may contain real account metrics.
+/funnel_card_screenshot.png
+/funnel_final.png
+/backups/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm

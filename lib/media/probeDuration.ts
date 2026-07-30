@@ -7,7 +7,7 @@ import { execFile } from "node:child_process";
 const FFPROBE_ARGS = ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0"];
 
 /** ffprobe 한 번의 시간 상한. CDN이 느려도 동기화 전체를 붙잡지 못하게 한다. */
-export const FFPROBE_TIMEOUT_MS = 20_000;
+const FFPROBE_TIMEOUT_MS = 20_000;
 
 /** 릴스 길이 상한(15분). 이보다 크면 길이가 아니라 잘못 읽은 값으로 본다. */
 export const MAX_PROBE_DURATION_SEC = 900;

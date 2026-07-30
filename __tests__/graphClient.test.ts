@@ -119,3 +119,20 @@ test("API 오류(ok=false)면 throw", async () => {
   });
   await expect(client.getProfile()).rejects.toThrow(/Invalid OAuth/);
 });
+
+test("네트워크 오류가 토큰 포함 URL을 담아도 상위 오류에는 토큰을 노출하지 않는다", async () => {
+  const token = "live-instagram-token-never-log";
+  const client = createGraphClient({
+    accessToken: token,
+    fetchImpl: (async (url: string) => {
+      throw new Error(`request failed: ${url}`);
+    }) as unknown as typeof fetch,
+  });
+  try {
+    await client.getProfile();
+    throw new Error("expected request failure");
+  } catch (error) {
+    expect(String(error)).not.toContain(token);
+    expect(String(error)).toContain("Graph API 요청에 실패");
+  }
+});

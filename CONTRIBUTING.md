@@ -3,7 +3,7 @@
 > [한국어 안내는 아래에 있습니다 ↓](#한국어)
 
 Thanks for contributing! This is a local-first Next.js app; the analysis engine
-(`lib/analysis/*`) is pure functions covered by Jest tests.
+(`lib/analysis/*`) is pure functions covered by Vitest tests.
 
 ## Setup
 
@@ -16,11 +16,13 @@ npm run dev
 ## Before opening a PR
 
 ```bash
-npm test            # Jest
+npm run doctor      # local configuration checks (warnings are allowed)
+npm test            # Vitest
 npm run typecheck   # tsc --noEmit
+npm run build       # Next.js production build
 ```
 
-CI runs the same two commands on every PR to `main`, so please make sure they pass locally first.
+CI runs the same commands on every PR to `main`, so please make sure they pass locally first.
 
 ## Guidelines
 
@@ -36,7 +38,7 @@ CI runs the same two commands on every PR to `main`, so please make sure they pa
 ## 한국어
 
 기여 감사합니다! 이 프로젝트는 로컬 우선 Next.js 앱이며, 분석 엔진(`lib/analysis/*`)은 순수
-함수 + Jest 테스트로 이뤄져 있습니다.
+함수 + Vitest 테스트로 이뤄져 있습니다.
 
 ### 준비
 
@@ -49,11 +51,13 @@ npm run dev
 ### PR 올리기 전
 
 ```bash
-npm test            # Jest
+npm run doctor      # 로컬 설정 점검(경고는 허용)
+npm test            # Vitest
 npm run typecheck   # tsc --noEmit
+npm run build       # Next.js 프로덕션 빌드
 ```
 
-`main` 대상 PR마다 CI가 같은 두 명령을 실행하니, 로컬에서 먼저 통과를 확인해 주세요.
+`main` 대상 PR마다 CI가 같은 명령을 실행하니, 로컬에서 먼저 통과를 확인해 주세요.
 
 ### 규칙
 

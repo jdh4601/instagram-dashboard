@@ -2,7 +2,7 @@ import type { Reel } from "@/lib/schemas";
 import { computeDerivedRates } from "@/lib/analysis/metrics";
 import { reelTitle } from "@/lib/ui/reelTitle";
 
-export interface ReelMetricPoint {
+interface ReelMetricPoint {
   idx: number;
   postedAt: string;
   title: string;

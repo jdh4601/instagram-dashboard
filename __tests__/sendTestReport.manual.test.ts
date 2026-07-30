@@ -1,9 +1,9 @@
 /**
  * 수동 발송 테스트 — Resend로 실제 이메일을 보낸다.
  *
- * 평소 `npx jest`에서는 SKIP되고, 아래처럼 명시적으로 켤 때만 실행된다:
+ * 평소 `npm test`에서는 SKIP되고, 아래처럼 명시적으로 켤 때만 실행된다:
  *
- *   SEND_TEST_REPORT=1 npx jest sendTestReport
+ *   SEND_TEST_REPORT=1 npx vitest run sendTestReport
  *
  * 동기화(lib/graph)는 건너뛰고 기존 data/*.json으로 리포트를 만들어
  * .env의 RESEND_* 설정으로 발송한다. (이메일 경로만 검증)

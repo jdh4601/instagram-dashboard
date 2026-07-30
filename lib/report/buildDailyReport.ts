@@ -2,10 +2,16 @@ import type { Reel, AccountSnapshot } from "@/lib/schemas";
 import { latestFollowerDelta, sortByDate } from "@/lib/analysis/followerTrend";
 import { computeDerivedRates } from "@/lib/analysis/metrics";
 import { diagnoseRecent, type RecentDiagnosis } from "@/lib/analysis/recentDiagnosis";
+import {
+  buildAccountFunnel,
+  accountFunnelVerdicts,
+  type AccountFunnel,
+  type AccountFunnelVerdicts,
+} from "@/lib/analysis/accountFunnel";
 
 const CAPTION_MAX = 80;
 
-export interface DailyReportMetrics {
+interface DailyReportMetrics {
   /** 최신 스냅샷 기준 팔로워 수 */
   followerCount: number;
   /** 직전 스냅샷 대비 증감. 스냅샷이 2개 미만이면 null */
@@ -16,7 +22,7 @@ export interface DailyReportMetrics {
   reelsAnalyzed: number;
 }
 
-export interface ReelHighlight {
+interface ReelHighlight {
   id: string;
   caption: string;
   views: number;
@@ -34,6 +40,10 @@ export interface DailyReport {
   best: ReelHighlight[];
   worst: ReelHighlight[];
   diagnosis: RecentDiagnosis;
+  /** 계정 레벨 전환 퍼널(도달→방문→팔로우/링크클릭). 측정 데이터가 없으면 null */
+  funnel: AccountFunnel | null;
+  /** 퍼널 전환율 세 개의 강점/약점 판정. funnel이 null이면 null */
+  funnelVerdicts: AccountFunnelVerdicts | null;
   /** LLM이 생성한 정성적 총평(선택). 오케스트레이터에서 주입 */
   narrative?: string;
 }
@@ -41,11 +51,12 @@ export interface DailyReport {
 export interface BuildDailyReportOptions {
   /** 베스트/워스트 각각 몇 개까지 뽑을지 (기본 3) */
   topN?: number;
-  /** 분석 대상 기간(일). 리포트 날짜 기준 이 일수 이내 업로드된 릴스만 분석 (기본 30 = 최근 1달) */
+  /** 분석 대상 기간(일). 리포트 날짜 기준 이 일수 이내 업로드된 릴스만 분석 (기본 7 = 최근 7일) */
   windowDays?: number;
 }
 
-const DEFAULT_WINDOW_DAYS = 30;
+// 오래된 콘텐츠 분석이 리포트를 흐리기보다, 최근 7일 이내 게시물의 실제 성과에 집중한다.
+const DEFAULT_WINDOW_DAYS = 7;
 
 /** 리포트 날짜 기준 windowDays 이내(cutoff 포함)에 업로드된 릴스만 남긴다. */
 function withinWindow(reels: Reel[], date: string, windowDays: number): Reel[] {
@@ -116,6 +127,8 @@ export function buildDailyReport(
     .slice(0, topN)
     .map((reel, i) => toHighlight(reel, worstReason(computeDerivedRates(reel).engagementRate, i, avgEngagement)));
 
+  const funnel = buildAccountFunnel(snapshots);
+
   return {
     date,
     metrics: {
@@ -127,5 +140,7 @@ export function buildDailyReport(
     best,
     worst,
     diagnosis: diagnoseRecent(recentReels),
+    funnel,
+    funnelVerdicts: funnel ? accountFunnelVerdicts(funnel) : null,
   };
 }

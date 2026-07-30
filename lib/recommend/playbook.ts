@@ -1,9 +1,8 @@
 import type { Diagnosis } from "@/lib/analysis/diagnosis";
-import type { DropSegment } from "@/lib/analysis/dropDetection";
 import type { MetricKey } from "@/config/benchmarks";
 
 export interface Prescription {
-  metric: MetricKey | "dropSegment";
+  metric: MetricKey;
   title: string;
   action: string;
   severity: "high" | "medium";
@@ -37,10 +36,7 @@ const PLAYBOOK: Partial<Record<MetricKey, { title: string; action: string }>> = 
   },
 };
 
-export function buildPlaybook(
-  diagnosis: Diagnosis,
-  drops: DropSegment[] = [],
-): Prescription[] {
+export function buildPlaybook(diagnosis: Diagnosis): Prescription[] {
   const recs: Prescription[] = [];
   const bottleneckKey = diagnosis.bottleneck?.key;
 
@@ -52,16 +48,6 @@ export function buildPlaybook(
       title: entry.title,
       action: entry.action,
       severity: w.key === bottleneckKey ? "high" : "medium",
-    });
-  }
-
-  if (drops.length > 0) {
-    const biggest = drops[0];
-    recs.push({
-      metric: "dropSegment",
-      title: `${biggest.startSec}~${biggest.endSec}초 급락 처방`,
-      action: `${Math.round(biggest.dropPct)}%p 이탈 구간 — 컷 편집/속도 조절 또는 자막 강조로 텐션 회복`,
-      severity: "medium",
     });
   }
 
