@@ -80,6 +80,60 @@ body {
   transition: background-color 160ms ease, color 160ms ease;
 }
 
+@keyframes funnel-flow-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes funnel-line-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scaleY(0);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scaleY(1);
+  }
+}
+
+.funnel-flow-node {
+  animation: funnel-flow-in 280ms ease-out both;
+}
+
+.funnel-flow-node--secondary {
+  animation-delay: 70ms;
+}
+
+.funnel-flow-node--outcomes {
+  animation-delay: 150ms;
+}
+
+.funnel-flow-line {
+  animation: funnel-line-in 220ms ease-out 40ms both;
+  transform-origin: top;
+}
+
+.funnel-flow-branch {
+  transition: background-color 160ms ease;
+}
+
+section:hover .funnel-flow-branch {
+  background-color: var(--color-brand-200);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .funnel-flow-node,
+  .funnel-flow-line {
+    animation: none;
+  }
+}
+
 .dark .recharts-cartesian-grid line {
   stroke: #2b3444;
 }
