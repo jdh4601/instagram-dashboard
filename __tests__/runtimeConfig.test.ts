@@ -6,6 +6,7 @@ test("DATA_DIR이 없으면 cwd/data를 사용한다", () => {
     storageAdapter: "json",
     sqliteDatabasePath: "/workspace/data/instagram-dashboard.sqlite",
     postgresDatabaseUrl: null,
+    isLocalRuntime: true,
   });
 });
 
