@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { assertJsonRequest, readJsonBody } from "@/lib/api/guard";
 import { getAccountRepository, getProfileRepository, getRepository } from "@/lib/store";
-import { resolveRuntimeConfig } from "@/lib/runtime/config";
 import { getChatStore } from "@/lib/chat";
+import { notFoundIfRemote } from "@/lib/chat/routeGuard";
 import { buildAccountContext, renderAccountContext } from "@/lib/chat/context";
 import { findMentionedReels } from "@/lib/chat/reelMention";
 import { buildChatSystemPrompt, selectContextTurns } from "@/lib/chat/prompt";
@@ -12,25 +12,31 @@ import type { ChatTurn } from "@/lib/llm/types";
 
 const BodySchema = z.object({ message: z.string().trim().min(1) });
 
-function notFound(): NextResponse {
-  return NextResponse.json({ error: "이 기능은 로컬 실행에서만 사용할 수 있습니다" }, { status: 404 });
-}
-
-function isLocal(): boolean {
-  return resolveRuntimeConfig().isLocalRuntime;
-}
-
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다";
 }
 
 export async function GET() {
-  if (!isLocal()) return notFound();
+  const unavailable = notFoundIfRemote();
+  if (unavailable) return unavailable;
 
-  const messages = await getChatStore().get();
+  const store = getChatStore();
+  const [messages, conversations, activeId] = await Promise.all([
+    store.get(),
+    store.list(),
+    store.activeId(),
+  ]);
+
   try {
     const { provider, label } = await getChatModel();
-    return NextResponse.json({ available: true, provider, label, messages });
+    return NextResponse.json({
+      available: true,
+      provider,
+      label,
+      messages,
+      conversations,
+      activeId,
+    });
   } catch (error) {
     // 제공자가 아직 설정되지 않은 것은 오류가 아니라 "아직 못 쓰는 상태"다.
     // 대화 기록은 그대로 돌려줘야 패널이 지난 진단을 계속 보여줄 수 있다.
@@ -38,14 +44,14 @@ export async function GET() {
       available: false,
       reason: errorMessage(error),
       messages,
+      conversations,
+      activeId,
     });
   }
 }
 
 export async function POST(req: Request) {
-  if (!isLocal()) return notFound();
-
-  const blocked = assertJsonRequest(req);
+  const blocked = notFoundIfRemote() ?? assertJsonRequest(req);
   if (blocked) return blocked;
   const body = await readJsonBody(req);
   if (!body.ok) return body.response;
@@ -119,12 +125,4 @@ export async function POST(req: Request) {
   });
 }
 
-export async function DELETE(req: Request) {
-  if (!isLocal()) return notFound();
-
-  const blocked = assertJsonRequest(req);
-  if (blocked) return blocked;
-
-  await getChatStore().clear();
-  return NextResponse.json({ ok: true });
-}
+// 대화를 지우는 일은 목록이 생기면서 /api/chat/conversations/[id]로 옮겨 갔다.

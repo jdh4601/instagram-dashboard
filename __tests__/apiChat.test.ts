@@ -64,7 +64,15 @@ vi.mock("@/lib/store", () => ({
   getProfileRepository: () => ({ get: async () => profile }),
 }));
 
-import { GET, POST, DELETE } from "@/app/api/chat/route";
+import { GET, POST } from "@/app/api/chat/route";
+import {
+  GET as listConversations,
+  POST as createConversation,
+} from "@/app/api/chat/conversations/route";
+import {
+  GET as openConversation,
+  DELETE as deleteConversation,
+} from "@/app/api/chat/conversations/[id]/route";
 import { getChatStore } from "@/lib/chat";
 
 function post(body: unknown, headers: Record<string, string> = {}): Request {
@@ -91,11 +99,31 @@ function modelYielding(...deltas: string[]): ChatModel {
   };
 }
 
+// 저장소는 파일을 매번 다시 읽으므로, 파일만 지우면 테스트가 서로 격리된다.
 beforeEach(async () => {
   localRuntime = true;
   resolveError = null;
-  await getChatStore().clear();
+  const { rmSync } = await import("node:fs");
+  rmSync(join(dataDir, "chat.json"), { force: true });
 });
+
+function conversationRequest(method: "GET" | "POST" | "DELETE", path = ""): Request {
+  return new Request(`http://localhost:3000/api/chat/conversations${path}`, {
+    method,
+    headers: { host: "localhost:3000", "Content-Type": "application/json" },
+  });
+}
+
+function params(id: string) {
+  return { params: Promise.resolve({ id }) };
+}
+
+/** 한 대화를 만들고 질문 하나를 남긴 뒤 그 id를 준다. */
+async function askIn(message: string): Promise<string> {
+  chatModel = modelYielding("답변");
+  await readEvents(await POST(post({ message })));
+  return (await getChatStore().activeId())!;
+}
 
 test("POST는 델타를 흘리고 done으로 끝난다", async () => {
   chatModel = modelYielding("도달은 ", "충분합니다");
@@ -124,19 +152,96 @@ test("GET은 저장된 대화와 사용 가능 여부를 준다", async () => {
   expect(body.messages).toHaveLength(2);
 });
 
-test("DELETE는 대화를 비운다", async () => {
-  chatModel = modelYielding("답변");
-  await readEvents(await POST(post({ message: "안녕" })));
+test("GET은 대화 목록과 활성 대화 id도 함께 준다", async () => {
+  const id = await askIn("안녕");
 
-  const res = await DELETE(
-    new Request("http://localhost:3000/api/chat", {
-      method: "DELETE",
-      headers: { host: "localhost:3000", "Content-Type": "application/json" },
-    }),
-  );
+  const body = await (await GET()).json();
+  expect(body.activeId).toBe(id);
+  expect(body.conversations).toHaveLength(1);
+  expect(body.conversations[0].title).toBe("안녕");
+});
 
-  expect(res.status).toBe(200);
-  expect(await getChatStore().get()).toEqual([]);
+describe("대화 목록 API", () => {
+  test("새 대화를 만들면 활성이 바뀌고 이전 대화는 목록에 남는다", async () => {
+    const first = await askIn("첫 질문");
+
+    const created = await (await createConversation(conversationRequest("POST"))).json();
+
+    expect(created.activeId).not.toBe(first);
+    expect(created.conversations.map((c: { title: string }) => c.title)).toContain("첫 질문");
+    expect(await getChatStore().get()).toEqual([]);
+  });
+
+  test("목록은 최근 대화부터 준다", async () => {
+    await askIn("먼저 한 질문");
+    await createConversation(conversationRequest("POST"));
+    await askIn("나중에 한 질문");
+
+    const body = await (await listConversations()).json();
+    expect(body.conversations.map((c: { title: string }) => c.title)).toEqual([
+      "나중에 한 질문",
+      "먼저 한 질문",
+    ]);
+  });
+
+  test("이전 대화를 열면 그 대화의 메시지를 돌려주고 활성이 된다", async () => {
+    const older = await askIn("예전 질문");
+    await createConversation(conversationRequest("POST"));
+    await askIn("지금 질문");
+
+    const res = await openConversation(conversationRequest("GET", `/${older}`), params(older));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.messages.map((m: { content: string }) => m.content)).toEqual([
+      "예전 질문",
+      "답변",
+    ]);
+    expect(await getChatStore().activeId()).toBe(older);
+  });
+
+  test("없는 대화를 열면 404다", async () => {
+    const res = await openConversation(conversationRequest("GET", "/없는-id"), params("없는-id"));
+    expect(res.status).toBe(404);
+  });
+
+  test("대화를 지우면 목록에서 빠지고 남은 대화가 활성이 된다", async () => {
+    const survivor = await askIn("남길 질문");
+    await createConversation(conversationRequest("POST"));
+    const target = await askIn("지울 질문");
+
+    const body = await (
+      await deleteConversation(conversationRequest("DELETE", `/${target}`), params(target))
+    ).json();
+
+    expect(body.conversations.map((c: { title: string }) => c.title)).toEqual(["남길 질문"]);
+    expect(body.activeId).toBe(survivor);
+    expect(body.messages.map((m: { content: string }) => m.content)).toEqual(["남길 질문", "답변"]);
+  });
+
+  test("다른 출처에서 온 대화 조작은 403으로 거절한다", async () => {
+    const res = await createConversation(
+      new Request("http://localhost:3000/api/chat/conversations", {
+        method: "POST",
+        headers: {
+          host: "localhost:3000",
+          "Content-Type": "application/json",
+          origin: "https://evil.test",
+        },
+      }),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  test("로컬 실행이 아니면 대화 목록도 노출하지 않는다", async () => {
+    localRuntime = false;
+
+    expect((await listConversations()).status).toBe(404);
+    expect((await createConversation(conversationRequest("POST"))).status).toBe(404);
+    expect(
+      (await openConversation(conversationRequest("GET", "/x"), params("x"))).status,
+    ).toBe(404);
+  });
 });
 
 test("모델이 실패하면 error 이벤트로 알리고 답변을 저장하지 않는다", async () => {
