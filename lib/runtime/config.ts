@@ -5,6 +5,11 @@ export interface RuntimeConfig {
   storageAdapter: "json" | "sqlite" | "postgres";
   sqliteDatabasePath: string;
   postgresDatabaseUrl: string | null;
+  /**
+   * 이 프로세스가 사용자의 PC에서 돌고 있는지. 로컬 CLI 챗봇은 서버가 자식 프로세스를
+   * 띄워야 해서 서버리스 배포에서는 성립하지 않으므로, 해당 기능을 이 값으로 가둔다.
+   */
+  isLocalRuntime: boolean;
 }
 
 type RuntimeEnvironment = Readonly<Record<string, string | undefined>>;
@@ -36,5 +41,6 @@ export function resolveRuntimeConfig(
     storageAdapter: configuredAdapter,
     sqliteDatabasePath: resolve(cwd, configuredDatabasePath || resolve(dataDir, "instagram-dashboard.sqlite")),
     postgresDatabaseUrl: env.DATABASE_URL?.trim() || null,
+    isLocalRuntime: !env.VERCEL,
   };
 }

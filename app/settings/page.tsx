@@ -1,9 +1,15 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { Settings as SettingsIcon, ArrowLeft, Camera } from "lucide-react";
+import { Settings as SettingsIcon, ArrowLeft, Camera, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui";
 import { PROVIDER_PRESETS, type ProviderId } from "@/lib/llm/providers";
+import {
+  CLI_PRESETS,
+  CLI_PROVIDER_IDS,
+  type ChatProviderId,
+  type CliProviderId,
+} from "@/lib/llm/cliProviders";
 
 const PROVIDER_LABELS: Record<ProviderId, string> = {
   anthropic: "Anthropic (Claude)",
@@ -26,6 +32,11 @@ interface MaskedProvider {
 }
 interface MaskedSettings {
   textProvider: ProviderId;
+  chatProvider: ChatProviderId;
+  chat: {
+    localRuntime: boolean;
+    cli: Record<CliProviderId, boolean>;
+  };
   providers: Record<ProviderId, MaskedProvider>;
   instagram: {
     configured: boolean;
@@ -43,6 +54,7 @@ interface MaskedSettings {
 export default function SettingsPage() {
   const [data, setData] = useState<MaskedSettings | null>(null);
   const [textProvider, setTextProvider] = useState<ProviderId>("anthropic");
+  const [chatProvider, setChatProvider] = useState<ChatProviderId>("anthropic");
   const [keyInputs, setKeyInputs] = useState<Record<string, string>>({});
   const [modelInputs, setModelInputs] = useState<Record<string, string>>({});
   const [igToken, setIgToken] = useState("");
@@ -57,6 +69,7 @@ export default function SettingsPage() {
   function load(d: MaskedSettings) {
     setData(d);
     setTextProvider(d.textProvider);
+    setChatProvider(d.chatProvider);
     const models: Record<string, string> = {};
     for (const id of PROVIDER_ORDER) models[id] = d.providers[id].model;
     setModelInputs(models);
@@ -78,7 +91,12 @@ export default function SettingsPage() {
     const res = await fetch("/api/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ textProvider, providers, instagram: { accessToken: igToken } }),
+      body: JSON.stringify({
+        textProvider,
+        chatProvider,
+        providers,
+        instagram: { accessToken: igToken },
+      }),
     });
     if (!res.ok) {
       setStatus("저장 실패");
@@ -170,6 +188,73 @@ export default function SettingsPage() {
             </div>
           );
         })}
+
+        <div className="rounded-card border border-brand-200 bg-brand-50/40 p-4 space-y-2">
+          <h2 className="flex items-center gap-1.5 font-semibold">
+            <Sparkles size={16} className="text-brand-600" /> 계정 진단 AI 챗봇
+          </h2>
+          {data.chat.localRuntime ? (
+            <>
+              <p className="text-xs text-neutral-500">
+                대시보드 우측 진단 챗봇이 쓸 제공자입니다. 자막 분석용 제공자와 따로 고를 수 있습니다.
+              </p>
+              <div className="space-y-1">
+                {PROVIDER_ORDER.map((id) => (
+                  <label key={id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="chatProvider"
+                      checked={chatProvider === id}
+                      onChange={() => setChatProvider(id)}
+                    />
+                    {PROVIDER_LABELS[id]}
+                    {data.providers[id].configured ? (
+                      <span className="text-xs text-green-600">● 키 등록됨</span>
+                    ) : (
+                      <span className="text-xs text-neutral-400">키 없음</span>
+                    )}
+                  </label>
+                ))}
+              </div>
+              <div className="space-y-1 border-t border-brand-200 pt-2">
+                {CLI_PROVIDER_IDS.map((id) => {
+                  const detected = data.chat.cli[id];
+                  return (
+                    <label
+                      key={id}
+                      className={`flex items-center gap-2 text-sm ${detected ? "" : "text-neutral-400"}`}
+                    >
+                      <input
+                        type="radio"
+                        name="chatProvider"
+                        disabled={!detected}
+                        checked={chatProvider === id}
+                        onChange={() => setChatProvider(id)}
+                      />
+                      {CLI_PRESETS[id].label}
+                      {detected ? (
+                        <span className="text-xs text-green-600">
+                          ● 감지됨 ({CLI_PRESETS[id].command})
+                        </span>
+                      ) : (
+                        <span className="text-xs">미설치 — {CLI_PRESETS[id].installHint}</span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-neutral-500">
+                로컬 CLI는 이 PC의 로그인 세션을 그대로 쓰므로 API 키가 필요 없습니다. 대신 응답이
+                API 제공자보다 느립니다.
+              </p>
+            </>
+          ) : (
+            <p className="text-xs text-amber-700">
+              진단 챗봇은 로컬 실행에서만 사용할 수 있습니다. 로컬 CLI를 쓰려면 서버가 자식
+              프로세스를 띄울 수 있어야 하는데, 배포 환경에서는 불가능합니다.
+            </p>
+          )}
+        </div>
 
         <div className="rounded-card border border-brand-200 bg-brand-50/40 p-4 space-y-2">
           <h2 className="flex items-center gap-1.5 font-semibold">

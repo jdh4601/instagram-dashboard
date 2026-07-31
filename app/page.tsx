@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { AlertTriangle, CheckCircle2, X, XCircle } from "lucide-react";
+import { X } from "lucide-react";
 import type { Reel, AccountSnapshot, AccountProfile } from "@/lib/schemas";
 import { buildAccountOverview } from "@/lib/analysis/accountOverview";
 import { latestFollowerDelta } from "@/lib/analysis/followerTrend";
@@ -14,7 +14,10 @@ import { AccountFunnelCard } from "@/components/AccountFunnelCard";
 import { AudienceMixCard } from "@/components/AudienceMixCard";
 import { buildAccountFunnel } from "@/lib/analysis/accountFunnel";
 import { buildAudienceMix } from "@/lib/analysis/audienceMix";
-import { Input, Button, Skeleton } from "@/components/ui";
+import { Input, Button } from "@/components/ui";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
+import { DashboardToast, type SyncToast } from "@/components/DashboardToast";
+import { ChatPanel } from "@/components/chat/ChatPanel";
 import { ReelList } from "@/components/ReelList";
 import { FollowerGrowthChart } from "@/components/FollowerGrowthChart";
 import { DashboardMetrics } from "@/components/DashboardMetrics";
@@ -22,11 +25,6 @@ import { filterByMedia, type MediaFilter } from "@/lib/ui/mediaFilter";
 import type { EarlyViewsMap } from "@/lib/ui/reelSelect";
 import { readNdjson } from "@/lib/ui/ndjsonStream";
 import type { SyncProgress, SyncResult } from "@/lib/graph/sync";
-
-interface SyncToast {
-  tone: "success" | "warning" | "error";
-  message: string;
-}
 
 // Instagram 장기 토큰은 60일에 만료되므로 50일이 지나면 갱신을 안내한다.
 const TOKEN_WARN_DAYS = 50;
@@ -221,7 +219,9 @@ export default function Page() {
   const showTokenBanner = !tokenBannerDismissed && tokenNeedsReview;
 
   return (
-    <>
+    // xl 이상에서 대시보드와 진단 패널이 나란히 서고, 그 아래에서는 패널이 드로어가 된다.
+    <div className="mx-auto flex w-full max-w-[110rem] items-start">
+      <div className="min-w-0 flex-1">
       <DashboardActions onSync={onSync} syncing={syncing} />
       {syncing && syncProgress && <SyncProgressBar progress={syncProgress} />}
       <main className="mx-auto max-w-5xl space-y-5 px-4 pb-4 sm:px-6 sm:pb-6">
@@ -309,64 +309,11 @@ export default function Page() {
         )}
       </main>
 
-      {toast && (
-        <div
-          role={toast.tone === "success" ? "status" : "alert"}
-          aria-live={toast.tone === "success" ? "polite" : "assertive"}
-          aria-atomic="true"
-          className={`fixed bottom-4 left-4 right-4 z-30 flex min-h-12 items-center gap-2 rounded-lg border px-3 py-2 text-sm shadow-card-hover sm:left-1/2 sm:right-auto sm:max-w-xl sm:-translate-x-1/2 ${
-            toast.tone === "success"
-              ? "border-band-strong-border bg-band-strong-soft text-band-strong"
-              : toast.tone === "warning"
-                ? "border-band-ok-border bg-band-ok-soft text-band-ok"
-                : "border-band-weak-border bg-band-weak-soft text-band-weak"
-          }`}
-        >
-          {toast.tone === "success" ? (
-            <CheckCircle2 size={17} className="shrink-0" />
-          ) : toast.tone === "warning" ? (
-            <AlertTriangle size={17} className="shrink-0" />
-          ) : (
-            <XCircle size={17} className="shrink-0" />
-          )}
-          <span className="min-w-0 flex-1">{toast.message}</span>
-          {toast.tone !== "success" && (
-            <button
-              type="button"
-              onClick={() => setToast(null)}
-              aria-label="알림 닫기"
-              className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
-            >
-              <X size={16} />
-            </button>
-          )}
-        </div>
-      )}
-    </>
-  );
-}
+      </div>
 
-function DashboardSkeleton() {
-  return (
-    <div className="space-y-5" role="status" aria-label="대시보드 불러오는 중">
-      <div className="flex items-center gap-3">
-        <Skeleton className="h-12 w-12 shrink-0 rounded-full" />
-        <div className="flex-1 space-y-2">
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-3 w-48" />
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {Array.from({ length: 6 }, (_, index) => (
-          <Skeleton key={index} className="h-24 rounded-card" />
-        ))}
-      </div>
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <Skeleton className="h-64 rounded-card" />
-        <Skeleton className="h-64 rounded-card" />
-      </div>
-      <Skeleton className="h-48 rounded-card" />
-      <span className="sr-only">대시보드를 불러오고 있습니다.</span>
+      <ChatPanel />
+
+      {toast && <DashboardToast toast={toast} onDismiss={() => setToast(null)} />}
     </div>
   );
 }

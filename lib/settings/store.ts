@@ -3,10 +3,23 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { PROVIDER_IDS, PROVIDER_PRESETS, type ProviderId } from "@/lib/llm/providers";
+import type { ChatProviderId } from "@/lib/llm/cliProviders";
 import { maskApiKey } from "@/lib/settings/mask";
 import { withFileLock, writeJsonAtomic } from "@/lib/store/jsonFile";
 
 const ProviderEnum = z.enum(["anthropic", "openai", "kimi", "gemini"]);
+
+// 챗봇은 API 제공자 외에 이 PC의 CLI도 백엔드로 쓸 수 있다. 자막 분석·대본 생성은
+// 구조화된 출력을 요구해서 CLI 경로를 쓰지 않으므로, textProvider와 분리해 둔다.
+const ChatProviderEnum = z.enum([
+  "anthropic",
+  "openai",
+  "kimi",
+  "gemini",
+  "claude-cli",
+  "codex-cli",
+  "gemini-cli",
+]);
 
 const ProviderConfigSchema = z.object({
   apiKey: z.string().optional(),
@@ -26,6 +39,7 @@ const InstagramSchema = z.object({ accessToken: z.string().optional() });
 const StoredSettingsSchema = z.object({
   activeProvider: ProviderEnum.optional(),
   textProvider: ProviderEnum.optional(),
+  chatProvider: ChatProviderEnum.optional(),
   providers: ProvidersSchema,
   instagram: InstagramSchema.optional(),
   instagramTokenIssuedAt: z.string().optional(),
@@ -35,6 +49,14 @@ const StoredSettingsSchema = z.object({
 // 정규화된 런타임 설정: 자막 분석과 생성에 사용할 텍스트 제공자.
 interface Settings {
   textProvider: ProviderId;
+  /** 진단 챗봇이 쓸 제공자. 사용자가 고른 적 없으면 textProvider를 따라간다. */
+  chatProvider: ChatProviderId;
+  /**
+   * 사용자가 실제로 고른 값. 디스크에는 이 값만 기록해서 "고른 적 없음" 상태를
+   * 보존한다. 해석된 chatProvider를 그대로 저장하면 textProvider를 바꿔도
+   * 챗봇이 예전 값에 붙박이는 사고가 난다.
+   */
+  chatProviderExplicit?: ChatProviderId;
   providers: z.infer<typeof ProvidersSchema>;
   instagram?: z.infer<typeof InstagramSchema>;
   /** Instagram 토큰이 새로 저장/변경된 시각(ISO). 장기 토큰은 60일에 만료된다. */
@@ -47,6 +69,7 @@ interface Settings {
 export const SettingsInputSchema = z.object({
   activeProvider: ProviderEnum.optional(),
   textProvider: ProviderEnum.optional(),
+  chatProvider: ChatProviderEnum.optional(),
   providers: z
     .object({
       anthropic: ProviderConfigSchema.optional(),
@@ -66,6 +89,7 @@ interface MaskedProvider {
 }
 interface MaskedSettings {
   textProvider: ProviderId;
+  chatProvider: ChatProviderId;
   providers: Record<ProviderId, MaskedProvider>;
   instagram: {
     configured: boolean;
@@ -79,6 +103,7 @@ interface MaskedSettings {
 function defaultSettings(): Settings {
   return {
     textProvider: "anthropic",
+    chatProvider: "anthropic",
     providers: { anthropic: {}, openai: {}, kimi: {}, gemini: {} },
   };
 }
@@ -86,8 +111,13 @@ function defaultSettings(): Settings {
 // 저장 형태 → 런타임 형태. 레거시 activeProvider를 textProvider 폴백으로 사용한다.
 function normalize(raw: z.infer<typeof StoredSettingsSchema>): Settings {
   const fallback = raw.activeProvider ?? "anthropic";
+  const textProvider = raw.textProvider ?? fallback;
   return {
-    textProvider: raw.textProvider ?? fallback,
+    textProvider,
+    // 이 기능 이전에 저장된 파일에는 chatProvider가 없다. 사용자가 이미 고른
+    // 텍스트 제공자를 그대로 쓰는 것이 가장 덜 놀라운 기본값이다.
+    chatProvider: raw.chatProvider ?? textProvider,
+    chatProviderExplicit: raw.chatProvider,
     providers: raw.providers,
     instagram: raw.instagram,
     instagramTokenIssuedAt: raw.instagramTokenIssuedAt,
@@ -119,16 +149,30 @@ export function createSettingsStore(dataDir: string): SettingsStore {
   }
 
   async function write(settings: Settings): Promise<void> {
+    // 해석된 런타임 값이 아니라 저장 형태로 되돌려 기록한다. chatProvider는 사용자가
+    // 고른 적 있을 때만 남아야 하고, JSON.stringify가 undefined 필드를 빼 준다.
+    const stored = {
+      textProvider: settings.textProvider,
+      chatProvider: settings.chatProviderExplicit,
+      providers: settings.providers,
+      instagram: settings.instagram,
+      instagramTokenIssuedAt: settings.instagramTokenIssuedAt,
+      instagramTokenExpiresAt: settings.instagramTokenExpiresAt,
+    };
     // 새 임시 파일부터 0600으로 만든 뒤 원자적으로 교체해 키가 넓은 권한으로 노출되는 창을 막는다.
-    await writeJsonAtomic(file, settings, { mode: 0o600 });
+    await writeJsonAtomic(file, stored, { mode: 0o600 });
   }
 
   function save(incoming: SettingsInput): Promise<Settings> {
     return withFileLock(file, async () => {
       const cur = await get();
       const legacy = incoming.activeProvider;
+      const nextTextProvider = incoming.textProvider ?? legacy ?? cur.textProvider;
+      const nextChatExplicit = incoming.chatProvider ?? cur.chatProviderExplicit;
       const next: Settings = {
-        textProvider: incoming.textProvider ?? legacy ?? cur.textProvider,
+        textProvider: nextTextProvider,
+        chatProvider: nextChatExplicit ?? nextTextProvider,
+        chatProviderExplicit: nextChatExplicit,
         providers: { ...cur.providers },
         instagram: { ...cur.instagram },
         instagramTokenIssuedAt: cur.instagramTokenIssuedAt,
@@ -205,6 +249,7 @@ export function createSettingsStore(dataDir: string): SettingsStore {
     const igToken = s.instagram?.accessToken;
     return {
       textProvider: s.textProvider,
+      chatProvider: s.chatProvider,
       providers,
       instagram: {
         configured: Boolean(igToken),
