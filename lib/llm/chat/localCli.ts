@@ -8,7 +8,18 @@ const DEFAULT_TIMEOUT_MS = 120_000;
 /** SIGTERM에 응답하지 않는 프로세스를 강제 종료하기까지의 유예. */
 const KILL_GRACE_MS = 2_000;
 
-const STDERR_EXCERPT = 200;
+const STDERR_EXCERPT = 300;
+
+/**
+ * stderr에서 사용자에게 보여줄 조각.
+ *
+ * CLI들은 시작 배너(버전·모델·세션 id)를 stderr로 먼저 뱉고 실제 실패 원인은 마지막에
+ * 적는다. 앞에서 자르면 배너만 남아 조치할 수 없는 메시지가 되므로 뒤에서 자른다.
+ */
+function stderrExcerpt(stderr: string): string {
+  const trimmed = stderr.trim();
+  return trimmed.length > STDERR_EXCERPT ? `…${trimmed.slice(-STDERR_EXCERPT)}` : trimmed;
+}
 
 // 테스트에서 가짜 프로세스를 주입할 수 있을 만큼만 좁힌 자식 프로세스 인터페이스.
 interface ChildLike {
@@ -26,7 +37,8 @@ interface Options {
   providerId: CliProviderId;
   timeoutMs?: number;
   spawn?: SpawnLike;
-  env?: NodeJS.ProcessEnv;
+  /** 테스트 주입용. 기본값은 이 프로세스의 환경이다. */
+  env?: CliEnvironment;
 }
 
 /**
@@ -43,7 +55,9 @@ const STRIPPED_ENV_KEYS = [
   "ANTHROPIC_MODEL",
 ];
 
-function cliEnvironment(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+type CliEnvironment = Record<string, string | undefined>;
+
+function cliEnvironment(source: CliEnvironment): CliEnvironment {
   const env = { ...source };
   for (const key of STRIPPED_ENV_KEYS) delete env[key];
   return env;
@@ -97,6 +111,7 @@ export function createLocalCliChatModel(opts: Options): ChatModel {
       let finished = false;
       let failure: Error | null = null;
       let stderrText = "";
+      let produced = false;
       let killTimer: ReturnType<typeof setTimeout> | null = null;
 
       const notify = () => {
@@ -119,7 +134,9 @@ export function createLocalCliChatModel(opts: Options): ChatModel {
       };
 
       child.stdout.on("data", (chunk) => {
-        queue.push(String(chunk));
+        const text = String(chunk);
+        if (text.trim() !== "") produced = true;
+        queue.push(text);
         notify();
       });
       child.stderr.on("data", (chunk) => {
@@ -140,10 +157,18 @@ export function createLocalCliChatModel(opts: Options): ChatModel {
 
       child.on("close", (code) => {
         if (code === 0) {
-          finish(null);
+          // 로그인하지 않은 CLI는 인증 안내만 내보내고 정상 종료하기도 한다.
+          // 빈 답변을 성공으로 넘기면 사용자가 원인을 알 수 없다.
+          finish(
+            produced
+              ? null
+              : new Error(
+                  `${preset.label}이(가) 빈 응답을 돌려줬습니다. 터미널에서 '${preset.command}'를 한 번 실행해 로그인 상태를 확인하세요.`,
+                ),
+          );
           return;
         }
-        const detail = stderrText.trim().slice(0, STDERR_EXCERPT);
+        const detail = stderrExcerpt(stderrText);
         finish(
           new Error(
             `${preset.label}이(가) 오류로 종료했습니다 (코드 ${code})${detail ? `: ${detail}` : ""}`,

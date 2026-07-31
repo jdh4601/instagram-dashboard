@@ -36,8 +36,10 @@ export const CLI_PRESETS: Record<CliProviderId, CliPreset> = {
   "gemini-cli": {
     label: "Gemini CLI",
     command: "gemini",
-    args: ["-p"],
-    installHint: "npm i -g @google/gemini-cli",
+    // gemini는 -p에 값이 있어야 헤드리스로 돌고, stdin으로 들어온 입력 뒤에 이 문자열을
+    // 붙여 최종 프롬프트를 만든다. 그래서 본문은 stdin에 두고 여기엔 마무리 지시만 둔다.
+    args: ["-p", "위 지침과 데이터에 근거해 마지막 질문에 답하세요."],
+    installHint: "npm i -g @google/gemini-cli (설치 후 `gemini` 실행해 로그인 필요)",
   },
 };
 

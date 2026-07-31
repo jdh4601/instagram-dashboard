@@ -173,6 +173,7 @@ test("CLI 어댑터는 프롬프트를 argv가 아니라 stdin으로 넘긴다",
 
   const promise = collect(model);
   setTimeout(() => {
+    child.stdout.push("답변");
     child.stdout.push(null);
     child.emit("close", 0);
   }, 0);
@@ -206,6 +207,7 @@ test("CLI에는 이 앱의 LLM API 키를 물려주지 않는다", async () => {
 
   const promise = collect(model);
   setTimeout(() => {
+    child.stdout.push("답변");
     child.stdout.push(null);
     child.emit("close", 0);
   }, 0);
@@ -234,6 +236,38 @@ test("CLI가 0이 아닌 코드로 끝나면 stderr를 담은 오류를 던진�
   }, 0);
 
   await expect(promise).rejects.toThrow(/not logged in/);
+});
+
+test("stderr가 길면 배너가 아니라 마지막 실제 오류를 보여준다", async () => {
+  // CLI들은 시작 배너를 stderr로 먼저 뱉는다. 앞부분을 자르면 정작 원인인
+  // 마지막 줄("사용량 한도 초과" 같은)이 사라져 사용자가 조치할 수 없다.
+  const child = fakeChild();
+  const model = createLocalCliChatModel({ providerId: "codex-cli", spawn: () => child });
+
+  const promise = collect(model);
+  setTimeout(() => {
+    child.stderr.push(`${"배너 ".repeat(120)}\nERROR: 사용량 한도를 초과했습니다`);
+    child.stderr.push(null);
+    child.stdout.push(null);
+    child.emit("close", 1);
+  }, 0);
+
+  await expect(promise).rejects.toThrow(/사용량 한도를 초과했습니다/);
+});
+
+test("정상 종료했는데 출력이 비어 있으면 오류로 알린다", async () => {
+  // 로그인하지 않은 CLI는 인증 안내만 내보내고 코드 0으로 끝나기도 한다.
+  // 그대로 두면 빈 답변이 성공으로 저장돼 사용자가 원인을 알 수 없다.
+  const child = fakeChild();
+  const model = createLocalCliChatModel({ providerId: "gemini-cli", spawn: () => child });
+
+  const promise = collect(model);
+  setTimeout(() => {
+    child.stdout.push(null);
+    child.emit("close", 0);
+  }, 0);
+
+  await expect(promise).rejects.toThrow(/로그인/);
 });
 
 test("CLI 실행 파일이 없으면 설치 안내가 담긴 오류를 던진다", async () => {
