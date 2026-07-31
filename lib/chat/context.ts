@@ -1,5 +1,6 @@
 import type { AccountProfile, AccountSnapshot, Reel } from "@/lib/schemas";
 import { BENCHMARKS_BY_KIND, type MetricKey } from "@/config/benchmarks";
+import type { Band } from "@/lib/analysis/diagnosis";
 import { buildAccountOverview, type AccountOverview } from "@/lib/analysis/accountOverview";
 import {
   accountFunnelVerdicts,
@@ -141,6 +142,14 @@ function renderAccountMetrics(context: AccountContext): string {
   ].join("\n");
 }
 
+// 내부 밴드 값(strong/ok/weak)을 그대로 실으면 모델이 그 토큰을 답변에 옮겨 적는다.
+// 사용자에게 보일 말로 미리 바꿔 둔다.
+const BAND_LABEL: Record<Band, string> = {
+  strong: "강점",
+  ok: "보통",
+  weak: "약점",
+};
+
 const FUNNEL_ROWS = [
   { key: "viewRate", label: "계정 방문률(도달→프로필 방문)" },
   { key: "followRate", label: "팔로우 전환율(방문→팔로우)" },
@@ -155,7 +164,7 @@ function renderFunnel(context: AccountContext): string {
     const verdict = funnelVerdicts?.[key];
     const delta = funnel.deltas[key];
     const deltaText = delta === null ? MISSING : `${delta > 0 ? "+" : ""}${delta.toFixed(2)}%p`;
-    return `- ${label}: ${pct(funnel[key])}${verdict ? ` [${verdict}]` : ""} (직전 대비 ${deltaText})`;
+    return `- ${label}: ${pct(funnel[key])}${verdict ? ` [${BAND_LABEL[verdict]}]` : ""} (직전 대비 ${deltaText})`;
   });
 
   return [

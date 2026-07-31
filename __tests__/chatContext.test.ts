@@ -63,6 +63,18 @@ test("렌더링 결과에 판정 임계값 표가 포함된다", () => {
   expect(rendered).toContain("45");
 });
 
+test("퍼널 판정은 내부 밴드 값이 아니라 한국어로 적는다", () => {
+  // 컨텍스트에 strong/weak을 그대로 실으면 모델이 "둘 다 [strong]입니다"처럼
+  // 내부 토큰을 그대로 답변에 옮겨 적는다.
+  const rendered = renderAccountContext(
+    buildAccountContext([reel()], [snapshot({ date: "2026-07-23" }), snapshot()], profile),
+  );
+
+  expect(rendered).not.toContain("[strong]");
+  expect(rendered).not.toContain("[weak]");
+  expect(rendered).toContain("[강점]");
+});
+
 test("데이터가 없으면 단정하지 않고 부족하다고 표기한다", () => {
   const rendered = renderAccountContext(buildAccountContext([], [], null));
 
