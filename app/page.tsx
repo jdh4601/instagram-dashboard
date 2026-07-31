@@ -219,8 +219,8 @@ export default function Page() {
   const showTokenBanner = !tokenBannerDismissed && tokenNeedsReview;
 
   return (
-    // xl 이상에서 대시보드와 진단 패널이 나란히 서고, 그 아래에서는 패널이 드로어가 된다.
-    <div className="mx-auto flex w-full max-w-[110rem] items-start">
+    // xl 이상에서 대시보드와 진단 패널이 나란히 서고, 그 아래 폭에서는 세로로 쌓인다.
+    <div className="mx-auto flex w-full max-w-[110rem] flex-col xl:flex-row xl:items-start">
       <div className="min-w-0 flex-1">
       <DashboardActions onSync={onSync} syncing={syncing} />
       {syncing && syncProgress && <SyncProgressBar progress={syncProgress} />}
