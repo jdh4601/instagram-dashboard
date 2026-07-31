@@ -33,6 +33,50 @@ test("getProfile은 user_id/username/followers_count/avatar/media_count를 반�
   expect(p.mediaCount).toBe(42);
 });
 
+test("getProfile은 표시 이름과 바이오도 함께 요청해 반환한다", async () => {
+  let seenUrl = "";
+  const client = createGraphClient({
+    accessToken: "tok",
+    fetchImpl: (async (url: string) => {
+      seenUrl = url;
+      return {
+        ok: true,
+        json: async () => ({
+          user_id: "123",
+          username: "founder",
+          name: "디원 | 1인 창업가",
+          biography: "첫 줄\n둘째 줄",
+          followers_count: 1234,
+          media_count: 42,
+        }),
+        text: async () => "",
+      };
+    }) as unknown as typeof fetch,
+  });
+
+  const p = await client.getProfile();
+
+  expect(seenUrl).toContain("name");
+  expect(seenUrl).toContain("biography");
+  expect(p.displayName).toBe("디원 | 1인 창업가");
+  expect(p.biography).toBe("첫 줄\n둘째 줄");
+});
+
+test("getProfile은 바이오가 비어 있는 계정도 처리한다", async () => {
+  // 바이오/이름을 비워 둔 계정에서는 Graph가 필드 자체를 생략한다.
+  const client = createGraphClient({
+    accessToken: "tok",
+    fetchImpl: fakeFetch({
+      "/me?": { user_id: "123", username: "founder", followers_count: 10, media_count: 2 },
+    }) as unknown as typeof fetch,
+  });
+
+  const p = await client.getProfile();
+
+  expect(p.displayName).toBeUndefined();
+  expect(p.biography).toBeUndefined();
+});
+
 test("listMedia는 분석 대상이 아닌 피드 글을 제외한다", async () => {
   const client = createGraphClient({
     accessToken: "tok",

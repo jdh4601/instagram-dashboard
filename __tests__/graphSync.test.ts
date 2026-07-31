@@ -17,6 +17,8 @@ const fakeClient: GraphClient = {
   getProfile: async () => ({
     userId: "1",
     username: "founder",
+    displayName: "파운더 스토리",
+    biography: "창업가 인터뷰\n매주 화요일",
     followersCount: 1500,
     avatarUrl: "https://cdn/a.jpg",
     mediaCount: 7,
@@ -123,6 +125,8 @@ test("프로필 저장소가 주어지면 계정 프로필을 저장한다", asy
   expect(profile?.username).toBe("founder");
   expect(profile?.mediaCount).toBe(7);
   expect(profile?.avatarUrl).toBe("https://cdn/a.jpg");
+  expect(profile?.displayName).toBe("파운더 스토리");
+  expect(profile?.biography).toBe("창업가 인터뷰\n매주 화요일");
 });
 
 test("신규 릴스는 길이 0(미상)으로 생성된다", async () => {

@@ -106,6 +106,9 @@ export type ReelMetricSnapshot = z.infer<typeof ReelMetricSnapshotSchema>;
 // 계정 프로필 (Graph getProfile + 동기화 저장)
 export const AccountProfileSchema = z.object({
   username: z.string(),
+  // 프로필 표시 이름과 바이오. 계정이 비워 둘 수 있는 값이라 Graph가 필드를 생략한다.
+  displayName: z.string().optional(),
+  biography: z.string().optional(),
   avatarUrl: z.string().optional(),
   followersCount: z.number().nonnegative(),
   mediaCount: z.number().nonnegative(),

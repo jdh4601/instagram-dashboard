@@ -73,6 +73,8 @@ export interface GraphInsightResult {
 interface GraphProfile {
   userId: string;
   username: string;
+  displayName?: string;
+  biography?: string;
   followersCount: number;
   avatarUrl?: string;
   mediaCount: number;
@@ -253,10 +255,12 @@ export function createGraphClient(opts: Options): GraphClient {
   return {
     async getProfile() {
       const json = (await request("me", {
-        fields: "user_id,username,followers_count,profile_picture_url,media_count",
+        fields: "user_id,username,name,biography,followers_count,profile_picture_url,media_count",
       })) as {
         user_id: string;
         username: string;
+        name?: string;
+        biography?: string;
         followers_count?: number;
         profile_picture_url?: string;
         media_count?: number;
@@ -264,6 +268,8 @@ export function createGraphClient(opts: Options): GraphClient {
       return {
         userId: json.user_id,
         username: json.username,
+        displayName: json.name,
+        biography: json.biography,
         followersCount: json.followers_count ?? 0,
         avatarUrl: json.profile_picture_url,
         mediaCount: json.media_count ?? 0,

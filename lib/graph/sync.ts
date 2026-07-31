@@ -233,6 +233,8 @@ export async function syncFromGraph(
   if (profileRepo) {
     await profileRepo.save({
       username: profile.username,
+      displayName: profile.displayName,
+      biography: profile.biography,
       avatarUrl: profile.avatarUrl,
       followersCount: profile.followersCount,
       mediaCount: profile.mediaCount,

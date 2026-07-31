@@ -15,9 +15,11 @@ export function AccountHeader({ profile, followerDelta, contentCount }: AccountH
   // 화면에는 실제 개수를 쓰고, 다를 때만 IG 값을 툴팁으로 병기한다.
   const igCount = profile?.mediaCount ?? null;
   const countMismatch = igCount !== null && igCount !== contentCount;
+  const displayName = profile?.displayName?.trim();
+  const biography = profile?.biography?.trim();
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-start gap-3">
       {profile?.avatarUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -55,6 +57,16 @@ export function AccountHeader({ profile, followerDelta, contentCount }: AccountH
             </span>
           )}
         </div>
+        {displayName && (
+          <div className="mt-1.5 text-sm font-semibold text-neutral-900">{displayName}</div>
+        )}
+        {biography && (
+          // 인스타그램 프로필과 같은 자리·같은 줄바꿈으로 둔다. <br> 대신 CSS로 살려야
+          // 원문이 그대로 남아 복사와 검색이 된다.
+          <p className="mt-0.5 max-w-prose whitespace-pre-line text-sm leading-snug text-neutral-600">
+            {biography}
+          </p>
+        )}
       </div>
     </div>
   );

@@ -40,6 +40,8 @@ export interface ReelContextRow {
 export interface AccountContext {
   profile: {
     username: string | null;
+    displayName: string | null;
+    biography: string | null;
     followers: number;
     contentCount: number;
   };
@@ -93,6 +95,8 @@ export function buildAccountContext(
   return {
     profile: {
       username: profile?.username ?? null,
+      displayName: profile?.displayName ?? null,
+      biography: profile?.biography ?? null,
       followers: profile?.followersCount ?? snapshots.at(-1)?.followerCount ?? 0,
       contentCount: reels.length,
     },
@@ -124,6 +128,9 @@ function renderProfile(context: AccountContext): string {
   return [
     "[계정]",
     `- 사용자명: ${profile.username ? `@${profile.username}` : MISSING}`,
+    `- 프로필 이름: ${profile.displayName ?? MISSING}`,
+    // 바이오는 계정이 내건 약속이다. 훅·타깃 판단의 기준이므로 줄바꿈만 눕혀 그대로 싣는다.
+    `- 바이오: ${profile.biography ? profile.biography.replace(/\n/g, " / ") : MISSING}`,
     `- 팔로워: ${num(profile.followers)}명 (직전 스냅샷 대비 ${signed(overview.followerDelta)})`,
     `- 수집된 게시물: ${num(profile.contentCount)}개`,
     `- 평균 참여율: ${pct(overview.avgEngagementRate)}`,
