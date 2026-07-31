@@ -184,6 +184,40 @@ test("CLI 어댑터는 프롬프트를 argv가 아니라 stdin으로 넘긴다",
   expect(written).toContain("병목이 어디야?");
 });
 
+test("CLI에는 이 앱의 LLM API 키를 물려주지 않는다", async () => {
+  // 대시보드가 .env에 둔 ANTHROPIC_API_KEY가 상속되면 CLI가 자기 로그인 대신
+  // 그 키를 쓴다. 로컬 CLI를 고르는 이유가 바로 그 키를 안 쓰는 것이다.
+  const child = fakeChild();
+  let capturedEnv: Record<string, string | undefined> = {};
+
+  const model = createLocalCliChatModel({
+    providerId: "claude-cli",
+    spawn: (_command, _args, options) => {
+      capturedEnv = (options as { env: Record<string, string | undefined> }).env;
+      return child;
+    },
+    env: {
+      PATH: "/usr/bin",
+      ANTHROPIC_API_KEY: "sk-ant-app-key",
+      ANTHROPIC_BASE_URL: "https://proxy.test",
+      HOME: "/Users/tester",
+    },
+  });
+
+  const promise = collect(model);
+  setTimeout(() => {
+    child.stdout.push(null);
+    child.emit("close", 0);
+  }, 0);
+  await promise;
+
+  expect(capturedEnv.ANTHROPIC_API_KEY).toBeUndefined();
+  expect(capturedEnv.ANTHROPIC_BASE_URL).toBeUndefined();
+  // 나머지 환경은 그대로 물려줘야 CLI가 자기 설정과 로그인을 찾는다.
+  expect(capturedEnv.PATH).toBe("/usr/bin");
+  expect(capturedEnv.HOME).toBe("/Users/tester");
+});
+
 test("CLI가 0이 아닌 코드로 끝나면 stderr를 담은 오류를 던진다", async () => {
   const child = fakeChild();
   const model = createLocalCliChatModel({

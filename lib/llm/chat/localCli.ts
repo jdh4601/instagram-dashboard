@@ -26,6 +26,27 @@ interface Options {
   providerId: CliProviderId;
   timeoutMs?: number;
   spawn?: SpawnLike;
+  env?: NodeJS.ProcessEnv;
+}
+
+/**
+ * 자식 CLI에서 지워야 할 환경 변수.
+ *
+ * 이 대시보드는 자기 몫의 ANTHROPIC_API_KEY를 .env에 두는데, 그대로 상속되면 CLI가
+ * 사용자의 로그인 세션 대신 그 키를 쓴다. 로컬 CLI를 고르는 이유가 "API 키 없이
+ * 내 로그인으로 돌린다"는 것이므로, 앱의 키가 그 선택을 조용히 뒤집게 두면 안 된다.
+ */
+const STRIPPED_ENV_KEYS = [
+  "ANTHROPIC_API_KEY",
+  "ANTHROPIC_AUTH_TOKEN",
+  "ANTHROPIC_BASE_URL",
+  "ANTHROPIC_MODEL",
+];
+
+function cliEnvironment(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const env = { ...source };
+  for (const key of STRIPPED_ENV_KEYS) delete env[key];
+  return env;
 }
 
 const ROLE_LABEL: Record<ChatTurn["role"], string> = {
@@ -68,6 +89,7 @@ export function createLocalCliChatModel(opts: Options): ChatModel {
       const child = spawnFn(preset.command, preset.args, {
         shell: false,
         stdio: ["pipe", "pipe", "pipe"],
+        env: cliEnvironment(opts.env ?? process.env),
       });
 
       const queue: string[] = [];
