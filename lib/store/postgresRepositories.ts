@@ -2,6 +2,7 @@ import postgres from "postgres";
 import {
   AccountProfileSchema,
   AccountSnapshotSchema,
+  ApplicationSchema,
   ReelMetricSnapshotSchema,
   ReelSchema,
 } from "@/lib/schemas";
@@ -210,11 +211,42 @@ export function createPostgresRepositories(databaseUrl: string): WorkspaceReposi
     },
   };
 
+  // 신청은 responseId가 유일 키, submittedAt이 정렬 키다.
+  const applications: WorkspaceRepositories["applications"] = {
+    async list() {
+      await ready;
+      const rows = await sql<PayloadRow[]>`
+        SELECT payload FROM instagram_dashboard_records
+        WHERE namespace = 'application'
+        ORDER BY sort_key, record_key
+      `;
+      return parseRows(rows, (value) => ApplicationSchema.parse(value));
+    },
+    async upsertMany(incoming) {
+      const validated = incoming.map((application) => ApplicationSchema.parse(application));
+      if (validated.length === 0) return 0;
+      await ready;
+      await sql.begin(async () => {
+        for (const application of validated) {
+          await upsertRecord(
+            "application",
+            application.responseId,
+            null,
+            application.submittedAt,
+            application,
+          );
+        }
+      });
+      return validated.length;
+    },
+  };
+
   return {
     reels,
     accounts,
     profile,
     reelHistory,
+    applications,
     close: async () => {
       await ready.catch(() => undefined);
       await sql.end({ timeout: 5 });

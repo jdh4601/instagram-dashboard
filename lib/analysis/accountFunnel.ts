@@ -1,6 +1,6 @@
 import { ACCOUNT_FUNNEL_BENCHMARKS, type AccountFunnelMetricKey } from "@/config/benchmarks";
 import { classifyBand, type Band } from "@/lib/analysis/diagnosis";
-import type { AccountSnapshot } from "@/lib/schemas";
+import type { AccountSnapshot, Application } from "@/lib/schemas";
 
 export const ACCOUNT_FUNNEL_WINDOW_DAYS = 7;
 
@@ -42,6 +42,60 @@ export interface AccountFunnel {
   previousDate: string | null;
   /** 직전 스냅샷 대비 전환율 증감(%p). */
   deltas: AccountFunnelDeltas;
+  /** 창 안의 총 신청 수. 신청 폼 미연동이면 null. */
+  applications: number | null;
+  /** 그중 바이오 링크에서 온 신청(medium=bio). applyRate의 분자다. */
+  bioApplications: number | null;
+  /**
+   * 바이오 신청 ÷ 바이오 링크 클릭, %.
+   *
+   * Graph가 주지 않는 마지막 구간이라 이 대시보드에서 유일하게 두 출처를 잇는 값이다.
+   * 분자를 바이오로 한정하는 이유: websiteClicks는 프로필 바이오 링크 클릭만 세고
+   * 스토리 링크 스티커 클릭은 포함하지 않는다. 스토리·광고 신청까지 분자에 넣으면
+   * 분모에 없는 유입이 섞여 전환율이 실제보다 높게 나온다.
+   *
+   * UTM이 붙기 전 신청은 medium이 없어 분자에서 빠진다. 전환 초기에는 과소집계다.
+   */
+  applyRate: number | null;
+  /** 매체별 신청 수. UTM이 없는 신청은 unknown으로 모은다. */
+  applicationsByMedium: Record<string, number>;
+}
+
+/** 창의 시작일(포함). endDate 당일을 포함해 days일이 되도록 뒤로 센다. */
+function windowStart(endDate: string, days: number): string {
+  const start = new Date(`${endDate}T00:00:00Z`);
+  start.setUTCDate(start.getUTCDate() - (days - 1));
+  return start.toISOString().slice(0, 10);
+}
+
+interface ApplicationTotals {
+  applications: number | null;
+  bioApplications: number | null;
+  applicationsByMedium: Record<string, number>;
+}
+
+/**
+ * 스냅샷과 같은 7일 창으로 신청을 집계한다.
+ *
+ * 클릭한 날과 신청한 날이 다를 수 있어 창 정렬은 근사다. 경계에서는 분자와 분모가
+ * 다른 사람을 셀 수 있으므로 applyRate는 추세로 읽어야 하고 소수점까지 믿을 값이 아니다.
+ */
+function totalsFor(applications: Application[], endDate: string): ApplicationTotals {
+  const start = windowStart(endDate, ACCOUNT_FUNNEL_WINDOW_DAYS);
+  const byMedium: Record<string, number> = {};
+  let total = 0;
+  let bio = 0;
+
+  for (const application of applications) {
+    const day = application.submittedAt.slice(0, 10);
+    if (day < start || day > endDate) continue;
+    total += 1;
+    const medium = application.medium ?? "unknown";
+    byMedium[medium] = (byMedium[medium] ?? 0) + 1;
+    if (medium === "bio") bio += 1;
+  }
+
+  return { applications: total, bioApplications: bio, applicationsByMedium: byMedium };
 }
 
 function rate(numerator: number | null, denominator: number | null): number | null {
@@ -80,7 +134,10 @@ function diff(current: number | null, previous: number | null): number | null {
  *
  * 누락 지표를 0으로 채우지 않는다. 채우면 "전환이 없다"와 "측정이 안 된다"가 섞인다.
  */
-export function buildAccountFunnel(snapshots: AccountSnapshot[]): AccountFunnel | null {
+export function buildAccountFunnel(
+  snapshots: AccountSnapshot[],
+  applications?: Application[],
+): AccountFunnel | null {
   if (snapshots.length === 0) return null;
 
   const latest = snapshots.reduce((best, current) => (current.date > best.date ? current : best));
@@ -104,6 +161,12 @@ export function buildAccountFunnel(snapshots: AccountSnapshot[]): AccountFunnel 
   const current = ratesOf(latest);
   const before = previous === null ? null : ratesOf(previous);
 
+  // 미연동과 "신청 0건"은 다르다. 0으로 채우면 전환율 0%로 읽혀 폼이 죽은 것처럼 보인다.
+  const totals: ApplicationTotals =
+    applications === undefined
+      ? { applications: null, bioApplications: null, applicationsByMedium: {} }
+      : totalsFor(applications, latest.date);
+
   return {
     date: latest.date,
     reach: latest.reachLast7d,
@@ -119,6 +182,8 @@ export function buildAccountFunnel(snapshots: AccountSnapshot[]): AccountFunnel 
       followRate: diff(current.followRate, before?.followRate ?? null),
       linkClickRate: diff(current.linkClickRate, before?.linkClickRate ?? null),
     },
+    ...totals,
+    applyRate: rate(totals.bioApplications, websiteClicks),
   };
 }
 

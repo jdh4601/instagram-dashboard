@@ -4,26 +4,41 @@ import {
   getAccountRepository,
   getProfileRepository,
   getReelHistoryRepository,
+  getApplicationRepository,
 } from "@/lib/store";
 import { getInstagramClient } from "@/lib/graph";
 import { syncFromGraph, type SyncProgress } from "@/lib/graph/sync";
+import { getWallaConnection } from "@/lib/walla";
+import { syncApplicationsIfConfigured } from "@/lib/walla/sync";
 import { assertJsonRequest } from "@/lib/api/guard";
 
 const NDJSON = "application/x-ndjson";
 
-function runSync(onProgress?: (progress: SyncProgress) => void) {
+async function runSync(onProgress?: (progress: SyncProgress) => void) {
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  return getInstagramClient().then((client) =>
-    syncFromGraph(
-      client,
-      getRepository(),
-      getAccountRepository(),
-      today,
-      getProfileRepository(),
-      getReelHistoryRepository(),
-      onProgress,
-    ),
+  const client = await getInstagramClient();
+  const result = await syncFromGraph(
+    client,
+    getRepository(),
+    getAccountRepository(),
+    today,
+    getProfileRepository(),
+    getReelHistoryRepository(),
+    onProgress,
   );
+
+  // 신청 폼은 선택 연동이라 실패해도 위 결과를 버리지 않는다. 사유는 errors에 실어
+  // 다른 동기화 오류와 같은 자리에서 보이게 한다.
+  const applications = await syncApplicationsIfConfigured(
+    await getWallaConnection(),
+    getApplicationRepository(),
+  );
+
+  return {
+    ...result,
+    applications: applications.applications,
+    errors: applications.error ? [...result.errors, applications.error] : result.errors,
+  };
 }
 
 // 게시물당 Graph 호출을 순차로 돌려 동기화는 수십 초가 걸린다. 진행률을 보여주려면

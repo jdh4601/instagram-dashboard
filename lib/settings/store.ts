@@ -35,6 +35,13 @@ const ProvidersSchema = z.object({
 
 const InstagramSchema = z.object({ accessToken: z.string().optional() });
 
+// 지원 신청을 받는 외부 폼(Walla). 클릭 다음 구간은 Graph가 주지 않아
+// 이 폼의 응답 API를 끌어와야만 채워진다.
+const WallaSchema = z.object({
+  apiKey: z.string().optional(),
+  formId: z.string().optional(),
+});
+
 // 디스크에 저장된 형태(관대): activeProvider는 구버전 단일 필드다.
 const StoredSettingsSchema = z.object({
   activeProvider: ProviderEnum.optional(),
@@ -44,6 +51,7 @@ const StoredSettingsSchema = z.object({
   instagram: InstagramSchema.optional(),
   instagramTokenIssuedAt: z.string().optional(),
   instagramTokenExpiresAt: z.string().optional(),
+  walla: WallaSchema.optional(),
 });
 
 // 정규화된 런타임 설정: 자막 분석과 생성에 사용할 텍스트 제공자.
@@ -63,6 +71,8 @@ interface Settings {
   instagramTokenIssuedAt?: string;
   /** OAuth token endpoint가 알려 준 실제 만료 시각. 수동 입력 토큰에는 없을 수 있다. */
   instagramTokenExpiresAt?: string;
+  /** 지원 신청 폼(Walla) 자격증명. 미설정이면 신청 동기화를 건너뛴다. */
+  walla?: z.infer<typeof WallaSchema>;
 }
 
 // 클라이언트가 보내는 부분 업데이트 (apiKey 비우면 기존 유지)
@@ -79,6 +89,7 @@ export const SettingsInputSchema = z.object({
     })
     .optional(),
   instagram: InstagramSchema.optional(),
+  walla: WallaSchema.optional(),
 });
 type SettingsInput = z.infer<typeof SettingsInputSchema>;
 
@@ -98,6 +109,12 @@ interface MaskedSettings {
   };
   instagramTokenIssuedAt: string | null;
   instagramTokenExpiresAt: string | null;
+  walla: {
+    configured: boolean;
+    maskedKey: string | null;
+    /** 폼 ID는 비밀이 아니다. 어느 폼에 붙었는지 화면에서 확인할 수 있어야 한다. */
+    formId: string | null;
+  };
 }
 
 function defaultSettings(): Settings {
@@ -122,6 +139,7 @@ function normalize(raw: z.infer<typeof StoredSettingsSchema>): Settings {
     instagram: raw.instagram,
     instagramTokenIssuedAt: raw.instagramTokenIssuedAt,
     instagramTokenExpiresAt: raw.instagramTokenExpiresAt,
+    walla: raw.walla,
   };
 }
 
@@ -158,6 +176,7 @@ export function createSettingsStore(dataDir: string): SettingsStore {
       instagram: settings.instagram,
       instagramTokenIssuedAt: settings.instagramTokenIssuedAt,
       instagramTokenExpiresAt: settings.instagramTokenExpiresAt,
+      walla: settings.walla,
     };
     // 새 임시 파일부터 0600으로 만든 뒤 원자적으로 교체해 키가 넓은 권한으로 노출되는 창을 막는다.
     await writeJsonAtomic(file, stored, { mode: 0o600 });
@@ -177,7 +196,18 @@ export function createSettingsStore(dataDir: string): SettingsStore {
         instagram: { ...cur.instagram },
         instagramTokenIssuedAt: cur.instagramTokenIssuedAt,
         instagramTokenExpiresAt: cur.instagramTokenExpiresAt,
+        walla: cur.walla,
       };
+      if (incoming.walla) {
+        const incKey = incoming.walla.apiKey?.trim();
+        const incFormId = incoming.walla.formId?.trim();
+        next.walla = {
+          // 화면은 저장된 키를 마스킹해서 보여 준다. 빈 값이 실제 키를 덮어쓰면
+          // 폼 ID만 고쳤을 뿐인데 연동이 조용히 끊긴다.
+          apiKey: incKey ? incKey : cur.walla?.apiKey,
+          formId: incFormId ? incFormId : cur.walla?.formId,
+        };
+      }
       if (incoming.instagram) {
         const incToken = incoming.instagram.accessToken?.trim();
         if (incToken && incToken !== cur.instagram?.accessToken) {
@@ -258,6 +288,11 @@ export function createSettingsStore(dataDir: string): SettingsStore {
       },
       instagramTokenIssuedAt: s.instagramTokenIssuedAt ?? null,
       instagramTokenExpiresAt: s.instagramTokenExpiresAt ?? null,
+      walla: {
+        configured: Boolean(s.walla?.apiKey && s.walla?.formId),
+        maskedKey: s.walla?.apiKey ? maskApiKey(s.walla.apiKey) : null,
+        formId: s.walla?.formId ?? null,
+      },
     };
   }
 

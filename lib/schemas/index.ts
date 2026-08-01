@@ -140,3 +140,27 @@ export const AccountSnapshotSchema = z.object({
   unavailableMetrics: z.array(z.string()).optional(),
 });
 export type AccountSnapshot = z.infer<typeof AccountSnapshotSchema>;
+
+/**
+ * 외부 신청 폼(Walla)에 접수된 지원 신청 한 건.
+ *
+ * 바이오 링크 클릭 다음 단계라 Graph가 알려 줄 수 없는 구간이다. 클릭은 계정 레벨
+ * 집계 수치(websiteClicksLast7d)로만 오고 개별 클릭에 신원이 없어서, 두 데이터를
+ * 잇는 유일한 키가 링크에 붙인 UTM이다.
+ *
+ * 신청자의 이름·연락처 같은 응답 본문은 담지 않는다. 대시보드가 하는 일은 집계뿐이고,
+ * 개인정보를 로컬 JSON으로 복제하면 보관 책임만 늘어난다.
+ */
+export const ApplicationSchema = z.object({
+  responseId: z.string().min(1),
+  /** 제출 시각(ISO 8601). Walla의 submittedAt을 그대로 쓴다. */
+  submittedAt: z.string(),
+  /** 유입 매체(instagram, naver 등). 링크에 UTM이 없으면 undefined. */
+  source: z.string().optional(),
+  /** 유입 경로(bio, story, paid 등). websiteClicks와 분모를 맞출 때 이 값으로 거른다. */
+  medium: z.string().optional(),
+  campaign: z.string().optional(),
+  /** 크리에이티브·릴스 단위 구분. 광고 소재별 성과를 가르는 키다. */
+  content: z.string().optional(),
+});
+export type Application = z.infer<typeof ApplicationSchema>;

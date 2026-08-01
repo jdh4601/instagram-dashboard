@@ -2,7 +2,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
-import type { Reel, AccountSnapshot, AccountProfile } from "@/lib/schemas";
+import type { Reel, AccountSnapshot, AccountProfile, Application } from "@/lib/schemas";
 import { buildAccountOverview } from "@/lib/analysis/accountOverview";
 import { latestFollowerDelta } from "@/lib/analysis/followerTrend";
 import { computeDashboardMetrics } from "@/lib/analysis/dashboardMetrics";
@@ -35,6 +35,8 @@ export default function Page() {
   const [earlyViews, setEarlyViews] = useState<EarlyViewsMap>({});
   const [snapshots, setSnapshots] = useState<AccountSnapshot[]>([]);
   const [profile, setProfile] = useState<AccountProfile | null>(null);
+  // 신청 폼 미연동과 "신청 0건"을 구분해야 해서 빈 배열이 아니라 null로 시작한다.
+  const [applications, setApplications] = useState<Application[] | null>(null);
   const [snapDate, setSnapDate] = useState("");
   const [snapFollowers, setSnapFollowers] = useState("");
   const [toast, setToast] = useState<SyncToast | null>(null);
@@ -87,17 +89,19 @@ export default function Page() {
         fetch("/api/reels"),
         fetch("/api/snapshots"),
         fetch("/api/profile"),
+        fetch("/api/applications"),
       ]);
       if (refreshedResponses.some((response) => !response.ok)) {
         throw new Error("동기화 후 화면 갱신 실패");
       }
-      const [reelsRes, snapsRes, profileRes] = await Promise.all(
+      const [reelsRes, snapsRes, profileRes, applicationsRes] = await Promise.all(
         refreshedResponses.map((response) => response.json()),
       );
       setReels(reelsRes.reels);
       setEarlyViews(reelsRes.earlyViews ?? {});
       setSnapshots(snapsRes.snapshots);
       setProfile(profileRes.profile);
+      setApplications(applicationsRes.applications ?? []);
       const failed = typeof data.failedReels === "number" ? data.failedReels : 0;
       if (failed > 0) {
         const errors: string[] = Array.isArray(data.errors)
@@ -149,7 +153,8 @@ export default function Page() {
       getJson("/api/snapshots"),
       getJson("/api/profile"),
       getJson("/api/settings"),
-    ]).then(([reelsResult, snapshotsResult, profileResult, settingsResult]) => {
+      getJson("/api/applications"),
+    ]).then(([reelsResult, snapshotsResult, profileResult, settingsResult, applicationsResult]) => {
       if (!active) return;
 
       if (reelsResult.status === "fulfilled") {
@@ -158,6 +163,9 @@ export default function Page() {
       }
       if (snapshotsResult.status === "fulfilled") setSnapshots(snapshotsResult.value.snapshots ?? []);
       if (profileResult.status === "fulfilled") setProfile(profileResult.value.profile ?? null);
+      if (applicationsResult.status === "fulfilled") {
+        setApplications(applicationsResult.value.applications ?? []);
+      }
       if (settingsResult.status === "fulfilled") {
         const issuedAt = settingsResult.value.instagramTokenIssuedAt;
         setTokenIssuedAt(typeof issuedAt === "string" ? issuedAt : null);
@@ -205,7 +213,8 @@ export default function Page() {
   const dashboardMetrics = computeDashboardMetrics(filterByMedia(reels, "REELS"));
   // 퍼널은 계정 레벨이다. Graph가 릴스에 profile_visits/follows를 주지 않고, 게시물
   // 귀속 팔로우는 실제 증가분의 일부만 설명해서 미디어 필터를 따를 수 없다.
-  const funnel = buildAccountFunnel(snapshots);
+  // 신청은 Graph 밖 데이터라 미연동이면 undefined를 넘겨 신청 구간을 통째로 감춘다.
+  const funnel = buildAccountFunnel(snapshots, applications ?? undefined);
   // 도달 구성은 계정 레벨 지표라 미디어 필터와 무관하다.
   const audienceMix = buildAudienceMix(snapshots);
 
