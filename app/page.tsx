@@ -9,6 +9,7 @@ import { computeDashboardMetrics } from "@/lib/analysis/dashboardMetrics";
 import { DashboardActions } from "@/components/DashboardActions";
 import { SyncProgressBar } from "@/components/SyncProgressBar";
 import { AccountHeader } from "@/components/AccountHeader";
+import { UploadRhythmCard } from "@/components/UploadRhythmCard";
 import { AccountOverview } from "@/components/AccountOverview";
 import { AccountFunnelCard } from "@/components/AccountFunnelCard";
 import { AudienceMixCard } from "@/components/AudienceMixCard";
@@ -254,7 +255,13 @@ export default function Page() {
               </div>
             )}
             {/* 헤더는 필터와 무관한 전체 개수를 보여준다 */}
-            <AccountHeader profile={profile} followerDelta={followerDelta} contentCount={reels.length} />
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
+              <div className="shrink-0 lg:max-w-md">
+                <AccountHeader profile={profile} followerDelta={followerDelta} contentCount={reels.length} />
+              </div>
+              {/* 리듬은 필터와 무관하게 계정 전체 업로드를 보여준다 */}
+              <UploadRhythmCard reels={reels} />
+            </div>
             <AccountOverview overview={overview} />
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
               <AccountFunnelCard funnel={funnel} />
