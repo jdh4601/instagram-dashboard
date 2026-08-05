@@ -25,6 +25,7 @@ import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { filterByMedia, type MediaFilter } from "@/lib/ui/mediaFilter";
 import type { EarlyViewsMap } from "@/lib/ui/reelSelect";
 import { readNdjson } from "@/lib/ui/ndjsonStream";
+import { buildSyncToast } from "@/lib/ui/syncToast";
 import type { SyncProgress, SyncResult } from "@/lib/graph/sync";
 
 // Instagram 장기 토큰은 60일에 만료되므로 50일이 지나면 갱신을 안내한다.
@@ -102,28 +103,7 @@ export default function Page() {
       setSnapshots(snapsRes.snapshots);
       setProfile(profileRes.profile);
       setApplications(applicationsRes.applications ?? []);
-      const failed = typeof data.failedReels === "number" ? data.failedReels : 0;
-      if (failed > 0) {
-        const errors: string[] = Array.isArray(data.errors)
-          ? data.errors.filter((e: unknown): e is string => typeof e === "string")
-          : [];
-        setToast({
-          tone: "warning",
-          message:
-            `동기화 일부 실패: 게시물 ${failed}개를 가져오지 못했습니다` +
-            (errors.length > 0 ? ` — ${errors.slice(0, 2).join(" / ")}` : ""),
-        });
-        return;
-      }
-      const unsupported = Array.isArray(data.unavailableMetrics) ? data.unavailableMetrics.length : 0;
-      const removed = typeof data.removedReels === "number" ? data.removedReels : 0;
-      setToast({
-        tone: "success",
-        message:
-          `동기화 완료: 게시물 ${data.syncedReels}개 · @${data.username}` +
-          (removed > 0 ? ` · 삭제된 게시물 ${removed}개 정리` : "") +
-          (unsupported > 0 ? ` · 선택 지표 ${unsupported}개 미지원` : ""),
-      });
+      setToast(buildSyncToast(data));
     } catch {
       setToast({ tone: "error", message: "동기화 실패: 네트워크 또는 화면 갱신 오류가 발생했습니다" });
     } finally {
