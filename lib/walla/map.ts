@@ -35,7 +35,7 @@ const LABEL_ALIASES: Record<UtmKey, readonly string[]> = {
   content: ["utmcontent", "content", "콘텐츠", "소재", "크리에이티브"],
 };
 
-const UTM_KEYS = Object.keys(LABEL_ALIASES) as UtmKey[];
+export const UTM_KEYS = Object.keys(LABEL_ALIASES) as UtmKey[];
 
 /** 라벨 비교용 정규화: 대소문자·공백·구분자를 지운다. */
 function normalizeLabel(label: string): string {

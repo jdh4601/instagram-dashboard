@@ -5,6 +5,24 @@ const DEFAULT_BASE = "https://app.walla.my/open-api/v1";
 // 응답 목록의 페이지당 상한. API 문서가 정한 최대값이다.
 const MAX_LIMIT = 100;
 
+/**
+ * Walla가 오류 상태로 답했을 때 던지는 오류.
+ *
+ * 상태 코드를 필드로 남기는 이유: 401(키)과 404(폼 ID)는 사용자가 고쳐야 할 곳이
+ * 다른데, 메시지 문자열을 정규식으로 되짚어 구분하면 문구를 다듬는 순간 조용히 깨진다.
+ * 메시지 형식은 기존 계약 그대로 둬서 호출부가 영향을 받지 않는다.
+ */
+export class WallaRequestError extends Error {
+  constructor(
+    readonly status: number,
+    readonly path: string,
+  ) {
+    // 본문에 키가 되비쳐 올 수 있다. 상태 코드만 남기고 본문은 버린다.
+    super(`Walla 요청 실패 (${status}): ${path}`);
+    this.name = "WallaRequestError";
+  }
+}
+
 export interface WallaFetchResult {
   ok: boolean;
   status: number;
@@ -59,10 +77,7 @@ export function createWallaClient(opts: WallaClientOptions): WallaClient {
       // fetch 구현체가 헤더째 오류에 실을 수 있어 원문을 흘리지 않는다.
       throw new Error(`Walla 요청 실패: ${path}`);
     }
-    if (!res.ok) {
-      // 본문에 키가 되비쳐 올 수 있다. 상태 코드만 남기고 본문은 버린다.
-      throw new Error(`Walla 요청 실패 (${res.status}): ${path}`);
-    }
+    if (!res.ok) throw new WallaRequestError(res.status, path);
     return res.json();
   }
 
