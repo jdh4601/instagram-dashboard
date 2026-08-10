@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { X } from "lucide-react";
+import { X, ChevronRight } from "lucide-react";
 import type { Reel, AccountSnapshot, AccountProfile, Application } from "@/lib/schemas";
 import { buildAccountOverview } from "@/lib/analysis/accountOverview";
 import { latestFollowerDelta } from "@/lib/analysis/followerTrend";
@@ -19,11 +19,10 @@ import { Input, Button } from "@/components/ui";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { DashboardToast, type SyncToast } from "@/components/DashboardToast";
 import { ChatPanel } from "@/components/chat/ChatPanel";
-import { ReelList } from "@/components/ReelList";
+import { MediaTypeToggle } from "@/components/MediaTypeToggle";
 import { FollowerGrowthChart } from "@/components/FollowerGrowthChart";
 import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { filterByMedia, type MediaFilter } from "@/lib/ui/mediaFilter";
-import type { EarlyViewsMap } from "@/lib/ui/reelSelect";
 import { readNdjson } from "@/lib/ui/ndjsonStream";
 import { buildSyncToast } from "@/lib/ui/syncToast";
 import type { SyncProgress, SyncResult } from "@/lib/graph/sync";
@@ -33,7 +32,6 @@ const TOKEN_WARN_DAYS = 50;
 
 export default function Page() {
   const [reels, setReels] = useState<Reel[]>([]);
-  const [earlyViews, setEarlyViews] = useState<EarlyViewsMap>({});
   const [snapshots, setSnapshots] = useState<AccountSnapshot[]>([]);
   const [profile, setProfile] = useState<AccountProfile | null>(null);
   // 신청 폼 미연동과 "신청 0건"을 구분해야 해서 빈 배열이 아니라 null로 시작한다.
@@ -99,7 +97,6 @@ export default function Page() {
         refreshedResponses.map((response) => response.json()),
       );
       setReels(reelsRes.reels);
-      setEarlyViews(reelsRes.earlyViews ?? {});
       setSnapshots(snapsRes.snapshots);
       setProfile(profileRes.profile);
       setApplications(applicationsRes.applications ?? []);
@@ -139,7 +136,6 @@ export default function Page() {
 
       if (reelsResult.status === "fulfilled") {
         setReels(reelsResult.value.reels ?? []);
-        setEarlyViews(reelsResult.value.earlyViews ?? {});
       }
       if (snapshotsResult.status === "fulfilled") setSnapshots(snapshotsResult.value.snapshots ?? []);
       if (profileResult.status === "fulfilled") setProfile(profileResult.value.profile ?? null);
@@ -251,6 +247,9 @@ export default function Page() {
               {/* 리듬은 필터와 무관하게 계정 전체 업로드를 보여준다 */}
               <UploadRhythmCard reels={reels} />
             </div>
+            <div className="flex justify-end">
+              <MediaTypeToggle value={mediaFilter} onChange={setMediaFilter} />
+            </div>
             <AccountOverview overview={overview} />
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
               <AccountFunnelCard funnel={funnel} />
@@ -262,13 +261,15 @@ export default function Page() {
 
             <DashboardMetrics metrics={dashboardMetrics} />
 
-            <ReelList
-              reels={visibleReels}
-              filter={mediaFilter}
-              onFilterChange={setMediaFilter}
-              syncing={syncing}
-              earlyViews={earlyViews}
-            />
+            <div className="flex justify-end">
+              <Link
+                href="/reels"
+                className="inline-flex min-h-11 items-center gap-1 rounded-lg px-3 text-sm font-medium text-brand-600 hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+              >
+                게시물 {reels.length}개 전체 보기
+                <ChevronRight size={16} aria-hidden />
+              </Link>
+            </div>
 
             <form
               onSubmit={addSnapshot}
