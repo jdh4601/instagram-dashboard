@@ -57,7 +57,7 @@ const dateParts = new Intl.DateTimeFormat("en-CA", {
 });
 
 /** 한국 시간 기준 YYYY-MM-DD */
-function toLocalDate(value: Date): string {
+export function toSeoulDate(value: Date): string {
   return dateParts.format(value);
 }
 
@@ -118,10 +118,10 @@ export function buildUploadRhythm(
   now: Date = new Date(),
 ): UploadRhythm {
   const posted = reels
-    .map((reel) => ({ date: toLocalDate(new Date(reel.postedAt)), kind: mediaKindOf(reel), views: reel.views }))
+    .map((reel) => ({ date: toSeoulDate(new Date(reel.postedAt)), kind: mediaKindOf(reel), views: reel.views }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  const today = toLocalDate(now);
+  const today = toSeoulDate(now);
   const currentMonth = parseYearMonth(today);
   const latestMonth = posted.length > 0 ? parseYearMonth(posted[posted.length - 1].date) : currentMonth;
   const earliestMonth = posted.length > 0 ? parseYearMonth(posted[0].date) : currentMonth;
