@@ -1,6 +1,6 @@
 import { syncFromGraph } from "@/lib/graph/sync";
 import type { GraphClient } from "@/lib/graph/client";
-import type { Reel } from "@/lib/schemas";
+import { PRINCIPLE_IDS, type Reel } from "@/lib/schemas";
 
 function graphClient(): GraphClient {
   const media = {
@@ -125,7 +125,15 @@ test("동기화는 저장된 분석 캐시를 보존한다", async () => {
     summary: "요약",
     idea: { coreIdea: "a", valueProposition: "b", targetAudience: "c", differentiator: "d" },
     hook: { line: "훅", type: "curiosity" as const, template: "[x]하면 [y]", why: "이유" },
-    story: { format: "문제→해결", beats: [{ stage: "intro" as const, label: "도입", summary: "요약" }] },
+    story: {
+      formatId: "heros-journey",
+      confidence: "high" as const,
+      rationale: "문제 → 해법",
+      beats: [{ beatId: "intro", present: true, summary: "요약" }],
+      secretSauceMet: "공감",
+      secretSauceMissed: "증명",
+    },
+    principles: PRINCIPLE_IDS.map((id) => ({ id, score: 3, evidence: "근거", fix: "개선" })),
   };
   const existing = {
     id: "r1",

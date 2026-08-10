@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Mic, FlaskConical, KeyRound, LayoutList, Loader2 } from "lucide-react";
-import type { Reel, ReelAnalysis, StoryBeat } from "@/lib/schemas";
+import type { Reel, ReelAnalysis } from "@/lib/schemas";
 import {
   REEL_ANALYSIS_TABS,
   DEFAULT_TAB_ID,
@@ -9,6 +9,7 @@ import {
   type ReelAnalysisTabId,
 } from "@/lib/ui/reelAnalysisTabs";
 import { CopyButton, EmptyState, cn } from "@/components/ui";
+import { StorytellingReport } from "@/components/StorytellingReport";
 
 const TAB_ICONS: Record<ReelAnalysisTabId, typeof Mic> = {
   transcript: Mic,
@@ -25,13 +26,6 @@ const HOOK_TYPE_LABELS: Record<string, string> = {
   "result-proof": "결과 증명",
   "how-to": "방법 제시",
   other: "기타",
-};
-
-const STAGE_LABELS: Record<string, string> = {
-  intro: "도입",
-  development: "전개",
-  turn: "전환",
-  closing: "마무리",
 };
 
 interface Props {
@@ -55,12 +49,6 @@ function Field({ label, value }: { label: string; value: string }) {
       <p className="text-sm leading-relaxed text-neutral-700">{value}</p>
     </div>
   );
-}
-
-function beatTime(beat: StoryBeat): string | null {
-  if (beat.startSec == null) return null;
-  const end = beat.endSec != null ? `-${beat.endSec}` : "";
-  return `${beat.startSec}${end}s`;
 }
 
 export function ReelAnalysisPanel({ reel, analysis, onAnalyze, onTranscribe }: Props) {
@@ -289,31 +277,5 @@ function HookTab({ analysis }: { analysis: ReelAnalysis }) {
 }
 
 function StoryTab({ analysis }: { analysis: ReelAnalysis }) {
-  return (
-    <div className="space-y-4">
-      <Field label="구조" value={analysis.story.format} />
-      <ol className="space-y-2">
-        {analysis.story.beats.map((beat, index) => (
-          <li
-            key={`${beat.stage}-${index}`}
-            className="rounded-lg border border-border-subtle bg-surface-muted/40 p-3"
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-md bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700">
-                {STAGE_LABELS[beat.stage] ?? beat.stage}
-              </span>
-              <span className="text-sm font-medium text-neutral-900">{beat.label}</span>
-              {beatTime(beat) && (
-                <span className="text-xs text-neutral-400">{beatTime(beat)}</span>
-              )}
-            </div>
-            <p className="mt-1 text-sm leading-relaxed text-neutral-700">{beat.summary}</p>
-            {beat.quote && (
-              <p className="mt-1 text-xs italic text-neutral-500">&ldquo;{beat.quote}&rdquo;</p>
-            )}
-          </li>
-        ))}
-      </ol>
-    </div>
-  );
+  return <StorytellingReport story={analysis.story} principles={analysis.principles} />;
 }

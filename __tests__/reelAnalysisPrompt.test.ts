@@ -3,7 +3,7 @@ import {
   generateReelAnalysis,
   parseReelAnalysis,
 } from "@/lib/recommend/reelAnalysis";
-import type { Reel } from "@/lib/schemas";
+import { PRINCIPLE_IDS, type Reel } from "@/lib/schemas";
 
 function reel(overrides: Partial<Reel> = {}): Reel {
   return {
@@ -29,7 +29,7 @@ function reel(overrides: Partial<Reel> = {}): Reel {
 }
 
 const VALID_RESPONSE = JSON.stringify({
-  summary: "훅은 강했지만 중반 전환이 늦어 이탈이 났다. 마무리 CTA는 저장으로 이어졌다.",
+  summary: "훅은 강했지만 중반 전환이 늦어 이탈이 났다.",
   idea: {
     coreIdea: "노동 시간이 아니라 구조가 매출을 만든다",
     valueProposition: "일하는 시간을 줄이면서 매출을 올리는 기준을 얻는다",
@@ -43,14 +43,26 @@ const VALID_RESPONSE = JSON.stringify({
     why: "통념을 부정해 확인 욕구를 만든다",
   },
   story: {
-    format: "통념 부정 → 개인 경험 → 반전 → 제안",
+    formatId: "heros-journey",
+    confidence: "high",
+    rationale: "문제 → 실패 → 해법 순서가 그대로 나타난다",
     beats: [
-      { stage: "intro", label: "통념 부정", startSec: 0, endSec: 2.5, summary: "훅", quote: "이걸 안 합니다" },
-      { stage: "development", label: "경험 공유", startSec: 2.5, endSec: 10, summary: "본인 사례" },
-      { stage: "turn", label: "반전", startSec: 10, endSec: 30, summary: "결과가 없었다" },
-      { stage: "closing", label: "행동 유도", startSec: 30, endSec: 40, summary: "링크 안내" },
+      { beatId: "intro", present: true, startSec: 0, endSec: 2.5, summary: "문제 제기", quote: "이걸 안 합니다" },
+      { beatId: "inflection-point", present: true, startSec: 2.5, endSec: 10, summary: "통증" },
+      { beatId: "rising-action", present: false, summary: "실패한 시도가 통째로 없다" },
+      { beatId: "climax", present: false, summary: "해법을 밝히지 않는다" },
+      { beatId: "falling-action", present: false, summary: "결과 증명이 없다" },
+      { beatId: "resolution", present: true, startSec: 30, endSec: 40, summary: "링크 안내" },
     ],
+    secretSauceMet: "본인의 통증을 먼저 꺼내 공감을 만든다",
+    secretSauceMissed: "실패 과정이 없어 해법의 무게가 실리지 않는다",
   },
+  principles: PRINCIPLE_IDS.map((id) => ({
+    id,
+    score: 3,
+    evidence: `${id} 근거`,
+    fix: `${id} 개선안`,
+  })),
 });
 
 test("프롬프트에 자막을 시각과 함께 싣는다", () => {
@@ -60,12 +72,30 @@ test("프롬프트에 자막을 시각과 함께 싣는다", () => {
   expect(userText).toContain("[0-2.5s]");
 });
 
-test("프롬프트는 탭 4개를 한 번에 요구한다", () => {
+test("프롬프트는 10개 포맷 카탈로그를 후보로 실어 준다", () => {
+  const { userText, system } = buildReelAnalysisPrompt(reel());
+  const whole = `${system}\n${userText}`;
+
+  // 모델이 포맷 id를 지어내면 스키마에서 걸린다. 후보를 미리 보여 준다.
+  expect(whole).toContain("heros-journey");
+  expect(whole).toContain("before-after");
+  expect(whole).toContain("lesson-from-others");
+});
+
+test("프롬프트에 자막에서 잰 객관 수치가 들어간다", () => {
+  const { userText } = buildReelAnalysisPrompt(reel());
+
+  // 인상이 아니라 수치를 근거로 삼게 한다.
+  expect(userText).toContain("초당");
+  expect(userText).toContain("짧은 문장");
+  expect(userText).toContain("훅 구간");
+});
+
+test("프롬프트는 8가지 원리를 모두 이름으로 요구한다", () => {
   const { system } = buildReelAnalysisPrompt(reel());
 
-  // 탭마다 호출하면 같은 자막을 네 번 보내 비용이 4배가 된다.
-  for (const key of ["summary", "idea", "hook", "story"]) {
-    expect(system).toContain(key);
+  for (const id of PRINCIPLE_IDS) {
+    expect(system).toContain(id);
   }
 });
 
@@ -77,9 +107,9 @@ test("자막이 없으면 프롬프트를 만들지 않고 던진다", () => {
 test("모델 응답을 스키마로 검증해 파싱한다", () => {
   const parsed = parseReelAnalysis(VALID_RESPONSE);
 
-  expect(parsed.hook.type).toBe("contrarian");
-  expect(parsed.story.beats).toHaveLength(4);
-  expect(parsed.idea.targetAudience).toContain("1인 창업가");
+  expect(parsed.story.formatId).toBe("heros-journey");
+  expect(parsed.story.beats.filter((b) => !b.present)).toHaveLength(3);
+  expect(parsed.principles).toHaveLength(8);
 });
 
 test("코드펜스로 감싼 응답도 읽어낸다", () => {
@@ -87,21 +117,24 @@ test("코드펜스로 감싼 응답도 읽어낸다", () => {
   expect(parseReelAnalysis(fenced).summary).toContain("훅은 강했지만");
 });
 
+test("카탈로그에 없는 비트 id는 조용히 넘어가지 않고 던진다", () => {
+  const body = JSON.parse(VALID_RESPONSE);
+  const strayBeat = JSON.stringify({
+    ...body,
+    story: { ...body.story, beats: [{ beatId: "made-up-beat", present: true, summary: "x" }] },
+  });
+
+  // 포맷에 없는 비트를 통과시키면 화면이 라벨을 못 찾아 빈칸이 된다.
+  expect(() => parseReelAnalysis(strayBeat)).toThrow(/비트/);
+});
+
 test("스키마와 어긋난 응답은 조용히 넘어가지 않고 던진다", () => {
-  const missingHook = JSON.stringify({ ...JSON.parse(VALID_RESPONSE), hook: undefined });
-  expect(() => parseReelAnalysis(missingHook)).toThrow();
+  const body = JSON.parse(VALID_RESPONSE);
 
-  const unknownHookType = JSON.stringify({
-    ...JSON.parse(VALID_RESPONSE),
-    hook: { ...JSON.parse(VALID_RESPONSE).hook, type: "아무거나" },
-  });
-  expect(() => parseReelAnalysis(unknownHookType)).toThrow();
-
-  const emptyBeats = JSON.stringify({
-    ...JSON.parse(VALID_RESPONSE),
-    story: { format: "x", beats: [] },
-  });
-  expect(() => parseReelAnalysis(emptyBeats)).toThrow();
+  expect(() => parseReelAnalysis(JSON.stringify({ ...body, hook: undefined }))).toThrow();
+  expect(() =>
+    parseReelAnalysis(JSON.stringify({ ...body, principles: body.principles.slice(0, 3) })),
+  ).toThrow();
 });
 
 test("JSON이 아예 없는 응답은 무엇이 틀렸는지 알려준다", () => {
@@ -114,5 +147,6 @@ test("모델을 호출해 검증된 분석을 돌려준다", async () => {
   const result = await generateReelAnalysis(reel(), model);
 
   expect(result.hook.template).toContain("[흔한 행동]");
+  expect(result.story.confidence).toBe("high");
   expect(model.generate).toHaveBeenCalledTimes(1);
 });

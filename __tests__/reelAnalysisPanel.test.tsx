@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { ReelAnalysisPanel } from "@/components/ReelAnalysisPanel";
-import type { Reel, ReelAnalysis } from "@/lib/schemas";
+import { PRINCIPLE_IDS, type Reel, type ReelAnalysis } from "@/lib/schemas";
 
 function reel(overrides: Partial<Reel> = {}): Reel {
   return {
@@ -37,12 +37,17 @@ const analysis: ReelAnalysis = {
     why: "통념을 부정해 확인 욕구를 만든다",
   },
   story: {
-    format: "통념 부정 → 경험 → 반전 → 제안",
+    formatId: "heros-journey",
+    confidence: "high",
+    rationale: "문제 → 실패 → 해법 순서가 그대로 나타난다",
     beats: [
-      { stage: "intro", label: "통념 부정", startSec: 0, endSec: 2.5, summary: "훅" },
-      { stage: "development", label: "경험 공유", startSec: 2.5, endSec: 10, summary: "본인 사례" },
+      { beatId: "intro", present: true, startSec: 0, endSec: 2.5, summary: "훅" },
+      { beatId: "inflection-point", present: true, startSec: 2.5, endSec: 10, summary: "본인 사례" },
     ],
+    secretSauceMet: "본인의 통증을 먼저 꺼낸다",
+    secretSauceMissed: "실패 과정이 없다",
   },
+  principles: PRINCIPLE_IDS.map((id) => ({ id, score: 3, evidence: "근거", fix: "개선안" })),
 };
 
 function render(props: Partial<Parameters<typeof ReelAnalysisPanel>[0]> = {}): string {

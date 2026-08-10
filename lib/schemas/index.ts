@@ -85,7 +85,9 @@ export const ReelSchema = z.object({
   // 이 값이 아니라 릴스 id에서 다시 만든다 — lib/media/videoCache.ts 참고.
   videoFile: z.string().optional(),
   // 분석 탭 4개가 함께 쓰는 LLM 캐시. 한 번 호출해 받아 둔다.
-  reelAnalysis: ReelAnalysisSchema.optional(),
+  // 분석 스키마가 바뀌면 예전 구조로 캐시된 값이 남는다. catch로 받아내지 않으면
+  // 그 릴스 전체가 파싱에 실패해 대시보드가 통째로 빈다. 분석만 버리고 릴스는 살린다.
+  reelAnalysis: ReelAnalysisSchema.optional().catch(undefined),
   derived: DerivedRatesSchema.optional(),
 });
 export type Reel = z.infer<typeof ReelSchema>;
