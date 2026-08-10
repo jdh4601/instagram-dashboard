@@ -174,3 +174,6 @@ export type Application = z.infer<typeof ApplicationSchema>;
 // 릴스 분석 탭(Idea·Hook·Storytelling) 스키마는 별도 모듈에 있다. 소비자가 한 곳에서
 // 가져올 수 있게 여기서 다시 내보낸다.
 export * from "@/lib/schemas/reelAnalysis";
+
+// 훅 보관함은 릴스 지표와 공유하는 필드가 없어 파일을 따로 둔다.
+export * from "./hook";

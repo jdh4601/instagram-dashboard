@@ -86,3 +86,29 @@ test("SQLite workspace implements account, profile, and reel history contracts",
     store.close?.();
   }
 });
+
+test("SQLite workspace implements the hook bookmark contract", async () => {
+  const store = workspace();
+  try {
+    const hook = {
+      id: "h1",
+      text: "이걸 모르면 1년을 날립니다",
+      category: "problem" as const,
+      isFavorite: false,
+      createdAt: "2026-08-01T09:00:00.000Z",
+      updatedAt: "2026-08-01T09:00:00.000Z",
+    };
+    await store.hooks.upsert({ ...hook, id: "h2", createdAt: "2026-08-02T09:00:00.000Z" });
+    await store.hooks.upsert(hook);
+    await store.hooks.upsert({ ...hook, isFavorite: true });
+
+    // 생성 시각 오름차순 — JSON 어댑터와 같은 순서여야 화면이 어댑터를 안 탄다.
+    expect((await store.hooks.list()).map((h) => h.id)).toEqual(["h1", "h2"]);
+    expect(await store.hooks.get("h1")).toMatchObject({ isFavorite: true });
+    expect(await store.hooks.remove("h1")).toBe(true);
+    expect(await store.hooks.remove("h1")).toBe(false);
+    expect(await store.hooks.get("h1")).toBeNull();
+  } finally {
+    store.close?.();
+  }
+});

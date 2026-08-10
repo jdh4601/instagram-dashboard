@@ -5,6 +5,7 @@ import {
   AccountProfileSchema,
   AccountSnapshotSchema,
   ApplicationSchema,
+  HookSchema,
   ReelMetricSnapshotSchema,
   ReelSchema,
   type AccountProfile,
@@ -251,12 +252,34 @@ export function createSqliteRepositories(databasePath: string): WorkspaceReposit
     },
   };
 
+  // 훅은 id가 유일 키, createdAt이 정렬 키다. 범용 네임스페이스 테이블이라
+  // 마이그레이션 없이 새 네임스페이스만 얹는다.
+  const hooks: WorkspaceRepositories["hooks"] = {
+    async list() {
+      return payloadRows(listByNamespace, (value) => HookSchema.parse(value), "hook");
+    },
+    async get(id) {
+      return payloadRow(getByKey, (value) => HookSchema.parse(value), "hook", id);
+    },
+    async upsert(hook) {
+      const validated = HookSchema.parse(hook);
+      inTransaction(db, () => {
+        upsert.run("hook", validated.id, null, validated.createdAt, JSON.stringify(validated));
+      });
+      return validated;
+    },
+    async remove(id) {
+      return inTransaction(db, () => Number(removeByKey.run("hook", id).changes) > 0);
+    },
+  };
+
   return {
     reels,
     accounts,
     profile,
     reelHistory,
     applications,
+    hooks,
     close: () => {
       hardenDatabaseFiles(databasePath);
       db.close();
