@@ -164,3 +164,6 @@ export const ApplicationSchema = z.object({
   content: z.string().optional(),
 });
 export type Application = z.infer<typeof ApplicationSchema>;
+
+// 훅 보관함은 릴스 지표와 공유하는 필드가 없어 파일을 따로 둔다.
+export * from "./hook";

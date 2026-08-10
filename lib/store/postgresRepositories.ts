@@ -3,6 +3,7 @@ import {
   AccountProfileSchema,
   AccountSnapshotSchema,
   ApplicationSchema,
+  HookSchema,
   ReelMetricSnapshotSchema,
   ReelSchema,
 } from "@/lib/schemas";
@@ -241,12 +242,47 @@ export function createPostgresRepositories(databaseUrl: string): WorkspaceReposi
     },
   };
 
+  // 훅은 id가 유일 키, createdAt이 정렬 키다.
+  const hooks: WorkspaceRepositories["hooks"] = {
+    async list() {
+      await ready;
+      const rows = await sql<PayloadRow[]>`
+        SELECT payload FROM instagram_dashboard_records
+        WHERE namespace = 'hook'
+        ORDER BY sort_key, record_key
+      `;
+      return parseRows(rows, (value) => HookSchema.parse(value));
+    },
+    async get(id) {
+      await ready;
+      const [row] = await sql<PayloadRow[]>`
+        SELECT payload FROM instagram_dashboard_records
+        WHERE namespace = 'hook' AND record_key = ${id}
+      `;
+      return row ? HookSchema.parse(row.payload) : null;
+    },
+    async upsert(hook) {
+      const validated = HookSchema.parse(hook);
+      await upsertRecord("hook", validated.id, null, validated.createdAt, validated);
+      return validated;
+    },
+    async remove(id) {
+      await ready;
+      const result = await sql`
+        DELETE FROM instagram_dashboard_records
+        WHERE namespace = 'hook' AND record_key = ${id}
+      `;
+      return result.count > 0;
+    },
+  };
+
   return {
     reels,
     accounts,
     profile,
     reelHistory,
     applications,
+    hooks,
     close: async () => {
       await ready.catch(() => undefined);
       await sql.end({ timeout: 5 });
