@@ -6,10 +6,21 @@ import type { ReelHistoryRepository } from "@/lib/store/reelHistoryRepository";
 import { classifyMedia, mapMediaToReel, type GraphMedia } from "@/lib/graph/map";
 import { computeDerivedRates } from "@/lib/analysis/metrics";
 import { probeDurationSec } from "@/lib/media/probeDuration";
+import { downloadVideoToCache } from "@/lib/media/videoCache";
+import { resolveRuntimeConfig } from "@/lib/runtime/config";
 import type { MediaKind, Reel } from "@/lib/schemas";
 
 /** media_url에서 영상 길이(초)를 읽는다. 실패는 null. */
 export type DurationProbe = (mediaUrl: string) => Promise<number | null>;
+
+/** mp4를 워크스페이스에 내려받고 저장된 파일명을 돌려준다. */
+export type VideoDownloader = (
+  reelId: string,
+  mediaUrl: string,
+) => Promise<{ fileName: string }>;
+
+const cacheVideoInWorkspace: VideoDownloader = (reelId, mediaUrl) =>
+  downloadVideoToCache(resolveRuntimeConfig().dataDir, reelId, mediaUrl);
 
 /** 동기화 진행 상황. total은 목록을 받은 뒤에야 확정되므로 그 전에는 0이다. */
 export interface SyncProgress {
@@ -70,6 +81,9 @@ function mergeWithExisting(mapped: Reel, existing: Reel | null): Reel {
     // 자막 심층 분석은 LLM 호출 결과를 캐시한 것이라 API 응답에 없다. 보존하지 않으면
     // 동기화할 때마다 사라져 매번 다시 생성해야 한다.
     transcriptInsights: existing.transcriptInsights,
+    // 분석 탭 4개의 LLM 캐시와 내려받은 mp4 표시도 같은 이유로 API 응답에 없다.
+    reelAnalysis: existing.reelAnalysis,
+    videoFile: existing.videoFile,
     caption: mapped.caption ?? existing.caption,
   };
 }
@@ -99,6 +113,30 @@ async function withProbedDuration(
   }
 }
 
+/**
+ * 캐시가 없는 릴스만 mp4를 받아 둔다.
+ *
+ * media_url은 서명이 만료되는 CDN 주소라 나중에 따로 돌릴 수 없다 — 길이 실측과 같은
+ * 사정이다. 이미 받아 둔 릴스는 건드리지 않으므로 비용은 릴스당 한 번뿐이다.
+ * 영상은 보조 자료라, 받지 못해도 게시물 동기화 자체는 성공으로 남긴다.
+ */
+async function withCachedVideo(
+  reel: Reel,
+  media: GraphMedia,
+  kind: MediaKind,
+  download: VideoDownloader,
+): Promise<Reel> {
+  if (kind !== "REELS" || reel.videoFile || !media.media_url) return reel;
+  try {
+    const { fileName } = await download(reel.id, media.media_url);
+    return { ...reel, videoFile: fileName };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`[sync] 릴스 ${reel.id} 영상 캐시 실패 — 상세 화면에서 다시 받을 수 있습니다: ${message}`);
+    return reel;
+  }
+}
+
 export async function syncFromGraph(
   client: GraphClient,
   reelRepo: ReelRepository,
@@ -108,6 +146,7 @@ export async function syncFromGraph(
   historyRepo?: ReelHistoryRepository,
   onProgress?: (progress: SyncProgress) => void,
   probeDuration: DurationProbe = probeDurationSec,
+  downloadVideo: VideoDownloader = cacheVideoInWorkspace,
 ): Promise<SyncResult> {
   const emptyInsights: GraphInsightResult = { metrics: {}, availableMetrics: [], unavailableMetrics: [] };
   const accountInsightsPromise = client.getAccountInsights
@@ -140,12 +179,13 @@ export async function syncFromGraph(
       insights.unavailableMetrics.forEach((metric) => unavailableMetrics.add(metric));
       const mapped = mapMediaToReel(media, insights.metrics, kind);
       const existing = await reelRepo.get(mapped.id);
-      const merged = await withProbedDuration(
+      const withDuration = await withProbedDuration(
         mergeWithExisting(mapped, existing),
         media,
         kind,
         probeDuration,
       );
+      const merged = await withCachedVideo(withDuration, media, kind, downloadVideo);
       await reelRepo.upsert({ ...merged, derived: computeDerivedRates(merged) });
       // 동기화 시점의 지표를 이력으로 누적(조회수/도달 추이용)
       if (historyRepo) {

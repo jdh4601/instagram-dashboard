@@ -22,3 +22,7 @@ next-env.d.ts
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
+
+# 내려받은 릴스 mp4 캐시. data/가 이미 무시되지만 DATA_DIR을 옮겨도 새어나가지 않게 못박는다.
+videos/
+*.mp4

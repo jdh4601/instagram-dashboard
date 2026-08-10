@@ -113,6 +113,12 @@ export interface GraphClient {
   listMedia(): Promise<MediaListing>;
   getInsights(mediaId: string, kind?: MediaKind): Promise<GraphInsightResult>;
   getAccountInsights?(range: { since: string; until: string }): Promise<GraphInsightResult>;
+  /**
+   * 미디어 한 건의 재생 가능한 mp4 주소. 동기화 목록에서 받은 media_url은 서명이
+   * 만료되므로, 상세 화면에서 영상을 받을 때는 그때 다시 물어봐야 한다.
+   * 이미지·만료된 게시물은 필드가 없어 null이다.
+   */
+  getMediaUrl?(mediaId: string): Promise<string | null>;
 }
 
 export function createGraphClient(opts: Options): GraphClient {
@@ -302,6 +308,11 @@ export function createGraphClient(opts: Options): GraphClient {
         page = await fetchMediaPage(next);
       }
       return { analyzable, allIds };
+    },
+
+    async getMediaUrl(mediaId) {
+      const json = (await request(mediaId, { fields: "media_url" })) as { media_url?: string };
+      return json.media_url ?? null;
     },
 
     async getInsights(mediaId, kind = "REELS") {

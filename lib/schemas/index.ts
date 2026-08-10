@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ReelAnalysisSchema } from "@/lib/schemas/reelAnalysis";
 
 const TranscriptLineSchema = z.object({
   startSec: z.number().nonnegative(),
@@ -80,6 +81,11 @@ export const ReelSchema = z.object({
   permalink: z.string().optional(), // 인스타 원본 링크
   transcript: z.array(TranscriptLineSchema).optional(),
   transcriptInsights: TranscriptInsightsSchema.optional(),
+  // 캐시된 mp4의 파일명(경로가 아니다). 디렉토리는 런타임 설정에서 오고, 파일 열기는
+  // 이 값이 아니라 릴스 id에서 다시 만든다 — lib/media/videoCache.ts 참고.
+  videoFile: z.string().optional(),
+  // 분석 탭 4개가 함께 쓰는 LLM 캐시. 한 번 호출해 받아 둔다.
+  reelAnalysis: ReelAnalysisSchema.optional(),
   derived: DerivedRatesSchema.optional(),
 });
 export type Reel = z.infer<typeof ReelSchema>;
@@ -164,3 +170,7 @@ export const ApplicationSchema = z.object({
   content: z.string().optional(),
 });
 export type Application = z.infer<typeof ApplicationSchema>;
+
+// 릴스 분석 탭(Idea·Hook·Storytelling) 스키마는 별도 모듈에 있다. 소비자가 한 곳에서
+// 가져올 수 있게 여기서 다시 내보낸다.
+export * from "@/lib/schemas/reelAnalysis";
