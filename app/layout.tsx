@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { ReactNode } from "react";
+import { AppShell } from "@/components/AppShell";
 
 export const metadata = { title: "릴스 분석 대시보드" };
 
@@ -17,7 +18,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="bg-neutral-50 text-neutral-900">{children}</body>
+      <body className="bg-neutral-50 text-neutral-900">
+        <AppShell>{children}</AppShell>
+      </body>
     </html>
   );
 }

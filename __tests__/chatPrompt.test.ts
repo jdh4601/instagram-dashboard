@@ -31,6 +31,16 @@ test("system 프롬프트가 근거 없는 단정을 금지한다", () => {
   expect(prompt).toContain("데이터가 부족하면");
 });
 
+test("system 프롬프트가 카드·지표 표기법을 알려준다", () => {
+  const prompt = buildChatSystemPrompt(CONTEXT, []);
+
+  // 파서가 실제로 읽는 태그와 어긋나면 화면이 줄글로 되돌아간다.
+  expect(prompt).toContain("[강점]");
+  expect(prompt).toContain("[약점]");
+  expect(prompt).toContain("[지표]");
+  expect(prompt).toContain("::");
+});
+
 test("지목된 게시물이 있으면 자막까지 덧붙인다", () => {
   const prompt = buildChatSystemPrompt(CONTEXT, [
     reel({

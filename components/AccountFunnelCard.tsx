@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import {
   ArrowDown,
+  FileCheck2,
   MousePointerClick,
   UserPlus,
   UserRoundSearch,
@@ -111,9 +112,56 @@ export function AccountFunnelCard({ funnel }: Props) {
               benchmarkKey="linkClickRate"
             />
           </div>
+
+          <ApplicationStep funnel={funnel} />
         </section>
       </CardBody>
     </Card>
+  );
+}
+
+/**
+ * 링크 클릭 다음 구간. Graph 밖 데이터(신청 폼)라 연동했을 때만 나타난다.
+ *
+ * 폼을 붙이지 않은 사용자에게 빈 칸을 보여 주면 측정 실패처럼 읽히므로, 미연동이면
+ * 단계 자체를 그리지 않는다.
+ */
+function ApplicationStep({ funnel }: { funnel: AccountFunnel }) {
+  if (funnel.applications === null) return null;
+
+  const bio = funnel.bioApplications ?? 0;
+  // 분자는 바이오 유입만이다. 총 신청과 다르면 그 사실을 숫자 옆에 밝혀야
+  // 사용자가 총 신청 ÷ 클릭으로 직접 계산했을 때 어긋나는 이유를 알 수 있다.
+  const mixed = funnel.applications !== bio;
+
+  return (
+    <>
+      <div className="relative flex h-12 items-center justify-center">
+        <span
+          className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-brand-200"
+          aria-hidden="true"
+        />
+        <span className="relative inline-flex items-center gap-1 rounded-full border border-brand-200 bg-surface px-2.5 py-1 text-[11px] font-medium tabular-nums text-brand-700">
+          <ArrowDown size={11} aria-hidden="true" />
+          {funnel.applyRate === null
+            ? "신청 전환율 미측정"
+            : `${fmtPct(funnel.applyRate)} 신청 전환`}
+        </span>
+      </div>
+
+      <div className="rounded-xl border border-brand-200 bg-brand-50/50 p-3.5">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <MetricIdentity
+            label="지원 신청"
+            value={fmtCount(funnel.applications)}
+            icon={<FileCheck2 size={15} aria-hidden="true" />}
+          />
+          <p className="text-right text-[11px] leading-relaxed text-neutral-500">
+            {mixed ? `바이오 ${fmtCount(bio)}건이 링크 클릭 대비 전환율의 분자다` : "바이오 링크 클릭 대비"}
+          </p>
+        </div>
+      </div>
+    </>
   );
 }
 

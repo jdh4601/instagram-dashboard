@@ -10,6 +10,13 @@ import {
   type ChatProviderId,
   type CliProviderId,
 } from "@/lib/llm/cliProviders";
+import { describeWallaProbe, type WallaProbeNotice } from "@/lib/ui/wallaProbeMessage";
+
+const WALLA_NOTICE_STYLES: Record<WallaProbeNotice["tone"], string> = {
+  success: "text-green-600",
+  warning: "text-amber-600",
+  error: "text-red-600",
+};
 
 const PROVIDER_LABELS: Record<ProviderId, string> = {
   anthropic: "Anthropic (Claude)",
@@ -49,6 +56,11 @@ interface MaskedSettings {
     configurationError: boolean;
   };
   instagramTokenExpiresAt: string | null;
+  walla: {
+    configured: boolean;
+    maskedKey: string | null;
+    formId: string | null;
+  };
 }
 
 export default function SettingsPage() {
@@ -58,6 +70,10 @@ export default function SettingsPage() {
   const [keyInputs, setKeyInputs] = useState<Record<string, string>>({});
   const [modelInputs, setModelInputs] = useState<Record<string, string>>({});
   const [igToken, setIgToken] = useState("");
+  const [wallaKey, setWallaKey] = useState("");
+  const [wallaFormId, setWallaFormId] = useState("");
+  const [wallaTesting, setWallaTesting] = useState(false);
+  const [wallaNotice, setWallaNotice] = useState<WallaProbeNotice | null>(null);
   const [status, setStatus] = useState("");
 
   useEffect(() => {
@@ -73,6 +89,9 @@ export default function SettingsPage() {
     const models: Record<string, string> = {};
     for (const id of PROVIDER_ORDER) models[id] = d.providers[id].model;
     setModelInputs(models);
+    // 폼 ID는 비밀이 아니라 마스킹하지 않는다. 저장된 값을 그대로 보여 줘야
+    // 어느 폼에 붙었는지 확인하고 고칠 수 있다.
+    setWallaFormId(d.walla.formId ?? "");
   }
 
   useEffect(() => {
@@ -96,6 +115,7 @@ export default function SettingsPage() {
         chatProvider,
         providers,
         instagram: { accessToken: igToken },
+        walla: { apiKey: wallaKey, formId: wallaFormId },
       }),
     });
     if (!res.ok) {
@@ -105,7 +125,34 @@ export default function SettingsPage() {
     load(await res.json());
     setKeyInputs({});
     setIgToken("");
+    setWallaKey("");
     setStatus("저장됨 ✓");
+  }
+
+  /**
+   * 저장하지 않은 입력값으로도 시험한다 — 키가 맞는지 알아보려고 멀쩡한 키를
+   * 덮어쓰게 되면 테스트 버튼의 의미가 없다. 빈 칸은 저장된 값으로 넘어간다.
+   */
+  async function testWalla() {
+    setWallaTesting(true);
+    setWallaNotice(null);
+    try {
+      const res = await fetch("/api/settings/walla/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: wallaKey, formId: wallaFormId }),
+      });
+      const payload = await res.json();
+      if (!res.ok) {
+        setWallaNotice({ tone: "error", message: payload.error ?? "연결 테스트 실패" });
+        return;
+      }
+      setWallaNotice(describeWallaProbe(payload));
+    } catch {
+      setWallaNotice({ tone: "error", message: "연결 테스트를 보내지 못했습니다" });
+    } finally {
+      setWallaTesting(false);
+    }
   }
 
   async function disconnectInstagram() {
@@ -318,6 +365,64 @@ export default function SettingsPage() {
             >
               저장된 Instagram 연결 해제
             </button>
+          )}
+        </div>
+
+        <div className="space-y-2 border-t pt-4">
+          <h2 className="text-sm font-semibold">지원 신청 폼 (Walla)</h2>
+          <p className="text-xs text-neutral-600">
+            바이오 링크 클릭 다음 구간은 Instagram이 알려 주지 않습니다. 신청 폼의 응답을
+            끌어와야 클릭 → 신청 전환율이 채워집니다. API 키는{" "}
+            <code>app.walla.my/open-api/doc</code>에서 발급합니다.
+          </p>
+          <p className="text-xs text-neutral-600">
+            폼 설정의 &ldquo;숨김 필드 편집&rdquo;에 <code>utm_source</code>,{" "}
+            <code>utm_medium</code>, <code>utm_campaign</code>을 만들고, 배포하는 링크마다
+            값을 붙이세요. 숨김 필드가 없으면 신청 수만 세고 전환율은 나오지 않습니다.
+          </p>
+          <input
+            type="password"
+            className="border rounded px-2 py-1 w-full text-sm"
+            placeholder={
+              data.walla.maskedKey
+                ? `등록됨 (${data.walla.maskedKey}) — 변경 시에만 입력`
+                : "Walla API 키 붙여넣기"
+            }
+            value={wallaKey}
+            onChange={(e) => {
+              setWallaKey(e.target.value);
+              // 값을 고친 뒤에도 이전 결과가 남아 있으면 새 키를 확인한 것처럼 읽힌다.
+              setWallaNotice(null);
+            }}
+          />
+          <input
+            type="text"
+            className="border rounded px-2 py-1 w-full text-sm"
+            placeholder="폼 ID (Walla 폼 주소에서 확인)"
+            value={wallaFormId}
+            onChange={(e) => {
+              setWallaFormId(e.target.value);
+              setWallaNotice(null);
+            }}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" onClick={testWalla} disabled={wallaTesting}>
+              {wallaTesting ? "확인 중…" : "연결 테스트"}
+            </Button>
+            {wallaNotice && (
+              <span
+                role="status"
+                aria-live="polite"
+                className={`text-xs ${WALLA_NOTICE_STYLES[wallaNotice.tone]}`}
+              >
+                {wallaNotice.message}
+              </span>
+            )}
+          </div>
+          {data.walla.configured && (
+            <p className="text-xs text-neutral-500">
+              연동됨 — 동기화할 때 신청이 함께 갱신됩니다.
+            </p>
           )}
         </div>
 

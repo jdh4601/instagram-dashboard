@@ -1,5 +1,5 @@
 import { accountFunnelVerdicts, buildAccountFunnel } from "@/lib/analysis/accountFunnel";
-import type { AccountSnapshot } from "@/lib/schemas";
+import type { AccountSnapshot, Application } from "@/lib/schemas";
 
 function snapshot(overrides: Partial<AccountSnapshot> = {}): AccountSnapshot {
   return {
@@ -219,4 +219,97 @@ test("측정 안 된 지표는 null로 판정", () => {
 
   expect(verdicts.viewRate).toBeNull();
   expect(verdicts.followRate).toBeNull();
+});
+
+// ── 신청(Walla) 연결 구간 ──────────────────────────────────────────────
+
+function app(overrides: Partial<Application> = {}): Application {
+  return {
+    responseId: `r-${Math.random()}`,
+    submittedAt: "2026-07-27T09:00:00Z",
+    source: "instagram",
+    medium: "bio",
+    ...overrides,
+  };
+}
+
+test("신청을 넘기지 않으면 신청 지표는 null이다", () => {
+  // 미연동과 "신청 0건"은 다르다. 0으로 채우면 전환율이 0%로 보인다.
+  const funnel = buildAccountFunnel([snapshot()])!;
+
+  expect(funnel.applications).toBeNull();
+  expect(funnel.bioApplications).toBeNull();
+  expect(funnel.applyRate).toBeNull();
+});
+
+test("빈 신청 목록은 0건으로 센다", () => {
+  const funnel = buildAccountFunnel([snapshot()], [])!;
+
+  expect(funnel.applications).toBe(0);
+  expect(funnel.applyRate).toBe(0);
+});
+
+test("7일 창 안의 신청만 센다", () => {
+  // 창은 스냅샷 날짜(2026-07-27)에서 6일 전(2026-07-21)까지다.
+  const funnel = buildAccountFunnel(
+    [snapshot()],
+    [
+      app({ submittedAt: "2026-07-21T00:00:00Z" }),
+      app({ submittedAt: "2026-07-27T23:59:00Z" }),
+      app({ submittedAt: "2026-07-20T23:59:00Z" }),
+      app({ submittedAt: "2026-07-28T00:00:00Z" }),
+    ],
+  )!;
+
+  expect(funnel.applications).toBe(2);
+});
+
+test("applyRate는 바이오 유입 신청만 분자로 쓴다", () => {
+  // websiteClicks는 바이오 링크 클릭만 센다. 스토리·광고 신청을 분자에 넣으면
+  // 분모에 없는 유입이 섞여 전환율이 부풀어 오른다.
+  const funnel = buildAccountFunnel(
+    [snapshot({ websiteClicksLast7d: 24 })],
+    [app({ medium: "bio" }), app({ medium: "bio" }), app({ medium: "story" }), app({ medium: "paid" })],
+  )!;
+
+  expect(funnel.applications).toBe(4);
+  expect(funnel.bioApplications).toBe(2);
+  expect(funnel.applyRate).toBeCloseTo(8.33, 2);
+});
+
+test("UTM이 없는 신청은 바이오로 치지 않는다", () => {
+  const funnel = buildAccountFunnel([snapshot()], [app({ medium: undefined })])!;
+
+  expect(funnel.applications).toBe(1);
+  expect(funnel.bioApplications).toBe(0);
+});
+
+test("링크 클릭이 측정되지 않으면 applyRate는 null이다", () => {
+  const funnel = buildAccountFunnel(
+    [snapshot({ websiteClicksLast7d: undefined })],
+    [app()],
+  )!;
+
+  expect(funnel.applications).toBe(1);
+  expect(funnel.applyRate).toBeNull();
+});
+
+test("매체별 신청 수를 갈라 준다", () => {
+  const funnel = buildAccountFunnel(
+    [snapshot()],
+    [app({ medium: "bio" }), app({ medium: "paid" }), app({ medium: "paid" }), app({ medium: undefined })],
+  )!;
+
+  expect(funnel.applicationsByMedium).toEqual({ bio: 1, paid: 2, unknown: 1 });
+});
+
+test("신청이 클릭보다 많으면 100%를 넘겨 그대로 보여준다", () => {
+  // 클릭한 날과 신청한 날이 달라 창 경계에서 실제로 일어난다. 잘라내면
+  // 지표가 이상하다는 신호까지 함께 사라진다.
+  const funnel = buildAccountFunnel(
+    [snapshot({ websiteClicksLast7d: 1 })],
+    [app(), app()],
+  )!;
+
+  expect(funnel.applyRate).toBeCloseTo(200, 0);
 });

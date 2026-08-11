@@ -21,6 +21,8 @@ import { DurationInput } from "@/components/DurationInput";
 import { ReelConversionFunnel } from "@/components/ReelConversionFunnel";
 import { InsightList } from "@/components/InsightList";
 import { ReelPerformanceDashboard } from "@/components/ReelPerformanceDashboard";
+import { ReelVideoPlayer } from "@/components/ReelVideoPlayer";
+import { ReelAnalysisPanel } from "@/components/ReelAnalysisPanel";
 
 interface ReelNav {
   prevId: string | null;
@@ -83,6 +85,24 @@ export default function ReelDetailPage() {
   );
 }
 
+/**
+ * 전사·분석처럼 "서버가 릴스를 고쳐 쓰는" 동작을 한 곳에 모은다.
+ *
+ * 실패하면 던져서 패널이 사유를 그대로 띄우게 한다 — 여기서 삼키면 버튼만
+ * 멈춘 것처럼 보이고 무엇을 고쳐야 하는지 알 수 없다.
+ */
+async function runReelAction(path: string, onDone: () => void): Promise<void> {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error ?? `요청이 실패했습니다 (${res.status})`);
+  }
+  onDone();
+}
+
 function ReelDetail({
   reel,
   analysis,
@@ -124,18 +144,20 @@ function ReelDetail({
         </div>
       )}
 
-      {/* 헤더 */}
+      {/* 헤더 — 릴스는 아래 플레이어가 썸네일을 대신하므로 여기서 겹쳐 그리지 않는다. */}
       <div className="flex gap-4">
-        <div className={`relative ${isReel ? "aspect-[9/16] w-24" : "aspect-square w-24"} shrink-0 overflow-hidden rounded-card border border-border-subtle bg-neutral-100`}>
-          {reel.thumbnailUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={reel.thumbnailUrl} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-neutral-300">
-              <Film size={26} />
-            </div>
-          )}
-        </div>
+        {!isReel && (
+          <div className="relative aspect-square w-24 shrink-0 overflow-hidden rounded-card border border-border-subtle bg-neutral-100">
+            {reel.thumbnailUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={reel.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-neutral-300">
+                <Film size={26} />
+              </div>
+            )}
+          </div>
+        )}
         <div className="min-w-0 flex-1">
           <h1 className="text-lg font-bold leading-snug text-neutral-900">{reelTitle(reel)}</h1>
           <p className="mt-1 text-sm text-neutral-500">{reel.postedAt.slice(0, 10)}</p>
@@ -151,6 +173,21 @@ function ReelDetail({
           )}
         </div>
       </div>
+
+      {/* 영상은 왼쪽, 분석은 오른쪽. 자막을 보면서 화면을 되짚을 수 있어야 한다. */}
+      {isReel && (
+        <div className="grid gap-5 lg:grid-cols-[16rem_minmax(0,1fr)]">
+          <ReelVideoPlayer reel={reel} onDownloaded={onChange} />
+          <ReelAnalysisPanel
+            reel={reel}
+            analysis={reel.reelAnalysis ?? null}
+            onAnalyze={() => runReelAction(`/api/reels/${reel.id}/analysis`, onChange)}
+            onTranscribe={() =>
+              runReelAction(`/api/reels/${reel.id}/transcript/whisper`, onChange)
+            }
+          />
+        </div>
+      )}
 
       <ReelPerformanceDashboard reel={reel} deltas={kpiDeltas} />
 

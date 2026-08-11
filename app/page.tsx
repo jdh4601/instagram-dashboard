@@ -1,14 +1,15 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { X } from "lucide-react";
-import type { Reel, AccountSnapshot, AccountProfile } from "@/lib/schemas";
+import { X, ChevronRight } from "lucide-react";
+import type { Reel, AccountSnapshot, AccountProfile, Application } from "@/lib/schemas";
 import { buildAccountOverview } from "@/lib/analysis/accountOverview";
 import { latestFollowerDelta } from "@/lib/analysis/followerTrend";
 import { computeDashboardMetrics } from "@/lib/analysis/dashboardMetrics";
 import { DashboardActions } from "@/components/DashboardActions";
 import { SyncProgressBar } from "@/components/SyncProgressBar";
 import { AccountHeader } from "@/components/AccountHeader";
+import { UploadRhythmCard } from "@/components/UploadRhythmCard";
 import { AccountOverview } from "@/components/AccountOverview";
 import { AccountFunnelCard } from "@/components/AccountFunnelCard";
 import { AudienceMixCard } from "@/components/AudienceMixCard";
@@ -18,12 +19,12 @@ import { Input, Button } from "@/components/ui";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { DashboardToast, type SyncToast } from "@/components/DashboardToast";
 import { ChatPanel } from "@/components/chat/ChatPanel";
-import { ReelList } from "@/components/ReelList";
-import { FollowerGrowthChart } from "@/components/FollowerGrowthChart";
+import { MediaTypeToggle } from "@/components/MediaTypeToggle";
+import { PerformanceChartsCard } from "@/components/PerformanceChartsCard";
 import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { filterByMedia, type MediaFilter } from "@/lib/ui/mediaFilter";
-import type { EarlyViewsMap } from "@/lib/ui/reelSelect";
 import { readNdjson } from "@/lib/ui/ndjsonStream";
+import { buildSyncToast } from "@/lib/ui/syncToast";
 import type { SyncProgress, SyncResult } from "@/lib/graph/sync";
 
 // Instagram 장기 토큰은 60일에 만료되므로 50일이 지나면 갱신을 안내한다.
@@ -31,9 +32,10 @@ const TOKEN_WARN_DAYS = 50;
 
 export default function Page() {
   const [reels, setReels] = useState<Reel[]>([]);
-  const [earlyViews, setEarlyViews] = useState<EarlyViewsMap>({});
   const [snapshots, setSnapshots] = useState<AccountSnapshot[]>([]);
   const [profile, setProfile] = useState<AccountProfile | null>(null);
+  // 신청 폼 미연동과 "신청 0건"을 구분해야 해서 빈 배열이 아니라 null로 시작한다.
+  const [applications, setApplications] = useState<Application[] | null>(null);
   const [snapDate, setSnapDate] = useState("");
   const [snapFollowers, setSnapFollowers] = useState("");
   const [toast, setToast] = useState<SyncToast | null>(null);
@@ -86,39 +88,19 @@ export default function Page() {
         fetch("/api/reels"),
         fetch("/api/snapshots"),
         fetch("/api/profile"),
+        fetch("/api/applications"),
       ]);
       if (refreshedResponses.some((response) => !response.ok)) {
         throw new Error("동기화 후 화면 갱신 실패");
       }
-      const [reelsRes, snapsRes, profileRes] = await Promise.all(
+      const [reelsRes, snapsRes, profileRes, applicationsRes] = await Promise.all(
         refreshedResponses.map((response) => response.json()),
       );
       setReels(reelsRes.reels);
-      setEarlyViews(reelsRes.earlyViews ?? {});
       setSnapshots(snapsRes.snapshots);
       setProfile(profileRes.profile);
-      const failed = typeof data.failedReels === "number" ? data.failedReels : 0;
-      if (failed > 0) {
-        const errors: string[] = Array.isArray(data.errors)
-          ? data.errors.filter((e: unknown): e is string => typeof e === "string")
-          : [];
-        setToast({
-          tone: "warning",
-          message:
-            `동기화 일부 실패: 게시물 ${failed}개를 가져오지 못했습니다` +
-            (errors.length > 0 ? ` — ${errors.slice(0, 2).join(" / ")}` : ""),
-        });
-        return;
-      }
-      const unsupported = Array.isArray(data.unavailableMetrics) ? data.unavailableMetrics.length : 0;
-      const removed = typeof data.removedReels === "number" ? data.removedReels : 0;
-      setToast({
-        tone: "success",
-        message:
-          `동기화 완료: 게시물 ${data.syncedReels}개 · @${data.username}` +
-          (removed > 0 ? ` · 삭제된 게시물 ${removed}개 정리` : "") +
-          (unsupported > 0 ? ` · 선택 지표 ${unsupported}개 미지원` : ""),
-      });
+      setApplications(applicationsRes.applications ?? []);
+      setToast(buildSyncToast(data));
     } catch {
       setToast({ tone: "error", message: "동기화 실패: 네트워크 또는 화면 갱신 오류가 발생했습니다" });
     } finally {
@@ -148,15 +130,18 @@ export default function Page() {
       getJson("/api/snapshots"),
       getJson("/api/profile"),
       getJson("/api/settings"),
-    ]).then(([reelsResult, snapshotsResult, profileResult, settingsResult]) => {
+      getJson("/api/applications"),
+    ]).then(([reelsResult, snapshotsResult, profileResult, settingsResult, applicationsResult]) => {
       if (!active) return;
 
       if (reelsResult.status === "fulfilled") {
         setReels(reelsResult.value.reels ?? []);
-        setEarlyViews(reelsResult.value.earlyViews ?? {});
       }
       if (snapshotsResult.status === "fulfilled") setSnapshots(snapshotsResult.value.snapshots ?? []);
       if (profileResult.status === "fulfilled") setProfile(profileResult.value.profile ?? null);
+      if (applicationsResult.status === "fulfilled") {
+        setApplications(applicationsResult.value.applications ?? []);
+      }
       if (settingsResult.status === "fulfilled") {
         const issuedAt = settingsResult.value.instagramTokenIssuedAt;
         setTokenIssuedAt(typeof issuedAt === "string" ? issuedAt : null);
@@ -204,7 +189,8 @@ export default function Page() {
   const dashboardMetrics = computeDashboardMetrics(filterByMedia(reels, "REELS"));
   // 퍼널은 계정 레벨이다. Graph가 릴스에 profile_visits/follows를 주지 않고, 게시물
   // 귀속 팔로우는 실제 증가분의 일부만 설명해서 미디어 필터를 따를 수 없다.
-  const funnel = buildAccountFunnel(snapshots);
+  // 신청은 Graph 밖 데이터라 미연동이면 undefined를 넘겨 신청 구간을 통째로 감춘다.
+  const funnel = buildAccountFunnel(snapshots, applications ?? undefined);
   // 도달 구성은 계정 레벨 지표라 미디어 필터와 무관하다.
   const audienceMix = buildAudienceMix(snapshots);
 
@@ -219,7 +205,8 @@ export default function Page() {
   const showTokenBanner = !tokenBannerDismissed && tokenNeedsReview;
 
   return (
-    // xl 이상에서 대시보드와 진단 패널이 나란히 서고, 그 아래에서는 패널이 드로어가 된다.
+    // xl 이상에서 대시보드와 진단 패널이 나란히 서고, 그 아래 폭에서는 패널이
+    // 오른쪽 가장자리에 접혀 손잡이만 남는다.
     <div className="mx-auto flex w-full max-w-[110rem] items-start">
       <div className="min-w-0 flex-1">
       <DashboardActions onSync={onSync} syncing={syncing} />
@@ -253,25 +240,37 @@ export default function Page() {
               </div>
             )}
             {/* 헤더는 필터와 무관한 전체 개수를 보여준다 */}
-            <AccountHeader profile={profile} followerDelta={followerDelta} contentCount={reels.length} />
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
+              <div className="shrink-0 lg:max-w-md">
+                <AccountHeader profile={profile} followerDelta={followerDelta} contentCount={reels.length} />
+              </div>
+              {/* 리듬은 필터와 무관하게 계정 전체 업로드를 보여준다 */}
+              <UploadRhythmCard reels={reels} />
+            </div>
+            <div className="flex justify-end">
+              <MediaTypeToggle value={mediaFilter} onChange={setMediaFilter} />
+            </div>
             <AccountOverview overview={overview} />
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
               <AccountFunnelCard funnel={funnel} />
               <AudienceMixCard mix={audienceMix} reels={visibleReels} />
             </div>
 
-            {/* 추이는 가로가 길수록 읽기 쉬우므로 한 행을 다 쓴다. */}
-            <FollowerGrowthChart snapshots={snapshots} />
+            {/* 추이는 가로가 길수록 읽기 쉬우므로 한 행을 다 쓴다. 팔로워 추이는
+                이 카드의 누적 차트가 대신하므로 FollowerGrowthChart는 걷어냈다. */}
+            <PerformanceChartsCard reels={reels} snapshots={snapshots} />
 
             <DashboardMetrics metrics={dashboardMetrics} />
 
-            <ReelList
-              reels={visibleReels}
-              filter={mediaFilter}
-              onFilterChange={setMediaFilter}
-              syncing={syncing}
-              earlyViews={earlyViews}
-            />
+            <div className="flex justify-end">
+              <Link
+                href="/reels"
+                className="inline-flex min-h-11 items-center gap-1 rounded-lg px-3 text-sm font-medium text-brand-600 hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+              >
+                게시물 {reels.length}개 전체 보기
+                <ChevronRight size={16} aria-hidden />
+              </Link>
+            </div>
 
             <form
               onSubmit={addSnapshot}

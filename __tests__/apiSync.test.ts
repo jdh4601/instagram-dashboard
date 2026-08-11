@@ -6,15 +6,32 @@ vi.mock("@/lib/store", () => ({
   getAccountRepository: vi.fn(() => ({})),
   getProfileRepository: vi.fn(() => ({})),
   getReelHistoryRepository: vi.fn(() => ({})),
+  getApplicationRepository: vi.fn(() => ({})),
 }));
 vi.mock("@/lib/graph/sync", () => ({
   syncFromGraph: vi.fn(),
 }));
+// 신청 폼은 선택 연동이다. 기본은 미연동으로 두고, 필요한 테스트에서만 켠다.
+vi.mock("@/lib/walla", () => ({
+  getWallaConnection: vi.fn(async () => null),
+}));
+vi.mock("@/lib/walla/sync", () => ({
+  syncApplicationsIfConfigured: vi.fn(async () => ({
+    applications: null,
+    reachedPageLimit: false,
+    error: null,
+  })),
+}));
 
+import type { MockedFunction } from "vitest";
 import { POST } from "@/app/api/sync/route";
 import { syncFromGraph } from "@/lib/graph/sync";
+import { syncApplicationsIfConfigured } from "@/lib/walla/sync";
 
 const mockSync = syncFromGraph as MockedFunction<typeof syncFromGraph>;
+const mockApplicationSync = syncApplicationsIfConfigured as MockedFunction<
+  typeof syncApplicationsIfConfigured
+>;
 
 function syncRequest(headers: Record<string, string> = {}): Request {
   return new Request("http://localhost:3000/api/sync", {
@@ -48,6 +65,12 @@ const okResult = {
 
 beforeEach(() => {
   mockSync.mockReset();
+  mockApplicationSync.mockReset();
+  mockApplicationSync.mockResolvedValue({
+    applications: null,
+    reachedPageLimit: false,
+    error: null,
+  });
 });
 
 test("POST /api/sync는 일부 릴스 실패를 207과 실패 상세로 반환한다", async () => {
@@ -119,4 +142,44 @@ test("스트리밍 중 동기화가 실패하면 error 이벤트로 끝낸다", 
     error: "릴스 동기화 전체 실패",
   });
 });
-import type { MockedFunction } from "vitest";
+
+// ── 신청 폼 연동 ───────────────────────────────────────────────────────
+
+test("신청 폼이 연동돼 있으면 신청 수를 결과에 담는다", async () => {
+  mockSync.mockResolvedValue(okResult);
+  mockApplicationSync.mockResolvedValue({
+    applications: 5,
+    reachedPageLimit: false,
+    error: null,
+  });
+
+  const res = await POST(syncRequest());
+
+  expect(res.status).toBe(200);
+  expect(await res.json()).toMatchObject({ syncedReels: 2, applications: 5 });
+});
+
+test("신청 폼 미연동이면 applications가 null이다", async () => {
+  mockSync.mockResolvedValue(okResult);
+
+  const res = await POST(syncRequest());
+
+  expect(await res.json()).toMatchObject({ applications: null });
+});
+
+test("신청 폼이 실패해도 Instagram 동기화 결과는 그대로 반환한다", async () => {
+  // 키 만료나 Walla 장애로 릴스·계정 지표까지 날아가면 손해가 훨씬 크다.
+  mockSync.mockResolvedValue(okResult);
+  mockApplicationSync.mockResolvedValue({
+    applications: null,
+    reachedPageLimit: false,
+    error: "Walla 요청 실패 (401): /forms/form_1/fields",
+  });
+
+  const res = await POST(syncRequest());
+
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body.syncedReels).toBe(2);
+  expect(body.errors).toContain("Walla 요청 실패 (401): /forms/form_1/fields");
+});

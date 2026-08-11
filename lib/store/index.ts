@@ -2,6 +2,8 @@ import { createJsonReelRepository, type ReelRepository } from "@/lib/store/reelR
 import { createJsonAccountRepository, type AccountRepository } from "@/lib/store/accountRepository";
 import { createJsonProfileRepository, type ProfileRepository } from "@/lib/store/profileRepository";
 import { createJsonReelHistoryRepository, type ReelHistoryRepository } from "@/lib/store/reelHistoryRepository";
+import { createJsonApplicationRepository, type ApplicationRepository } from "@/lib/store/applicationRepository";
+import { createJsonHookRepository, type HookRepository } from "@/lib/store/hookRepository";
 import { resolveRuntimeConfig } from "@/lib/runtime/config";
 import { createSqliteRepositories } from "@/lib/store/sqliteRepositories";
 import { createPostgresRepositories } from "@/lib/store/postgresRepositories";
@@ -25,6 +27,8 @@ function getWorkspace(): WorkspaceRepositories {
           accounts: createJsonAccountRepository(config.dataDir),
           profile: createJsonProfileRepository(config.dataDir),
           reelHistory: createJsonReelHistoryRepository(config.dataDir),
+          applications: createJsonApplicationRepository(config.dataDir),
+          hooks: createJsonHookRepository(config.dataDir),
     };
   }
   return workspace;
@@ -44,4 +48,12 @@ export function getProfileRepository(): ProfileRepository {
 
 export function getReelHistoryRepository(): ReelHistoryRepository {
   return getWorkspace().reelHistory;
+}
+
+export function getApplicationRepository(): ApplicationRepository {
+  return getWorkspace().applications;
+}
+
+export function getHookRepository(): HookRepository {
+  return getWorkspace().hooks;
 }

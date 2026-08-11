@@ -84,3 +84,68 @@ test("Instagram 토큰 빈 값 저장은 기존 토큰 유지", async () => {
   const s = await store.get();
   expect(s.instagram?.accessToken).toBe("IGtoken-keep-1234");
 });
+
+// ── Walla 신청 폼 자격증명 ─────────────────────────────────────────────
+
+test("Walla API 키와 폼 ID를 저장하고 읽는다", async () => {
+  const store = tmpStore();
+
+  await store.save({ walla: { apiKey: "wk_secret_key_1234", formId: "form_abc" } });
+
+  const s = await store.get();
+  expect(s.walla?.apiKey).toBe("wk_secret_key_1234");
+  expect(s.walla?.formId).toBe("form_abc");
+});
+
+test("빈 Walla 키를 보내면 기존 키를 지우지 않는다", async () => {
+  // 설정 화면은 저장된 키를 마스킹해서 보여 준다. 폼 ID만 고치려고 저장했을 때
+  // 빈 키가 실제 키를 덮어쓰면 사용자는 이유 없이 연동이 끊긴 걸 보게 된다.
+  const store = tmpStore();
+  await store.save({ walla: { apiKey: "wk_secret_key_1234", formId: "form_abc" } });
+
+  await store.save({ walla: { apiKey: "", formId: "form_xyz" } });
+
+  const s = await store.get();
+  expect(s.walla?.apiKey).toBe("wk_secret_key_1234");
+  expect(s.walla?.formId).toBe("form_xyz");
+});
+
+test("Walla를 건드리지 않는 저장은 기존 설정을 유지한다", async () => {
+  const store = tmpStore();
+  await store.save({ walla: { apiKey: "wk_secret_key_1234", formId: "form_abc" } });
+
+  await store.save({ textProvider: "openai" });
+
+  const s = await store.get();
+  expect(s.walla?.apiKey).toBe("wk_secret_key_1234");
+  expect(s.walla?.formId).toBe("form_abc");
+});
+
+test("masked는 Walla 키를 마스킹하고 폼 ID는 그대로 준다", async () => {
+  const store = tmpStore();
+  await store.save({ walla: { apiKey: "wk_secret_key_1234", formId: "form_abc" } });
+
+  const masked = await store.masked();
+
+  expect(masked.walla.configured).toBe(true);
+  expect(masked.walla.maskedKey).not.toContain("secret_key");
+  expect(masked.walla.formId).toBe("form_abc");
+});
+
+test("Walla 미설정이면 masked가 configured=false를 준다", async () => {
+  const masked = await tmpStore().masked();
+
+  expect(masked.walla.configured).toBe(false);
+  expect(masked.walla.maskedKey).toBeNull();
+  expect(masked.walla.formId).toBeNull();
+});
+
+test("Walla 자격증명 앞뒤 공백을 제거한다", async () => {
+  const store = tmpStore();
+
+  await store.save({ walla: { apiKey: "  wk_secret_key_1234  ", formId: "  form_abc  " } });
+
+  const s = await store.get();
+  expect(s.walla?.apiKey).toBe("wk_secret_key_1234");
+  expect(s.walla?.formId).toBe("form_abc");
+});

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ReelAnalysisSchema } from "@/lib/schemas/reelAnalysis";
 
 const TranscriptLineSchema = z.object({
   startSec: z.number().nonnegative(),
@@ -80,6 +81,13 @@ export const ReelSchema = z.object({
   permalink: z.string().optional(), // 인스타 원본 링크
   transcript: z.array(TranscriptLineSchema).optional(),
   transcriptInsights: TranscriptInsightsSchema.optional(),
+  // 캐시된 mp4의 파일명(경로가 아니다). 디렉토리는 런타임 설정에서 오고, 파일 열기는
+  // 이 값이 아니라 릴스 id에서 다시 만든다 — lib/media/videoCache.ts 참고.
+  videoFile: z.string().optional(),
+  // 분석 탭 4개가 함께 쓰는 LLM 캐시. 한 번 호출해 받아 둔다.
+  // 분석 스키마가 바뀌면 예전 구조로 캐시된 값이 남는다. catch로 받아내지 않으면
+  // 그 릴스 전체가 파싱에 실패해 대시보드가 통째로 빈다. 분석만 버리고 릴스는 살린다.
+  reelAnalysis: ReelAnalysisSchema.optional().catch(undefined),
   derived: DerivedRatesSchema.optional(),
 });
 export type Reel = z.infer<typeof ReelSchema>;
@@ -106,6 +114,9 @@ export type ReelMetricSnapshot = z.infer<typeof ReelMetricSnapshotSchema>;
 // 계정 프로필 (Graph getProfile + 동기화 저장)
 export const AccountProfileSchema = z.object({
   username: z.string(),
+  // 프로필 표시 이름과 바이오. 계정이 비워 둘 수 있는 값이라 Graph가 필드를 생략한다.
+  displayName: z.string().optional(),
+  biography: z.string().optional(),
   avatarUrl: z.string().optional(),
   followersCount: z.number().nonnegative(),
   mediaCount: z.number().nonnegative(),
@@ -137,3 +148,34 @@ export const AccountSnapshotSchema = z.object({
   unavailableMetrics: z.array(z.string()).optional(),
 });
 export type AccountSnapshot = z.infer<typeof AccountSnapshotSchema>;
+
+/**
+ * 외부 신청 폼(Walla)에 접수된 지원 신청 한 건.
+ *
+ * 바이오 링크 클릭 다음 단계라 Graph가 알려 줄 수 없는 구간이다. 클릭은 계정 레벨
+ * 집계 수치(websiteClicksLast7d)로만 오고 개별 클릭에 신원이 없어서, 두 데이터를
+ * 잇는 유일한 키가 링크에 붙인 UTM이다.
+ *
+ * 신청자의 이름·연락처 같은 응답 본문은 담지 않는다. 대시보드가 하는 일은 집계뿐이고,
+ * 개인정보를 로컬 JSON으로 복제하면 보관 책임만 늘어난다.
+ */
+export const ApplicationSchema = z.object({
+  responseId: z.string().min(1),
+  /** 제출 시각(ISO 8601). Walla의 submittedAt을 그대로 쓴다. */
+  submittedAt: z.string(),
+  /** 유입 매체(instagram, naver 등). 링크에 UTM이 없으면 undefined. */
+  source: z.string().optional(),
+  /** 유입 경로(bio, story, paid 등). websiteClicks와 분모를 맞출 때 이 값으로 거른다. */
+  medium: z.string().optional(),
+  campaign: z.string().optional(),
+  /** 크리에이티브·릴스 단위 구분. 광고 소재별 성과를 가르는 키다. */
+  content: z.string().optional(),
+});
+export type Application = z.infer<typeof ApplicationSchema>;
+
+// 릴스 분석 탭(Idea·Hook·Storytelling) 스키마는 별도 모듈에 있다. 소비자가 한 곳에서
+// 가져올 수 있게 여기서 다시 내보낸다.
+export * from "@/lib/schemas/reelAnalysis";
+
+// 훅 보관함은 릴스 지표와 공유하는 필드가 없어 파일을 따로 둔다.
+export * from "./hook";

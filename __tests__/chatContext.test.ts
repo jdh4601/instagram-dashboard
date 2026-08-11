@@ -36,10 +36,21 @@ function snapshot(overrides: Partial<AccountSnapshot> = {}): AccountSnapshot {
 
 const profile: AccountProfile = {
   username: "founder.stories",
+  displayName: "파운더 스토리",
+  biography: "창업가 인터뷰를 기록합니다\n매주 화요일 업로드",
   followersCount: 1200,
   mediaCount: 40,
   updatedAt: "2026-07-30T00:00:00Z",
 };
+
+test("프로필 바이오는 계정 블록에 실려 모델이 계정 성격을 알 수 있다", () => {
+  // 지표만으로는 무슨 계정인지 알 수 없어 훅·타깃 진단이 일반론으로 흐른다.
+  const rendered = renderAccountContext(buildAccountContext([reel()], [snapshot()], profile));
+
+  expect(rendered).toContain("파운더 스토리");
+  expect(rendered).toContain("창업가 인터뷰를 기록합니다");
+  expect(rendered).toContain("매주 화요일 업로드");
+});
 
 test("계정 컨텍스트에 프로필·퍼널·도달 구성·진단이 모두 담긴다", () => {
   const context = buildAccountContext([reel()], [snapshot({ date: "2026-07-23" }), snapshot()], profile);

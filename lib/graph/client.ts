@@ -73,6 +73,8 @@ export interface GraphInsightResult {
 interface GraphProfile {
   userId: string;
   username: string;
+  displayName?: string;
+  biography?: string;
   followersCount: number;
   avatarUrl?: string;
   mediaCount: number;
@@ -111,6 +113,12 @@ export interface GraphClient {
   listMedia(): Promise<MediaListing>;
   getInsights(mediaId: string, kind?: MediaKind): Promise<GraphInsightResult>;
   getAccountInsights?(range: { since: string; until: string }): Promise<GraphInsightResult>;
+  /**
+   * 미디어 한 건의 재생 가능한 mp4 주소. 동기화 목록에서 받은 media_url은 서명이
+   * 만료되므로, 상세 화면에서 영상을 받을 때는 그때 다시 물어봐야 한다.
+   * 이미지·만료된 게시물은 필드가 없어 null이다.
+   */
+  getMediaUrl?(mediaId: string): Promise<string | null>;
 }
 
 export function createGraphClient(opts: Options): GraphClient {
@@ -253,10 +261,12 @@ export function createGraphClient(opts: Options): GraphClient {
   return {
     async getProfile() {
       const json = (await request("me", {
-        fields: "user_id,username,followers_count,profile_picture_url,media_count",
+        fields: "user_id,username,name,biography,followers_count,profile_picture_url,media_count",
       })) as {
         user_id: string;
         username: string;
+        name?: string;
+        biography?: string;
         followers_count?: number;
         profile_picture_url?: string;
         media_count?: number;
@@ -264,6 +274,8 @@ export function createGraphClient(opts: Options): GraphClient {
       return {
         userId: json.user_id,
         username: json.username,
+        displayName: json.name,
+        biography: json.biography,
         followersCount: json.followers_count ?? 0,
         avatarUrl: json.profile_picture_url,
         mediaCount: json.media_count ?? 0,
@@ -296,6 +308,11 @@ export function createGraphClient(opts: Options): GraphClient {
         page = await fetchMediaPage(next);
       }
       return { analyzable, allIds };
+    },
+
+    async getMediaUrl(mediaId) {
+      const json = (await request(mediaId, { fields: "media_url" })) as { media_url?: string };
+      return json.media_url ?? null;
     },
 
     async getInsights(mediaId, kind = "REELS") {

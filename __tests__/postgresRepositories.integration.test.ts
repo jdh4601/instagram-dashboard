@@ -31,3 +31,23 @@ integrationTest("PostgreSQL workspace는 Repository 계약과 프로세스 재�
     await second.close?.();
   }
 });
+
+integrationTest("PostgreSQL workspace는 훅 북마크 계약을 지킨다", async () => {
+  const store = createPostgresRepositories(databaseUrl!);
+  try {
+    await store.hooks.remove("pg-contract-hook");
+    await store.hooks.upsert({
+      id: "pg-contract-hook",
+      text: "이걸 모르면 1년을 날립니다",
+      category: "problem",
+      isFavorite: false,
+      createdAt: "2026-08-01T09:00:00.000Z",
+      updatedAt: "2026-08-01T09:00:00.000Z",
+    });
+    expect(await store.hooks.get("pg-contract-hook")).toMatchObject({ category: "problem" });
+    expect(await store.hooks.remove("pg-contract-hook")).toBe(true);
+    expect(await store.hooks.remove("pg-contract-hook")).toBe(false);
+  } finally {
+    await store.close?.();
+  }
+});

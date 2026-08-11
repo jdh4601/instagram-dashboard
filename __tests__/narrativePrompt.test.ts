@@ -17,6 +17,10 @@ const funnel: AccountFunnel = {
   linkClickRate: 7.5,
   previousDate: "2026-07-04",
   deltas: { viewRate: 0.5, followRate: 2.5, linkClickRate: -1.2 },
+  applications: null,
+  bioApplications: null,
+  applyRate: null,
+  applicationsByMedium: {},
 };
 
 const funnelVerdicts: AccountFunnelVerdicts = {

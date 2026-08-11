@@ -2,6 +2,8 @@ import postgres from "postgres";
 import {
   AccountProfileSchema,
   AccountSnapshotSchema,
+  ApplicationSchema,
+  HookSchema,
   ReelMetricSnapshotSchema,
   ReelSchema,
 } from "@/lib/schemas";
@@ -210,11 +212,77 @@ export function createPostgresRepositories(databaseUrl: string): WorkspaceReposi
     },
   };
 
+  // 신청은 responseId가 유일 키, submittedAt이 정렬 키다.
+  const applications: WorkspaceRepositories["applications"] = {
+    async list() {
+      await ready;
+      const rows = await sql<PayloadRow[]>`
+        SELECT payload FROM instagram_dashboard_records
+        WHERE namespace = 'application'
+        ORDER BY sort_key, record_key
+      `;
+      return parseRows(rows, (value) => ApplicationSchema.parse(value));
+    },
+    async upsertMany(incoming) {
+      const validated = incoming.map((application) => ApplicationSchema.parse(application));
+      if (validated.length === 0) return 0;
+      await ready;
+      await sql.begin(async () => {
+        for (const application of validated) {
+          await upsertRecord(
+            "application",
+            application.responseId,
+            null,
+            application.submittedAt,
+            application,
+          );
+        }
+      });
+      return validated.length;
+    },
+  };
+
+  // 훅은 id가 유일 키, createdAt이 정렬 키다.
+  const hooks: WorkspaceRepositories["hooks"] = {
+    async list() {
+      await ready;
+      const rows = await sql<PayloadRow[]>`
+        SELECT payload FROM instagram_dashboard_records
+        WHERE namespace = 'hook'
+        ORDER BY sort_key, record_key
+      `;
+      return parseRows(rows, (value) => HookSchema.parse(value));
+    },
+    async get(id) {
+      await ready;
+      const [row] = await sql<PayloadRow[]>`
+        SELECT payload FROM instagram_dashboard_records
+        WHERE namespace = 'hook' AND record_key = ${id}
+      `;
+      return row ? HookSchema.parse(row.payload) : null;
+    },
+    async upsert(hook) {
+      const validated = HookSchema.parse(hook);
+      await upsertRecord("hook", validated.id, null, validated.createdAt, validated);
+      return validated;
+    },
+    async remove(id) {
+      await ready;
+      const result = await sql`
+        DELETE FROM instagram_dashboard_records
+        WHERE namespace = 'hook' AND record_key = ${id}
+      `;
+      return result.count > 0;
+    },
+  };
+
   return {
     reels,
     accounts,
     profile,
     reelHistory,
+    applications,
+    hooks,
     close: async () => {
       await ready.catch(() => undefined);
       await sql.end({ timeout: 5 });

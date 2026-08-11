@@ -4,10 +4,13 @@ import { DatabaseSync, type StatementSync } from "node:sqlite";
 import {
   AccountProfileSchema,
   AccountSnapshotSchema,
+  ApplicationSchema,
+  HookSchema,
   ReelMetricSnapshotSchema,
   ReelSchema,
   type AccountProfile,
   type AccountSnapshot,
+  type Application,
   type Reel,
   type ReelMetricSnapshot,
 } from "@/lib/schemas";
@@ -221,11 +224,62 @@ export function createSqliteRepositories(databasePath: string): WorkspaceReposit
     },
   };
 
+  // 신청은 responseId가 유일 키, submittedAt이 정렬 키다. 테이블이 네임스페이스로
+  // 나뉜 범용 구조라 스키마 변경 없이 새 네임스페이스만 쓴다.
+  const applications: WorkspaceRepositories["applications"] = {
+    async list() {
+      return payloadRows(
+        listByNamespace,
+        (value) => ApplicationSchema.parse(value),
+        "application",
+      );
+    },
+    async upsertMany(incoming: Application[]) {
+      const validated = incoming.map((application) => ApplicationSchema.parse(application));
+      if (validated.length === 0) return 0;
+      inTransaction(db, () => {
+        for (const application of validated) {
+          upsert.run(
+            "application",
+            application.responseId,
+            null,
+            application.submittedAt,
+            JSON.stringify(application),
+          );
+        }
+      });
+      return validated.length;
+    },
+  };
+
+  // 훅은 id가 유일 키, createdAt이 정렬 키다. 범용 네임스페이스 테이블이라
+  // 마이그레이션 없이 새 네임스페이스만 얹는다.
+  const hooks: WorkspaceRepositories["hooks"] = {
+    async list() {
+      return payloadRows(listByNamespace, (value) => HookSchema.parse(value), "hook");
+    },
+    async get(id) {
+      return payloadRow(getByKey, (value) => HookSchema.parse(value), "hook", id);
+    },
+    async upsert(hook) {
+      const validated = HookSchema.parse(hook);
+      inTransaction(db, () => {
+        upsert.run("hook", validated.id, null, validated.createdAt, JSON.stringify(validated));
+      });
+      return validated;
+    },
+    async remove(id) {
+      return inTransaction(db, () => Number(removeByKey.run("hook", id).changes) > 0);
+    },
+  };
+
   return {
     reels,
     accounts,
     profile,
     reelHistory,
+    applications,
+    hooks,
     close: () => {
       hardenDatabaseFiles(databasePath);
       db.close();
