@@ -89,11 +89,25 @@ test("탭 바는 탭 목록 시맨틱으로 읽힌다", () => {
   expect(html).toContain('aria-selected="true"');
 });
 
-test("분석이 있으면 상단 Summary를 그대로 보여준다", () => {
+test("분석이 있어도 Summary는 화면에 내보내지 않는다", () => {
   const html = render({ analysis });
 
-  expect(html).toContain("Summary");
-  expect(html).toContain("통념을 부정해 붙잡고 본인 실패담으로 신뢰를 만든다.");
+  // 왼쪽 영상과 상하 높이를 맞추려고 걷어냈다. summary는 계속 생성되지만 표시하지 않는다.
+  expect(html).not.toContain("Summary");
+  expect(html).not.toContain("통념을 부정해 붙잡고 본인 실패담으로 신뢰를 만든다.");
+});
+
+test("분석 버튼이 탭 바와 같은 줄에 있어 패널이 탭 바에서 시작한다", () => {
+  const html = render();
+
+  // 탭 바 위에 아무것도 없어야 왼쪽 영상 상단과 y좌표가 맞는다.
+  const tablistAt = html.indexOf('role="tablist"');
+  const buttonAt = html.indexOf("분석하기");
+  const panelAt = html.indexOf('role="tabpanel"');
+
+  expect(tablistAt).toBeGreaterThan(-1);
+  expect(buttonAt).toBeGreaterThan(tablistAt);
+  expect(panelAt).toBeGreaterThan(buttonAt);
 });
 
 test("분석이 없으면 분석하기 버튼을 보여준다", () => {

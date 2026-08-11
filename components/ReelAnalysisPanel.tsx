@@ -73,49 +73,41 @@ export function ReelAnalysisPanel({ reel, analysis, onAnalyze, onTranscribe }: P
 
   return (
     <section className="space-y-4">
-      {/* 분석 실행은 탭 안이 아니라 머리말에 둔다. 기본 탭이 Transcript라
-          탭 안에 숨기면 분석을 돌리려고 탭을 먼저 옮겨야 한다. */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          {analysis && (
-            <>
-              <h2 className="text-sm font-semibold text-neutral-900">Summary</h2>
-              <p className="text-sm leading-relaxed text-neutral-700">{analysis.summary}</p>
-            </>
-          )}
+      {/* 탭 바가 패널의 첫 줄이어야 왼쪽 영상 상단과 높이가 맞는다. 분석 실행은
+          탭 안에 숨기지 않고 같은 줄 오른쪽에 붙인다 — 기본 탭이 Transcript라
+          탭 안에 두면 분석을 돌리려고 탭을 먼저 옮겨야 한다. */}
+      <div className="flex items-center gap-2">
+        <div
+          role="tablist"
+          aria-label="릴스 분석"
+          className="flex min-w-0 flex-1 gap-1 overflow-x-auto rounded-card border border-border-subtle bg-surface p-1"
+        >
+          {REEL_ANALYSIS_TABS.map((item) => {
+            const Icon = TAB_ICONS[item.id];
+            const active = tab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setTab(item.id)}
+                className={cn(
+                  "inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400",
+                  active
+                    ? "bg-brand-50 text-brand-700"
+                    : "text-neutral-600 hover:bg-surface-muted hover:text-neutral-900",
+                )}
+              >
+                <Icon size={15} aria-hidden />
+                {item.label}
+              </button>
+            );
+          })}
         </div>
         {hasTranscript && (
           <AnalyzePrompt busy={busy} onAnalyze={() => run(onAnalyze)} regenerate={analysis != null} />
         )}
-      </div>
-
-      <div
-        role="tablist"
-        aria-label="릴스 분석"
-        className="flex gap-1 overflow-x-auto rounded-card border border-border-subtle bg-surface p-1"
-      >
-        {REEL_ANALYSIS_TABS.map((item) => {
-          const Icon = TAB_ICONS[item.id];
-          const active = tab === item.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setTab(item.id)}
-              className={cn(
-                "inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400",
-                active
-                  ? "bg-brand-50 text-brand-700"
-                  : "text-neutral-600 hover:bg-surface-muted hover:text-neutral-900",
-              )}
-            >
-              <Icon size={15} aria-hidden />
-              {item.label}
-            </button>
-          );
-        })}
       </div>
 
       {error && (
