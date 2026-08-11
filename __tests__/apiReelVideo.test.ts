@@ -3,6 +3,7 @@
 vi.mock("@/lib/store", () => ({ getRepository: vi.fn() }));
 vi.mock("@/lib/runtime/config", () => ({ resolveRuntimeConfig: vi.fn() }));
 vi.mock("@/lib/graph", () => ({ getInstagramClient: vi.fn() }));
+vi.mock("@/lib/media/ytdlpFallback", () => ({ downloadViaYtdlp: vi.fn() }));
 
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -13,10 +14,14 @@ import { getRepository } from "@/lib/store";
 import { resolveRuntimeConfig } from "@/lib/runtime/config";
 import { getInstagramClient } from "@/lib/graph";
 import { resolveCachedVideoPath, videoCacheDir } from "@/lib/media/videoCache";
+import { downloadViaYtdlp } from "@/lib/media/ytdlpFallback";
 
 const mockGetRepository = getRepository as unknown as Mock;
 const mockResolveRuntimeConfig = resolveRuntimeConfig as unknown as Mock;
 const mockGetInstagramClient = getInstagramClient as unknown as Mock;
+const mockDownloadViaYtdlp = downloadViaYtdlp as unknown as Mock;
+
+const PERMALINK = "https://www.instagram.com/reel/Db458XCB9RH/";
 
 const reel = {
   id: "r1",
@@ -138,6 +143,67 @@ test("영상 받기: 인스타그램이 영상 주소를 주지 않으면 다운
 
   expect(res.status).toBe(404);
   expect((await res.json()).error).toMatch(/영상 주소/);
+  expect(repo.upsert).not.toHaveBeenCalled();
+});
+
+// media_url 누락은 "삭제된 게시물"이 아니다. Graph는 살아 있는 REELS에도 저작권 음원이
+// 걸리면 이 필드를 빼고 200을 준다. 삭제로 단정하면 사용자가 멀쩡한 게시물을 찾아 헤맨다.
+test("영상 받기: media_url 누락을 삭제로 단정하지 않고 실제 사유를 안내한다", async () => {
+  mockGetInstagramClient.mockResolvedValue({ getMediaUrl: vi.fn(async () => null) });
+  const res = await POST(request({ "content-type": "application/json" }, "POST"), ctx());
+
+  const { error } = await res.json();
+  expect(error).not.toMatch(/삭제됐거나 영상이 아닐/);
+  expect(error).toMatch(/저작권/);
+});
+
+test("영상 받기: media_url이 없으면 공개 permalink로 받아 캐시에 남긴다", async () => {
+  mockResolveRuntimeConfig.mockReturnValue({ dataDir, isLocalRuntime: true });
+  repo.get.mockResolvedValue({ ...reel, permalink: PERMALINK });
+  mockGetInstagramClient.mockResolvedValue({ getMediaUrl: vi.fn(async () => null) });
+  mockDownloadViaYtdlp.mockResolvedValue({ fileName: "r1.mp4", bytes: 4171245 });
+
+  const res = await POST(request({ "content-type": "application/json" }, "POST"), ctx());
+
+  expect(res.status).toBe(200);
+  expect(await res.json()).toMatchObject({ ok: true, fileName: "r1.mp4", bytes: 4171245 });
+  expect(mockDownloadViaYtdlp).toHaveBeenCalledWith(dataDir, "r1", PERMALINK);
+  expect(repo.upsert).toHaveBeenCalledWith(expect.objectContaining({ videoFile: "r1.mp4" }));
+});
+
+test("영상 받기: 원격 배포에서는 외부 도구 폴백을 쓰지 않는다", async () => {
+  // yt-dlp는 사용자 PC에만 있다. 서버리스에서 시도하면 매번 실패만 하고 시간을 쓴다.
+  mockResolveRuntimeConfig.mockReturnValue({ dataDir, isLocalRuntime: false });
+  repo.get.mockResolvedValue({ ...reel, permalink: PERMALINK });
+  mockGetInstagramClient.mockResolvedValue({ getMediaUrl: vi.fn(async () => null) });
+
+  const res = await POST(request({ "content-type": "application/json" }, "POST"), ctx());
+
+  expect(res.status).toBe(404);
+  expect(mockDownloadViaYtdlp).not.toHaveBeenCalled();
+});
+
+test("영상 받기: permalink가 없으면 폴백을 시도하지 않는다", async () => {
+  mockResolveRuntimeConfig.mockReturnValue({ dataDir, isLocalRuntime: true });
+  mockGetInstagramClient.mockResolvedValue({ getMediaUrl: vi.fn(async () => null) });
+
+  const res = await POST(request({ "content-type": "application/json" }, "POST"), ctx());
+
+  expect(res.status).toBe(404);
+  expect(mockDownloadViaYtdlp).not.toHaveBeenCalled();
+});
+
+test("영상 받기: 폴백까지 실패하면 두 사유를 함께 보여준다", async () => {
+  mockResolveRuntimeConfig.mockReturnValue({ dataDir, isLocalRuntime: true });
+  repo.get.mockResolvedValue({ ...reel, permalink: PERMALINK });
+  mockGetInstagramClient.mockResolvedValue({ getMediaUrl: vi.fn(async () => null) });
+  mockDownloadViaYtdlp.mockRejectedValue(new Error("yt-dlp가 설치되어 있지 않습니다"));
+
+  const res = await POST(request({ "content-type": "application/json" }, "POST"), ctx());
+
+  const { error } = await res.json();
+  expect(error).toMatch(/저작권/);
+  expect(error).toMatch(/yt-dlp가 설치되어 있지 않습니다/);
   expect(repo.upsert).not.toHaveBeenCalled();
 });
 

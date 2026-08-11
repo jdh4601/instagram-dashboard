@@ -7,6 +7,7 @@ import { resolveRuntimeConfig } from "@/lib/runtime/config";
 import { assertJsonRequest } from "@/lib/api/guard";
 import { parseByteRange, type ByteRange } from "@/lib/media/httpRange";
 import { downloadVideoToCache, readCachedVideoStat } from "@/lib/media/videoCache";
+import { downloadViaYtdlp } from "@/lib/media/ytdlpFallback";
 
 /**
  * 캐시된 mp4를 상세 페이지의 `<video>`에 흘려보낸다.
@@ -19,6 +20,16 @@ import { downloadVideoToCache, readCachedVideoStat } from "@/lib/media/videoCach
 function notFound(message: string): NextResponse {
   return NextResponse.json({ error: message }, { status: 404 });
 }
+
+/**
+ * Graph가 살아 있는 릴스에도 media_url을 빼고 200을 주는 경우가 있다. 가장 흔한 사유는
+ * 저작권 있는 음원·영상이며, 이 경우 재동기화해도 계속 비어 있다. 삭제로 단정하면
+ * 멀쩡한 게시물을 찾아 헤매게 되므로 사유를 나열만 한다.
+ */
+const MEDIA_URL_MISSING =
+  "인스타그램이 이 게시물의 영상 주소를 주지 않았습니다. " +
+  "저작권 있는 음원·영상이 포함되면 Graph API가 mp4 주소를 빼고 응답합니다(게시물은 그대로 남아 있습니다). " +
+  "게시물이 삭제된 경우에도 같습니다.";
 
 function fileStream(path: string, range?: ByteRange): ReadableStream<Uint8Array> {
   const node = range
@@ -102,11 +113,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   try {
+    const { dataDir, isLocalRuntime } = resolveRuntimeConfig();
     const mediaUrl = await client.getMediaUrl(id);
+
+    // Graph가 주소를 안 주면 공개 permalink에서 직접 받아 본다. 외부 도구(yt-dlp)에
+    // 기대는 경로라 사용자 PC에서만 연다 — 서버리스에서는 매번 실패만 하고 시간을 쓴다.
     if (!mediaUrl) {
-      return notFound("인스타그램이 이 게시물의 영상 주소를 주지 않았습니다. 삭제됐거나 영상이 아닐 수 있어요.");
+      if (!isLocalRuntime || !reel.permalink) return notFound(MEDIA_URL_MISSING);
+      try {
+        const fallback = await downloadViaYtdlp(dataDir, id, reel.permalink);
+        await repo.upsert({ ...reel, videoFile: fallback.fileName });
+        return NextResponse.json({ ok: true, ...fallback });
+      } catch (err) {
+        // 두 사유를 함께 보여준다. 폴백 실패만 보이면 왜 폴백까지 갔는지 알 수 없다.
+        const reason = err instanceof Error ? err.message : "공개 주소에서도 받지 못했습니다";
+        return notFound(`${MEDIA_URL_MISSING} 공개 주소에서 직접 받는 것도 실패했습니다: ${reason}`);
+      }
     }
-    const { dataDir } = resolveRuntimeConfig();
+
     const { fileName, bytes } = await downloadVideoToCache(dataDir, id, mediaUrl);
     await repo.upsert({ ...reel, videoFile: fileName });
     return NextResponse.json({ ok: true, fileName, bytes });
