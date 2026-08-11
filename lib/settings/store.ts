@@ -51,6 +51,7 @@ const StoredSettingsSchema = z.object({
   instagram: InstagramSchema.optional(),
   instagramTokenIssuedAt: z.string().optional(),
   instagramTokenExpiresAt: z.string().optional(),
+  lastSyncedAt: z.string().optional(),
   walla: WallaSchema.optional(),
 });
 
@@ -71,6 +72,8 @@ interface Settings {
   instagramTokenIssuedAt?: string;
   /** OAuth token endpoint가 알려 준 실제 만료 시각. 수동 입력 토큰에는 없을 수 있다. */
   instagramTokenExpiresAt?: string;
+  /** 마지막으로 동기화에 성공한 시각(ISO). 화면은 이 값으로 신선도를 표시한다. */
+  lastSyncedAt?: string;
   /** 지원 신청 폼(Walla) 자격증명. 미설정이면 신청 동기화를 건너뛴다. */
   walla?: z.infer<typeof WallaSchema>;
 }
@@ -109,6 +112,7 @@ interface MaskedSettings {
   };
   instagramTokenIssuedAt: string | null;
   instagramTokenExpiresAt: string | null;
+  lastSyncedAt: string | null;
   walla: {
     configured: boolean;
     maskedKey: string | null;
@@ -139,6 +143,7 @@ function normalize(raw: z.infer<typeof StoredSettingsSchema>): Settings {
     instagram: raw.instagram,
     instagramTokenIssuedAt: raw.instagramTokenIssuedAt,
     instagramTokenExpiresAt: raw.instagramTokenExpiresAt,
+    lastSyncedAt: raw.lastSyncedAt,
     walla: raw.walla,
   };
 }
@@ -151,6 +156,8 @@ export interface SettingsStore {
     expiresAt?: string;
   }): Promise<Settings>;
   clearInstagramCredential(): Promise<Settings>;
+  /** 동기화에 성공했을 때만 호출한다. 실패가 시각을 밀면 거짓 신선도가 된다. */
+  markSynced(at: string): Promise<Settings>;
   masked(): Promise<MaskedSettings>;
 }
 
@@ -176,6 +183,7 @@ export function createSettingsStore(dataDir: string): SettingsStore {
       instagram: settings.instagram,
       instagramTokenIssuedAt: settings.instagramTokenIssuedAt,
       instagramTokenExpiresAt: settings.instagramTokenExpiresAt,
+      lastSyncedAt: settings.lastSyncedAt,
       walla: settings.walla,
     };
     // 새 임시 파일부터 0600으로 만든 뒤 원자적으로 교체해 키가 넓은 권한으로 노출되는 창을 막는다.
@@ -196,6 +204,7 @@ export function createSettingsStore(dataDir: string): SettingsStore {
         instagram: { ...cur.instagram },
         instagramTokenIssuedAt: cur.instagramTokenIssuedAt,
         instagramTokenExpiresAt: cur.instagramTokenExpiresAt,
+        lastSyncedAt: cur.lastSyncedAt,
         walla: cur.walla,
       };
       if (incoming.walla) {
@@ -265,6 +274,15 @@ export function createSettingsStore(dataDir: string): SettingsStore {
     });
   }
 
+  function markSynced(at: string): Promise<Settings> {
+    return withFileLock(file, async () => {
+      const current = await get();
+      const next: Settings = { ...current, lastSyncedAt: at };
+      await write(next);
+      return next;
+    });
+  }
+
   async function masked(): Promise<MaskedSettings> {
     const s = await get();
     const providers = {} as Record<ProviderId, MaskedProvider>;
@@ -288,6 +306,7 @@ export function createSettingsStore(dataDir: string): SettingsStore {
       },
       instagramTokenIssuedAt: s.instagramTokenIssuedAt ?? null,
       instagramTokenExpiresAt: s.instagramTokenExpiresAt ?? null,
+      lastSyncedAt: s.lastSyncedAt ?? null,
       walla: {
         configured: Boolean(s.walla?.apiKey && s.walla?.formId),
         maskedKey: s.walla?.apiKey ? maskApiKey(s.walla.apiKey) : null,
@@ -296,5 +315,5 @@ export function createSettingsStore(dataDir: string): SettingsStore {
     };
   }
 
-  return { get, save, saveInstagramCredential, clearInstagramCredential, masked };
+  return { get, save, saveInstagramCredential, clearInstagramCredential, markSynced, masked };
 }

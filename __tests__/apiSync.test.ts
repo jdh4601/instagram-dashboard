@@ -1,3 +1,5 @@
+const mockMarkSynced = vi.hoisted(() => vi.fn(async () => {}));
+
 vi.mock("@/lib/graph", () => ({
   getInstagramClient: vi.fn(async () => ({})),
 }));
@@ -21,6 +23,9 @@ vi.mock("@/lib/walla/sync", () => ({
     reachedPageLimit: false,
     error: null,
   })),
+}));
+vi.mock("@/lib/settings", () => ({
+  getSettingsStore: vi.fn(() => ({ markSynced: mockMarkSynced })),
 }));
 
 import type { MockedFunction } from "vitest";
@@ -65,6 +70,7 @@ const okResult = {
 
 beforeEach(() => {
   mockSync.mockReset();
+  mockMarkSynced.mockClear();
   mockApplicationSync.mockReset();
   mockApplicationSync.mockResolvedValue({
     applications: null,
@@ -141,6 +147,35 @@ test("스트리밍 중 동기화가 실패하면 error 이벤트로 끝낸다", 
     type: "error",
     error: "릴스 동기화 전체 실패",
   });
+});
+
+// ── 마지막 동기화 시각 ────────────────────────────────────────────────
+
+test("동기화가 성공하면 마지막 동기화 시각을 기록한다", async () => {
+  mockSync.mockResolvedValue(okResult);
+
+  await POST(syncRequest());
+
+  expect(mockMarkSynced).toHaveBeenCalledTimes(1);
+  const [recorded] = mockMarkSynced.mock.calls[0] as unknown as [string];
+  expect(Number.isNaN(Date.parse(recorded))).toBe(false);
+});
+
+// 실패한 동기화가 시각을 밀면 낡은 데이터가 방금 갱신된 것처럼 보인다.
+test("동기화가 실패하면 마지막 동기화 시각을 기록하지 않는다", async () => {
+  mockSync.mockRejectedValue(new Error("릴스 동기화 전체 실패"));
+
+  await POST(syncRequest());
+
+  expect(mockMarkSynced).not.toHaveBeenCalled();
+});
+
+test("스트리밍 동기화가 실패해도 마지막 동기화 시각을 기록하지 않는다", async () => {
+  mockSync.mockRejectedValue(new Error("릴스 동기화 전체 실패"));
+
+  await readEvents(await POST(streamRequest()));
+
+  expect(mockMarkSynced).not.toHaveBeenCalled();
 });
 
 // ── 신청 폼 연동 ───────────────────────────────────────────────────────

@@ -17,7 +17,7 @@ import {
 } from "@/lib/analysis/accountFunnel";
 import type { Band } from "@/lib/analysis/diagnosis";
 import { fmtCount, fmtPct } from "@/lib/ui/format";
-import { Badge, Card, CardBody, CardHeader } from "@/components/ui";
+import { Card, CardBody, CardHeader } from "@/components/ui";
 
 interface Props {
   funnel: AccountFunnel | null;
@@ -39,21 +39,13 @@ export function AccountFunnelCard({ funnel }: Props) {
   if (funnel === null) return null;
 
   const verdicts = accountFunnelVerdicts(funnel);
-  const dateLabel = funnel.date.replaceAll("-", ".");
 
   return (
     <Card className="overflow-hidden">
+      {/* 신선도는 동기화 버튼 옆에서 한 번만 말한다. 카드에는 지표만 남긴다. */}
       <CardHeader
-        title={
-          <span>
-            최근 {ACCOUNT_FUNNEL_WINDOW_DAYS}일 계정 전환 흐름
-            <span className="mt-0.5 block text-[11px] font-normal text-neutral-400">
-              {dateLabel} 기준
-            </span>
-          </span>
-        }
+        title={`최근 ${ACCOUNT_FUNNEL_WINDOW_DAYS}일 계정 전환 흐름`}
         icon={<UserRoundSearch size={16} className="text-brand-600" />}
-        action={<Badge>계정 전체</Badge>}
       />
       <CardBody className="pt-3">
         <section aria-label={`최근 ${ACCOUNT_FUNNEL_WINDOW_DAYS}일 계정 전환 흐름`}>

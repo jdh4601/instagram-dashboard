@@ -149,3 +149,46 @@ test("Walla 자격증명 앞뒤 공백을 제거한다", async () => {
   expect(s.walla?.apiKey).toBe("wk_secret_key_1234");
   expect(s.walla?.formId).toBe("form_abc");
 });
+
+// ── 마지막 동기화 시각 ────────────────────────────────────────────────
+
+test("한 번도 동기화하지 않았으면 마지막 동기화 시각이 없다", async () => {
+  const store = tmpStore();
+
+  expect((await store.get()).lastSyncedAt).toBeUndefined();
+  expect((await store.masked()).lastSyncedAt).toBeNull();
+});
+
+test("markSynced는 동기화 시각을 기록하고 다시 읽힌다", async () => {
+  const store = tmpStore();
+
+  await store.markSynced("2026-08-11T05:00:00.000Z");
+
+  expect((await store.get()).lastSyncedAt).toBe("2026-08-11T05:00:00.000Z");
+  expect((await store.masked()).lastSyncedAt).toBe("2026-08-11T05:00:00.000Z");
+});
+
+test("markSynced는 기존 설정을 지우지 않는다", async () => {
+  const store = tmpStore();
+  await store.save({
+    textProvider: "openai",
+    instagram: { accessToken: "IGtoken-keep-1234" },
+    walla: { apiKey: "wk_secret_key_1234", formId: "form_abc" },
+  });
+
+  await store.markSynced("2026-08-11T05:00:00.000Z");
+
+  const s = await store.get();
+  expect(s.textProvider).toBe("openai");
+  expect(s.instagram?.accessToken).toBe("IGtoken-keep-1234");
+  expect(s.walla?.formId).toBe("form_abc");
+});
+
+test("다른 설정을 저장해도 동기화 시각은 유지된다", async () => {
+  const store = tmpStore();
+  await store.markSynced("2026-08-11T05:00:00.000Z");
+
+  await store.save({ textProvider: "kimi" });
+
+  expect((await store.get()).lastSyncedAt).toBe("2026-08-11T05:00:00.000Z");
+});

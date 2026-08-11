@@ -2,7 +2,7 @@ import { Users } from "lucide-react";
 import type { AudienceMix } from "@/lib/analysis/audienceMix";
 import type { Reel } from "@/lib/schemas";
 import { fmtCount, fmtPct } from "@/lib/ui/format";
-import { Badge, Card, CardBody, CardHeader } from "@/components/ui";
+import { Card, CardBody, CardHeader } from "@/components/ui";
 import { EngagementDonut } from "@/components/EngagementDonut";
 
 interface Props {
@@ -14,8 +14,8 @@ interface Props {
  * 도달의 "누구"(팔로워 vs 비팔로워)와 "무엇"(공유·댓글·저장·좋아요)을 한 카드에 둔다.
  * 둘 다 도달 한 덩어리를 쪼개 보는 구성비라 나란히 놓으면 같이 읽힌다.
  *
- * 단, 기준이 다르다: 도달 구성은 계정 레벨 스냅샷이고 인게이지먼트 구성은 현재
- * 필터가 걸린 게시물 합계다. 그래서 섹션마다 기준을 따로 밝힌다.
+ * 데이터 신선도는 동기화 버튼 옆에서 한 번만 말한다. 카드마다 "... 기준"을 붙이면
+ * 같은 이야기가 화면 곳곳에서 반복돼 정작 숫자가 묻힌다.
  */
 export function AudienceMixCard({ mix, reels }: Props) {
   if (mix === null && reels.length === 0) return null;
@@ -25,7 +25,6 @@ export function AudienceMixCard({ mix, reels }: Props) {
       <CardHeader
         title="도달 · 인게이지먼트 구성"
         icon={<Users size={16} className="text-brand-600" />}
-        action={mix === null ? undefined : <Badge>{mix.date} 기준</Badge>}
       />
       <CardBody className="space-y-4">
         {mix !== null && <ReachMix mix={mix} />}
@@ -33,7 +32,7 @@ export function AudienceMixCard({ mix, reels }: Props) {
           aria-label="인게이지먼트 구성"
           className={mix === null ? undefined : "border-t border-border-subtle pt-4"}
         >
-          <SectionLabel title="인게이지먼트 구성" note="표시된 게시물 기준" />
+          <SectionLabel title="인게이지먼트 구성" />
           <div className="mt-2">
             <EngagementDonut reels={reels} />
           </div>
@@ -48,7 +47,7 @@ function ReachMix({ mix }: { mix: AudienceMix }) {
 
   return (
     <section aria-label="도달 구성" className="space-y-3">
-      <SectionLabel title="도달 구성 (팔로워 vs 비팔로워)" note="계정 전체 기준" />
+      <SectionLabel title="도달 구성 (팔로워 vs 비팔로워)" />
       <div
         className="flex h-3 w-full overflow-hidden rounded-full bg-surface-muted"
         role="img"
@@ -65,13 +64,8 @@ function ReachMix({ mix }: { mix: AudienceMix }) {
   );
 }
 
-function SectionLabel({ title, note }: { title: string; note: string }) {
-  return (
-    <p className="flex flex-wrap items-baseline gap-x-2 text-xs font-medium text-neutral-500">
-      {title}
-      <span className="text-[11px] font-normal text-neutral-400">{note}</span>
-    </p>
-  );
+function SectionLabel({ title }: { title: string }) {
+  return <p className="text-xs font-medium text-neutral-500">{title}</p>;
 }
 
 function Stat({
