@@ -1,7 +1,7 @@
 "use client";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { X, ChevronRight } from "lucide-react";
+import { X } from "lucide-react";
 import type { Reel, AccountSnapshot, AccountProfile, Application } from "@/lib/schemas";
 import { buildAccountOverview } from "@/lib/analysis/accountOverview";
 import { latestFollowerDelta } from "@/lib/analysis/followerTrend";
@@ -15,14 +15,12 @@ import { AccountFunnelCard } from "@/components/AccountFunnelCard";
 import { AudienceMixCard } from "@/components/AudienceMixCard";
 import { buildAccountFunnel } from "@/lib/analysis/accountFunnel";
 import { buildAudienceMix } from "@/lib/analysis/audienceMix";
-import { Input, Button } from "@/components/ui";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { DashboardToast, type SyncToast } from "@/components/DashboardToast";
 import { ChatPanel } from "@/components/chat/ChatPanel";
-import { MediaTypeToggle } from "@/components/MediaTypeToggle";
 import { PerformanceChartsCard } from "@/components/PerformanceChartsCard";
 import { DashboardMetrics } from "@/components/DashboardMetrics";
-import { filterByMedia, type MediaFilter } from "@/lib/ui/mediaFilter";
+import { filterByMedia } from "@/lib/ui/mediaFilter";
 import { readNdjson } from "@/lib/ui/ndjsonStream";
 import { buildSyncToast } from "@/lib/ui/syncToast";
 import type { SyncProgress, SyncResult } from "@/lib/graph/sync";
@@ -36,8 +34,6 @@ export default function Page() {
   const [profile, setProfile] = useState<AccountProfile | null>(null);
   // 신청 폼 미연동과 "신청 0건"을 구분해야 해서 빈 배열이 아니라 null로 시작한다.
   const [applications, setApplications] = useState<Application[] | null>(null);
-  const [snapDate, setSnapDate] = useState("");
-  const [snapFollowers, setSnapFollowers] = useState("");
   const [toast, setToast] = useState<SyncToast | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
@@ -45,8 +41,7 @@ export default function Page() {
   const [tokenIssuedAt, setTokenIssuedAt] = useState<string | null>(null);
   const [tokenExpiresAt, setTokenExpiresAt] = useState<string | null>(null);
   const [tokenBannerDismissed, setTokenBannerDismissed] = useState(false);
-  // 기본값 릴스 — 토글 도입 전 동작을 유지한다.
-  const [mediaFilter, setMediaFilter] = useState<MediaFilter>("REELS");
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
   async function onSync() {
     setSyncing(true);
@@ -100,6 +95,8 @@ export default function Page() {
       setSnapshots(snapsRes.snapshots);
       setProfile(profileRes.profile);
       setApplications(applicationsRes.applications ?? []);
+      // 서버가 방금 기록한 것과 같은 시각이다. /api/settings를 다시 부르지 않고 반영한다.
+      setLastSyncedAt(new Date().toISOString());
       setToast(buildSyncToast(data));
     } catch {
       setToast({ tone: "error", message: "동기화 실패: 네트워크 또는 화면 갱신 오류가 발생했습니다" });
@@ -147,6 +144,8 @@ export default function Page() {
         setTokenIssuedAt(typeof issuedAt === "string" ? issuedAt : null);
         const expiresAt = settingsResult.value.instagramTokenExpiresAt;
         setTokenExpiresAt(typeof expiresAt === "string" ? expiresAt : null);
+        const syncedAt = settingsResult.value.lastSyncedAt;
+        setLastSyncedAt(typeof syncedAt === "string" ? syncedAt : null);
       }
 
       if ([reelsResult, snapshotsResult, profileResult].some((result) => result.status === "rejected")) {
@@ -163,35 +162,16 @@ export default function Page() {
     };
   }, []);
 
-  async function addSnapshot(e: FormEvent) {
-    e.preventDefault();
-    if (!snapDate || !snapFollowers) return;
-    const res = await fetch("/api/snapshots", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        date: snapDate,
-        followerCount: Number(snapFollowers),
-        reachLast7d: 0,
-      }),
-    });
-    if (!res.ok) return;
-    const refreshed = await fetch("/api/snapshots").then((r) => r.json());
-    setSnapshots(refreshed.snapshots);
-    setSnapDate("");
-    setSnapFollowers("");
-  }
-
-  const visibleReels = filterByMedia(reels, mediaFilter);
-  const overview = buildAccountOverview(visibleReels, snapshots, profile);
+  // 대시보드는 릴스+캐러셀 합산 고정이다. 매체별로 나눠 보는 화면은 /reels가 맡는다.
+  const overview = buildAccountOverview(reels, snapshots, profile);
   const followerDelta = latestFollowerDelta(snapshots);
   // 평균 시청시간·3초 잔존율은 캐러셀에 존재하지 않는 지표라 항상 릴스만 집계한다.
   const dashboardMetrics = computeDashboardMetrics(filterByMedia(reels, "REELS"));
   // 퍼널은 계정 레벨이다. Graph가 릴스에 profile_visits/follows를 주지 않고, 게시물
-  // 귀속 팔로우는 실제 증가분의 일부만 설명해서 미디어 필터를 따를 수 없다.
+  // 귀속 팔로우는 실제 증가분의 일부만 설명한다.
   // 신청은 Graph 밖 데이터라 미연동이면 undefined를 넘겨 신청 구간을 통째로 감춘다.
   const funnel = buildAccountFunnel(snapshots, applications ?? undefined);
-  // 도달 구성은 계정 레벨 지표라 미디어 필터와 무관하다.
+  // 도달 구성도 계정 레벨 스냅샷에서 온다.
   const audienceMix = buildAudienceMix(snapshots);
 
   // 저장 시점을 모르는 토큰은 경고하지 않는다. 토큰을 이 앱에 저장하기 전부터 쓰던
@@ -209,7 +189,7 @@ export default function Page() {
     // 오른쪽 가장자리에 접혀 손잡이만 남는다.
     <div className="mx-auto flex w-full max-w-[110rem] items-start">
       <div className="min-w-0 flex-1">
-      <DashboardActions onSync={onSync} syncing={syncing} />
+      <DashboardActions onSync={onSync} syncing={syncing} lastSyncedAt={lastSyncedAt} />
       {syncing && syncProgress && <SyncProgressBar progress={syncProgress} />}
       <main className="mx-auto max-w-5xl space-y-5 px-4 pb-4 sm:px-6 sm:pb-6">
         {initialLoading ? (
@@ -239,21 +219,16 @@ export default function Page() {
                 </button>
               </div>
             )}
-            {/* 헤더는 필터와 무관한 전체 개수를 보여준다 */}
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
               <div className="shrink-0 lg:max-w-md">
                 <AccountHeader profile={profile} followerDelta={followerDelta} contentCount={reels.length} />
               </div>
-              {/* 리듬은 필터와 무관하게 계정 전체 업로드를 보여준다 */}
               <UploadRhythmCard reels={reels} />
-            </div>
-            <div className="flex justify-end">
-              <MediaTypeToggle value={mediaFilter} onChange={setMediaFilter} />
             </div>
             <AccountOverview overview={overview} />
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
               <AccountFunnelCard funnel={funnel} />
-              <AudienceMixCard mix={audienceMix} reels={visibleReels} />
+              <AudienceMixCard mix={audienceMix} reels={reels} />
             </div>
 
             {/* 추이는 가로가 길수록 읽기 쉬우므로 한 행을 다 쓴다. 팔로워 추이는
@@ -261,49 +236,6 @@ export default function Page() {
             <PerformanceChartsCard reels={reels} snapshots={snapshots} />
 
             <DashboardMetrics metrics={dashboardMetrics} />
-
-            <div className="flex justify-end">
-              <Link
-                href="/reels"
-                className="inline-flex min-h-11 items-center gap-1 rounded-lg px-3 text-sm font-medium text-brand-600 hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
-              >
-                게시물 {reels.length}개 전체 보기
-                <ChevronRight size={16} aria-hidden />
-              </Link>
-            </div>
-
-            <form
-              onSubmit={addSnapshot}
-              className="space-y-2"
-              aria-labelledby="snapshot-form-title"
-            >
-              <h2 id="snapshot-form-title" className="text-sm font-semibold text-neutral-700">
-                팔로워 스냅샷 추가
-              </h2>
-              <div className="flex flex-wrap items-center gap-2 text-sm">
-                <label className="sr-only" htmlFor="snapshot-date">
-                  날짜
-                </label>
-                <Input
-                  id="snapshot-date"
-                  type="date"
-                  value={snapDate}
-                  onChange={(e) => setSnapDate(e.target.value)}
-                />
-                <label className="sr-only" htmlFor="snapshot-followers">
-                  팔로워 수
-                </label>
-                <Input
-                  id="snapshot-followers"
-                  type="number"
-                  placeholder="팔로워 수"
-                  className="w-32"
-                  value={snapFollowers}
-                  onChange={(e) => setSnapFollowers(e.target.value)}
-                />
-                <Button type="submit">스냅샷 추가</Button>
-              </div>
-            </form>
           </>
         )}
       </main>
