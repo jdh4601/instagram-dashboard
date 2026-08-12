@@ -11,6 +11,7 @@ import { syncFromGraph, type SyncProgress } from "@/lib/graph/sync";
 import { getWallaConnection } from "@/lib/walla";
 import { syncApplicationsIfConfigured } from "@/lib/walla/sync";
 import { assertJsonRequest } from "@/lib/api/guard";
+import { getSettingsStore } from "@/lib/settings";
 
 const NDJSON = "application/x-ndjson";
 
@@ -33,6 +34,10 @@ async function runSync(onProgress?: (progress: SyncProgress) => void) {
     await getWallaConnection(),
     getApplicationRepository(),
   );
+
+  // 여기까지 왔다면 저장소에 새 데이터가 실제로 들어갔다. 위에서 예외가 나면
+  // 시각을 남기지 않아, 실패한 동기화가 화면을 신선하다고 속이지 못한다.
+  await getSettingsStore().markSynced(new Date().toISOString());
 
   return {
     ...result,

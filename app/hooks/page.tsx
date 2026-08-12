@@ -1,7 +1,9 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import type { Hook, HookDraft } from "@/lib/schemas";
+import type { Hook, HookDraft, Reel } from "@/lib/schemas";
+import { groupHookExamplesByType, type HookExamplesByType } from "@/lib/ui/hookExamples";
 import { HookLibrary } from "@/components/HookLibrary";
+import { HookCatalog } from "@/components/HookCatalog";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
@@ -15,6 +17,7 @@ async function failureMessage(res: Response, fallback: string): Promise<string> 
 
 export default function HooksPage() {
   const [hooks, setHooks] = useState<Hook[]>([]);
+  const [examples, setExamples] = useState<HookExamplesByType | undefined>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,6 +42,25 @@ export default function HooksPage() {
       cancelled = true;
     };
   }, [reload]);
+
+  // 카탈로그의 "내 릴스에서 나온 사례"용. 이미 분석된 릴스의 훅을 그대로 다시 쓴다.
+  // 실패해도 보관함과 카탈로그 본문은 멀쩡해야 하므로 에러 배너를 띄우지 않고
+  // 사례 없이 내려간다 — 부가 정보 하나 때문에 페이지 전체가 실패로 보이면 곤란하다.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/reels")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { reels?: Reel[] } | null) => {
+        if (cancelled || !data) return;
+        setExamples(groupHookExamplesByType(data.reels ?? []));
+      })
+      .catch(() => {
+        if (!cancelled) setExamples(undefined);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // 저장·토글·삭제는 모두 서버 결과를 다시 읽어 화면을 맞춘다. 낙관적 갱신을 하면
   // 검증에 걸려 저장이 안 된 훅이 화면에만 남는다.
@@ -81,7 +103,9 @@ export default function HooksPage() {
     <main className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
       <header className="space-y-1">
         <h1 className="text-xl font-semibold text-neutral-900">훅</h1>
-        <p className="text-sm text-neutral-600">잘된 릴스의 훅을 모아두는 보관함입니다.</p>
+        <p className="text-sm text-neutral-600">
+          잘된 릴스의 훅을 모아두는 보관함과, 유형·원리·포맷을 찾아보는 카탈로그입니다.
+        </p>
       </header>
 
       {error && (
@@ -100,6 +124,9 @@ export default function HooksPage() {
           onDelete={remove}
         />
       )}
+
+      {/* 보관함이 로딩 중이어도 카탈로그는 정적 상수라 바로 읽을 수 있다. */}
+      <HookCatalog examples={examples} />
     </main>
   );
 }

@@ -6,19 +6,26 @@ import {
   tabNeedsLlmAnalysis,
 } from "@/lib/ui/reelAnalysisTabs";
 
-test("탭은 Transcript · Idea Analysis · Hook · Storytelling Format 4개다", () => {
+test("탭은 Transcript · Idea Analysis · Hook · Storytelling Format · Improved Story 5개다", () => {
+  // Improved Story는 Storytelling Format이 짚은 빠진 비트를 채우는 자리라 그 뒤에 온다.
   expect(REEL_ANALYSIS_TABS.map((t) => t.id)).toEqual([
     "transcript",
     "idea",
     "hook",
     "story",
+    "improved",
   ]);
   expect(REEL_ANALYSIS_TABS.map((t) => t.label)).toEqual([
     "Transcript",
     "Idea Analysis",
     "Hook",
     "Storytelling Format",
+    "Improved Story",
   ]);
+});
+
+test("개선된 전개도 분석 결과가 있어야 볼 수 있다", () => {
+  expect(tabNeedsLlmAnalysis("improved")).toBe(true);
 });
 
 test("기본 탭은 자막 전문이다", () => {

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ReelAnalysisSchema } from "@/lib/schemas/reelAnalysis";
+import { ReelAnalysisSchema, ImprovedStorySchema } from "@/lib/schemas/reelAnalysis";
 
 const TranscriptLineSchema = z.object({
   startSec: z.number().nonnegative(),
@@ -88,6 +88,8 @@ export const ReelSchema = z.object({
   // 분석 스키마가 바뀌면 예전 구조로 캐시된 값이 남는다. catch로 받아내지 않으면
   // 그 릴스 전체가 파싱에 실패해 대시보드가 통째로 빈다. 분석만 버리고 릴스는 살린다.
   reelAnalysis: ReelAnalysisSchema.optional().catch(undefined),
+  // 개선된 전개안. 분석과 같은 이유로 catch를 물려 둔다.
+  improvedStory: ImprovedStorySchema.optional().catch(undefined),
   derived: DerivedRatesSchema.optional(),
 });
 export type Reel = z.infer<typeof ReelSchema>;

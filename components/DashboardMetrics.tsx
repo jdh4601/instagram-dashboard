@@ -89,27 +89,20 @@ function ScrollableChartFrame({
   ariaLabel: string;
   children: ReactNode;
 }) {
+  // overflow-x-auto만 주면 CSS 규칙상 overflow-y가 visible에서 auto로 승격돼,
+  // 차트 캔버스 밖으로 몇 px만 삐져나와도 세로 스크롤바가 생긴다(툴팁이 그렇다).
+  // 세로로는 스크롤할 것이 없으므로 hidden으로 못 박는다.
   return (
-    <>
-      {seriesLength > 8 && (
-        <p className="mb-1 text-right text-[11px] text-neutral-400">
-          ← 좌우로 스크롤해 전체 릴스 보기 →
-        </p>
-      )}
-      <div
-        role="region"
-        aria-label={ariaLabel}
-        tabIndex={0}
-        className="overflow-x-auto overscroll-x-contain pb-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-      >
-        <div
-          className="w-full"
-          style={{ minWidth: chartCanvasMinWidth(seriesLength), height }}
-        >
-          {children}
-        </div>
+    <div
+      role="region"
+      aria-label={ariaLabel}
+      tabIndex={0}
+      className="overflow-x-auto overflow-y-hidden overscroll-x-contain pb-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+    >
+      <div className="w-full" style={{ minWidth: chartCanvasMinWidth(seriesLength), height }}>
+        {children}
       </div>
-    </>
+    </div>
   );
 }
 
@@ -282,8 +275,9 @@ function Retention3sChart({
                 />
                 <Tooltip
                   // 세로 위치를 차트 하단으로 고정해 데이터 선을 가리지 않게 한다(x는 커서를 따라감).
-                  position={{ y: 150 }}
-                  allowEscapeViewBox={{ y: true }}
+                  // 200px 캔버스 안에 툴팁(약 66px)이 통째로 들어와야 한다. 밖으로 나가면
+                  // 프레임의 overflow-y-hidden에 아랫부분이 잘린다.
+                  position={{ y: 128 }}
                   offset={12}
                   formatter={(v) => [fmtPct(Number(v)), "3초 잔존율"]}
                   labelFormatter={(l, p) => {

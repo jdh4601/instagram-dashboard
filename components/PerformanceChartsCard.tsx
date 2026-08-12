@@ -91,7 +91,7 @@ export function PerformanceChartsCard({
           <EmptyState
             icon={<BarChart3 size={26} />}
             title="아직 데이터가 없습니다"
-            hint="동기화하거나 팔로워 스냅샷을 추가하면 성과 차트가 그려집니다."
+            hint="동기화하면 성과 차트가 그려집니다."
           />
         ) : (
           <>
@@ -144,7 +144,7 @@ export function PerformanceChartsCard({
                 title="Cumulative followers"
                 caption="팔로워 스냅샷의 절대 수치"
                 hasData={chart.hasFollowerTotal}
-                emptyHint="팔로워 스냅샷을 추가하면 추이가 그려집니다."
+                emptyHint="동기화로 팔로워 스냅샷이 쌓이면 추이가 그려집니다."
               >
                 <CumulativeFollowersChart points={chart.followers} showPrevious={showPrevious} />
               </ChartPanel>

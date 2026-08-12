@@ -15,6 +15,7 @@ import {
   type HookSort,
 } from "@/lib/ui/hookSelect";
 import { fmtCount } from "@/lib/ui/format";
+import { HOOK_CATEGORY_CLASSES } from "@/lib/ui/hookCategoryStyle";
 import { Input, EmptyState, cn } from "@/components/ui";
 import { HookForm } from "@/components/HookForm";
 
@@ -45,10 +46,11 @@ function HookRow({
         <img
           src={hook.thumbnailUrl}
           alt=""
-          className="size-14 shrink-0 rounded-lg object-cover"
+          className="aspect-[9/16] w-12 shrink-0 rounded-lg object-cover"
         />
       ) : (
-        <div className="size-14 shrink-0 rounded-lg bg-surface-muted" aria-hidden />
+        // 썸네일이 없어도 같은 자리를 차지해야 줄 높이가 들쭉날쭉하지 않다.
+        <div className="aspect-[9/16] w-12 shrink-0 rounded-lg bg-surface-muted" aria-hidden />
       )}
 
       <div className="min-w-0 flex-1">
@@ -62,7 +64,12 @@ function HookRow({
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5">
-        <span className="rounded-md bg-brand-50 px-2 py-1 text-xs font-medium text-brand-700">
+        <span
+          className={cn(
+            "rounded-md px-2 py-1 text-xs font-medium",
+            HOOK_CATEGORY_CLASSES[hook.category],
+          )}
+        >
           {HOOK_CATEGORY_LABELS[hook.category]}
         </span>
 

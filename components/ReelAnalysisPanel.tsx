@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Mic, FlaskConical, KeyRound, LayoutList, Loader2 } from "lucide-react";
+import { Mic, FlaskConical, KeyRound, LayoutList, Loader2, Wand2 } from "lucide-react";
 import type { Reel, ReelAnalysis } from "@/lib/schemas";
 import {
   REEL_ANALYSIS_TABS,
@@ -10,12 +10,14 @@ import {
 } from "@/lib/ui/reelAnalysisTabs";
 import { CopyButton, EmptyState, cn } from "@/components/ui";
 import { StorytellingReport } from "@/components/StorytellingReport";
+import { ImprovedStoryTab } from "@/components/ImprovedStoryTab";
 
 const TAB_ICONS: Record<ReelAnalysisTabId, typeof Mic> = {
   transcript: Mic,
   idea: FlaskConical,
   hook: KeyRound,
   story: LayoutList,
+  improved: Wand2,
 };
 
 const HOOK_TYPE_LABELS: Record<string, string> = {
@@ -33,6 +35,7 @@ interface Props {
   analysis: ReelAnalysis | null;
   onAnalyze: () => Promise<void>;
   onTranscribe: () => Promise<void>;
+  onImprove: () => Promise<void>;
 }
 
 function countWords(reel: Reel): number {
@@ -51,7 +54,7 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function ReelAnalysisPanel({ reel, analysis, onAnalyze, onTranscribe }: Props) {
+export function ReelAnalysisPanel({ reel, analysis, onAnalyze, onTranscribe, onImprove }: Props) {
   const [tab, setTab] = useState<ReelAnalysisTabId>(DEFAULT_TAB_ID);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,49 +76,43 @@ export function ReelAnalysisPanel({ reel, analysis, onAnalyze, onTranscribe }: P
 
   return (
     <section className="space-y-4">
-      {/* 분석 실행은 탭 안이 아니라 머리말에 둔다. 기본 탭이 Transcript라
-          탭 안에 숨기면 분석을 돌리려고 탭을 먼저 옮겨야 한다. */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          {analysis && (
-            <>
-              <h2 className="text-sm font-semibold text-neutral-900">Summary</h2>
-              <p className="text-sm leading-relaxed text-neutral-700">{analysis.summary}</p>
-            </>
-          )}
+      {/* 탭 바가 패널의 첫 줄이어야 왼쪽 영상 상단과 높이가 맞는다. 분석 실행은
+          탭 안에 숨기지 않고 같은 줄 오른쪽에 붙인다 — 기본 탭이 Transcript라
+          탭 안에 두면 분석을 돌리려고 탭을 먼저 옮겨야 한다. */}
+      <div className="flex items-center gap-2">
+        <div
+          role="tablist"
+          aria-label="릴스 분석"
+          className="flex min-w-0 flex-1 gap-1 overflow-x-auto rounded-card border border-border-subtle bg-surface p-1"
+        >
+          {REEL_ANALYSIS_TABS.map((item) => {
+            const Icon = TAB_ICONS[item.id];
+            const active = tab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setTab(item.id)}
+                className={cn(
+                  "inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400",
+                  active
+                    ? "bg-brand-50 text-brand-700"
+                    : "text-neutral-600 hover:bg-surface-muted hover:text-neutral-900",
+                )}
+              >
+                <Icon size={15} aria-hidden />
+                {item.label}
+              </button>
+            );
+          })}
         </div>
-        {hasTranscript && (
-          <AnalyzePrompt busy={busy} onAnalyze={() => run(onAnalyze)} regenerate={analysis != null} />
+        {/* 분석이 끝나면 버튼을 거둔다. 같은 자막으로 다시 돌려도 결과가 그대로라
+            자리만 차지하고, 탭 바 폭도 그만큼 좁아진다. */}
+        {hasTranscript && !analysis && (
+          <AnalyzePrompt busy={busy} onAnalyze={() => run(onAnalyze)} />
         )}
-      </div>
-
-      <div
-        role="tablist"
-        aria-label="릴스 분석"
-        className="flex gap-1 overflow-x-auto rounded-card border border-border-subtle bg-surface p-1"
-      >
-        {REEL_ANALYSIS_TABS.map((item) => {
-          const Icon = TAB_ICONS[item.id];
-          const active = tab === item.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setTab(item.id)}
-              className={cn(
-                "inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400",
-                active
-                  ? "bg-brand-50 text-brand-700"
-                  : "text-neutral-600 hover:bg-surface-muted hover:text-neutral-900",
-              )}
-            >
-              <Icon size={15} aria-hidden />
-              {item.label}
-            </button>
-          );
-        })}
       </div>
 
       {error && (
@@ -150,6 +147,13 @@ export function ReelAnalysisPanel({ reel, analysis, onAnalyze, onTranscribe }: P
             {tab === "idea" && <IdeaTab analysis={analysis} />}
             {tab === "hook" && <HookTab analysis={analysis} />}
             {tab === "story" && <StoryTab analysis={analysis} />}
+            {tab === "improved" && (
+              <ImprovedStoryTab
+                improved={reel.improvedStory ?? null}
+                busy={busy}
+                onGenerate={() => run(onImprove)}
+              />
+            )}
           </>
         )}
       </div>
@@ -157,29 +161,16 @@ export function ReelAnalysisPanel({ reel, analysis, onAnalyze, onTranscribe }: P
   );
 }
 
-function AnalyzePrompt({
-  busy,
-  onAnalyze,
-  regenerate,
-}: {
-  busy: boolean;
-  onAnalyze: () => void;
-  regenerate: boolean;
-}) {
+function AnalyzePrompt({ busy, onAnalyze }: { busy: boolean; onAnalyze: () => void }) {
   return (
     <button
       type="button"
       onClick={onAnalyze}
       disabled={busy}
-      className={cn(
-        "inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:opacity-60",
-        regenerate
-          ? "text-neutral-600 hover:bg-surface-muted"
-          : "bg-brand-600 text-white hover:bg-brand-700",
-      )}
+      className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg bg-brand-600 px-3 text-sm font-medium text-white hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:opacity-60"
     >
       {busy && <Loader2 size={15} className="animate-spin" aria-hidden />}
-      {regenerate ? "다시 분석" : "분석하기"}
+      분석하기
     </button>
   );
 }
@@ -207,17 +198,22 @@ function TranscriptTab({
             {countWords(reel)} 단어
           </span>
         )}
+        {/* 자막이 채워지면 전사 버튼을 거둔다. 다시 눌러도 같은 자막을 덮어쓸 뿐인데,
+            복사 버튼 옆에 붙어 있어 잘못 누르기 쉽다. */}
         <div className="ml-auto flex items-center gap-1">
-          {hasTranscript && <CopyButton text={fullText} />}
-          <button
-            type="button"
-            onClick={onTranscribe}
-            disabled={busy}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-brand-600 hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:opacity-60"
-          >
-            {busy && <Loader2 size={15} className="animate-spin" aria-hidden />}
-            자동 전사
-          </button>
+          {hasTranscript ? (
+            <CopyButton text={fullText} />
+          ) : (
+            <button
+              type="button"
+              onClick={onTranscribe}
+              disabled={busy}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-brand-600 hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:opacity-60"
+            >
+              {busy && <Loader2 size={15} className="animate-spin" aria-hidden />}
+              자동 전사
+            </button>
+          )}
         </div>
       </div>
 

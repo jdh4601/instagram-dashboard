@@ -185,6 +185,7 @@ function ReelDetail({
             onTranscribe={() =>
               runReelAction(`/api/reels/${reel.id}/transcript/whisper`, onChange)
             }
+            onImprove={() => runReelAction(`/api/reels/${reel.id}/improved-story`, onChange)}
           />
         </div>
       )}

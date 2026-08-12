@@ -40,7 +40,10 @@ export function ReelVideoPlayer({ reel, onDownloaded }: Props) {
   }
 
   return (
-    <div className="space-y-2">
+    // lg 미만에서는 그리드가 한 열로 접혀 영상이 본문 폭을 통째로 먹는다. 9:16이라
+    // 폭이 커지면 높이가 그 1.8배로 뛰어 화면을 다 차지하고 분석 패널이 밀려난다.
+    // lg에서 쓰는 열 너비(16rem)를 모든 폭의 상한으로 못 박는다.
+    <div className="w-full max-w-[16rem] space-y-2">
       <div className="relative aspect-[9/16] w-full overflow-hidden rounded-card border border-border-subtle bg-neutral-900">
         {reel.videoFile ? (
           // key를 파일명으로 두면 새로 받았을 때 <video>가 예전 소스를 붙들지 않는다.
