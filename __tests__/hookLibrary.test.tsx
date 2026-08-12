@@ -65,9 +65,20 @@ test("영감 준 계정이 없으면 빈 Inspired by 줄을 만들지 않는다"
 
 test("분류는 한국어 배지로 보여준다", () => {
   const html = render([hook("h1", { category: "contrarian" })]);
+  // 배지 색이 분류 토큰을 쓰면서 class에 영문 값이 들어간다. 사람이 읽는 것은
+  // 태그를 걷어낸 글자뿐이라, 거기에만 영문 값이 없으면 된다.
+  const visibleText = html.replace(/<[^>]*>/g, " ");
 
-  expect(html).toContain("역발상");
-  expect(html).not.toContain("contrarian");
+  expect(visibleText).toContain("역발상");
+  expect(visibleText).not.toContain("contrarian");
+});
+
+test("분류마다 배지 색이 갈린다", () => {
+  const problem = render([hook("h1", { category: "problem" })]);
+  const curiosity = render([hook("h1", { category: "curiosity" })]);
+
+  expect(problem).toContain("text-hook-problem");
+  expect(curiosity).toContain("text-hook-curiosity");
 });
 
 test("조회수는 축약해서 배지에 담는다", () => {

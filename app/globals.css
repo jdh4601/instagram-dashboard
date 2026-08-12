@@ -39,6 +39,20 @@
   --color-band-strong-soft: #f0fdf4;
   --color-band-strong-border: #bbf7d0;
 
+  /* 훅 분류 5종 — 진단 밴드와 달리 좋고 나쁨이 없는 분류색이라 색상환을 고루
+     쓴다. 보관함에서 라벨만 보고 유형을 가려내는 것이 목적이므로 이웃한 색을
+     쓰지 않고, 배경은 옅게 글자는 진하게 둬 어느 테마에서도 대비를 지킨다. */
+  --color-hook-problem: #b91c1c;
+  --color-hook-problem-soft: #fef2f2;
+  --color-hook-contrarian: #b45309;
+  --color-hook-contrarian-soft: #fffbeb;
+  --color-hook-experience: #047857;
+  --color-hook-experience-soft: #ecfdf5;
+  --color-hook-curiosity: #0369a1;
+  --color-hook-curiosity-soft: #f0f9ff;
+  --color-hook-authority: #6d28d9;
+  --color-hook-authority-soft: #f5f3ff;
+
   /* 라운드 / 그림자 */
   --radius-card: 0.875rem;
   --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
@@ -86,6 +100,16 @@
   --color-band-strong: #4ade80;
   --color-band-strong-soft: #142d22;
   --color-band-strong-border: #24613d;
+  --color-hook-problem: #fca5a5;
+  --color-hook-problem-soft: #3a1c1f;
+  --color-hook-contrarian: #fcd34d;
+  --color-hook-contrarian-soft: #382b14;
+  --color-hook-experience: #6ee7b7;
+  --color-hook-experience-soft: #123027;
+  --color-hook-curiosity: #7dd3fc;
+  --color-hook-curiosity-soft: #12293b;
+  --color-hook-authority: #c4b5fd;
+  --color-hook-authority-soft: #241f3d;
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.24), 0 1px 4px rgb(0 0 0 / 0.18);
   --shadow-card-hover: 0 6px 18px rgb(0 0 0 / 0.28);
 }
