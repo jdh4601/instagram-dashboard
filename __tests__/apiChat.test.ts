@@ -30,7 +30,6 @@ vi.mock("@/lib/llm/chat", () => ({
     if (resolveError) throw resolveError;
     return { provider: "anthropic", label: "Anthropic (Claude)", model: chatModel };
   },
-  chatProviderLabel: () => "Anthropic (Claude)",
 }));
 
 const reels: Reel[] = [

@@ -16,7 +16,7 @@ export interface TextSegment {
   emphasis?: EmphasisTone;
 }
 
-export type BlockKind =
+type BlockKind =
   | "paragraph"
   | "bullet"
   | "numbered"

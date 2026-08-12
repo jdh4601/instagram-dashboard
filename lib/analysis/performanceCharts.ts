@@ -4,12 +4,12 @@ import { toSeoulDate } from "@/lib/analysis/uploadRhythm";
 import { reelTitle } from "@/lib/ui/reelTitle";
 
 /** 기본 표시 구간. 릴스 계정의 한 사이클(주 2~3회 업로드 × 4주)이 다 들어가는 길이다. */
-export const DEFAULT_WINDOW_DAYS = 30;
+const DEFAULT_WINDOW_DAYS = 30;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** 막대 툴팁에 띄울 릴스 한 건. 차트가 스키마 전체를 알 필요는 없다. */
-export interface ChartReel {
+interface ChartReel {
   id: string;
   title: string;
   views: number;
@@ -43,7 +43,7 @@ export interface FollowerDayPoint {
   prevTotal: number | null;
 }
 
-export interface ChartRange {
+interface ChartRange {
   start: string;
   end: string;
   days: number;

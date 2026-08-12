@@ -26,8 +26,3 @@ export function detectAvailableClis(): Promise<CliAvailability> {
   }
   return cached;
 }
-
-/** 테스트와 설치 직후 재확인용. */
-export function resetCliDetectionCache(): void {
-  cached = null;
-}

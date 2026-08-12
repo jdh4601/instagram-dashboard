@@ -72,7 +72,7 @@ const ROLE_LABEL: Record<ChatTurn["role"], string> = {
  * 세 CLI의 system 프롬프트 플래그가 제각각이라, 지시문과 대화를 하나의 stdin 본문으로
  * 합쳐 넘긴다. argv에 실으면 인자 길이 제한과 인용 문제를 동시에 떠안는다.
  */
-export function buildCliPrompt(system: string, turns: ChatTurn[]): string {
+function buildCliPrompt(system: string, turns: ChatTurn[]): string {
   const conversation = turns
     .map((turn) => `[${ROLE_LABEL[turn.role]}]\n${turn.content}`)
     .join("\n\n");

@@ -1,7 +1,7 @@
 import { WallaRequestError, type WallaClient } from "@/lib/walla/client";
 import { UTM_KEYS, buildHiddenFieldMap, type UtmKey } from "@/lib/walla/map";
 
-export interface WallaProbeOk {
+interface WallaProbeOk {
   ok: true;
   /** 폼에 정의된 필드 수. */
   fieldCount: number;
@@ -14,7 +14,7 @@ export interface WallaProbeOk {
   missingUtmKeys: UtmKey[];
 }
 
-export type WallaProbeFailReason =
+type WallaProbeFailReason =
   /** 키가 거부됨 — 사용자가 고칠 곳은 API 키다. */
   | "unauthorized"
   /** 키는 통과했는데 폼이 없음 — 고칠 곳은 폼 ID다. */
@@ -24,7 +24,7 @@ export type WallaProbeFailReason =
   /** 요청 자체가 나가지 못함(네트워크·DNS). */
   | "unreachable";
 
-export interface WallaProbeFail {
+interface WallaProbeFail {
   ok: false;
   reason: WallaProbeFailReason;
   /** 화면에 그대로 띄우는 문구. 자격증명을 담지 않는다. */

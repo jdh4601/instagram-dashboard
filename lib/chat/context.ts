@@ -23,7 +23,7 @@ export const MAX_CONTEXT_REELS = 20;
 const CAPTION_MAX = 40;
 const MISSING = "데이터 부족";
 
-export interface ReelContextRow {
+interface ReelContextRow {
   id: string;
   postedAt: string;
   kind: string;

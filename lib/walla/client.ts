@@ -35,7 +35,7 @@ type FetchLike = (
   init: { headers: Record<string, string> },
 ) => Promise<WallaFetchResult>;
 
-export interface WallaResponsePage {
+interface WallaResponsePage {
   responses: WallaResponseRow[];
   totalPages: number;
 }

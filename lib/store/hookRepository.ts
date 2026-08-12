@@ -14,7 +14,7 @@ export interface HookRepository {
   remove(id: string): Promise<boolean>;
 }
 
-export function sortByCreatedAt(hooks: Hook[]): Hook[] {
+function sortByCreatedAt(hooks: Hook[]): Hook[] {
   // 같은 시각에 담긴 훅이 어댑터마다 다른 순서로 나오지 않도록 id로 한 번 더 가른다.
   return [...hooks].sort(
     (a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),

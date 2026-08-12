@@ -17,7 +17,7 @@ export const HOOK_CATEGORIES = [
   "authority",
 ] as const;
 
-export const HookCategorySchema = z.enum(HOOK_CATEGORIES);
+const HookCategorySchema = z.enum(HOOK_CATEGORIES);
 export type HookCategory = z.infer<typeof HookCategorySchema>;
 
 export const HOOK_CATEGORY_LABELS: Record<HookCategory, string> = {
@@ -84,4 +84,3 @@ export const HookPatchSchema = HookDraftSchema.partial().refine(
   (value) => Object.keys(value).length > 0,
   { message: "수정할 항목이 없습니다" },
 );
-export type HookPatch = z.infer<typeof HookPatchSchema>;
