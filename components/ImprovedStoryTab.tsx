@@ -1,7 +1,8 @@
 "use client";
-import { Loader2, Sparkles, Wand2 } from "lucide-react";
+import { Loader2, Wand2 } from "lucide-react";
 import type { ImprovedBeat, ImprovedStory } from "@/lib/schemas";
 import { getStoryFormat, getBeatSpec } from "@/lib/analysis/storyFormats";
+import { getHookTypeSpec } from "@/lib/analysis/hookCatalog";
 import { improvedStoryToScript } from "@/lib/analysis/improvedStoryScript";
 import { CopyButton, EmptyState, cn } from "@/components/ui";
 
@@ -63,23 +64,14 @@ export function ImprovedStoryTab({ improved, busy, onGenerate }: Props) {
 
       <ol className="space-y-2">
         {improved.beats.map((beat, index) => (
-          <BeatRow key={`${beat.beatId}-${index}`} beat={beat} formatId={improved.formatId} />
+          <BeatRow
+            key={`${beat.beatId}-${index}`}
+            beat={beat}
+            formatId={improved.formatId}
+            hookType={index === 0 ? improved.hookType : null}
+          />
         ))}
       </ol>
-
-      <section className="rounded-lg border border-band-strong-border bg-band-strong-soft p-3">
-        <p className="flex items-center gap-1.5 text-xs font-semibold text-band-strong">
-          <Sparkles size={13} aria-hidden />
-          원본에서 달라진 것
-        </p>
-        <ul className="mt-1.5 space-y-1">
-          {improved.changes.map((change) => (
-            <li key={change} className="text-sm leading-relaxed text-neutral-700">
-              · {change}
-            </li>
-          ))}
-        </ul>
-      </section>
     </div>
   );
 }
@@ -117,13 +109,32 @@ function GenerateButton({
   );
 }
 
-function BeatRow({ beat, formatId }: { beat: ImprovedBeat; formatId: string }) {
+/**
+ * 첫 비트는 포맷이 뭐라 부르든(출발점·도입…) 실제로는 이 영상의 훅이다.
+ * "후킹"으로 부르고 어떤 유형인지까지 붙여야, 3초를 무엇으로 잡는지가 잡힌다.
+ */
+function BeatRow({
+  beat,
+  formatId,
+  hookType,
+}: {
+  beat: ImprovedBeat;
+  formatId: string;
+  hookType: ImprovedStory["hookType"] | null;
+}) {
   const spec = getBeatSpec(formatId, beat.beatId);
+  const label = hookType ? "후킹" : (spec?.label ?? beat.beatId);
+  const hookLabel = hookType ? (getHookTypeSpec(hookType)?.label ?? hookType) : null;
 
   return (
     <li className="rounded-lg border border-border-subtle bg-surface p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium text-neutral-900">{spec?.label ?? beat.beatId}</span>
+        <span className="text-sm font-medium text-neutral-900">{label}</span>
+        {hookLabel && (
+          <span className="rounded-md bg-brand-50 px-1.5 py-0.5 text-[11px] font-medium text-brand-700">
+            {hookLabel}
+          </span>
+        )}
         <span className="text-xs tabular-nums text-neutral-400">
           {beat.startSec}-{beat.endSec}s
         </span>

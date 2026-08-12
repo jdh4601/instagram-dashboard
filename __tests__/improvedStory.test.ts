@@ -53,13 +53,19 @@ function analysis(overrides: Partial<ReelAnalysis["story"]> = {}): ReelAnalysis 
       secretSauceMissed: "관점이 바뀌는 순간이 없다",
       ...overrides,
     },
-    principles: PRINCIPLE_IDS.map((id) => ({ id, score: 3, evidence: "근거", fix: "개선안" })),
+    principles: PRINCIPLE_IDS.map((id) => ({
+      id,
+      score: id === "emotional-resonance" ? 2 : 4,
+      evidence: id === "emotional-resonance" ? "감정 단어가 없다" : "근거",
+      fix: id === "emotional-resonance" ? "통증을 드러내는 단어를 넣어라" : "개선안",
+    })),
   };
 }
 
 function payload(overrides: Record<string, unknown> = {}): string {
   return JSON.stringify({
     formatId: "about-me",
+    hookType: "contrarian",
     premise: "깨달음 비트를 세워 감정 연결을 만든다",
     beats: [
       { beatId: "intro", line: "고등학교를 자퇴했습니다.", startSec: 0, endSec: 3, origin: "rewritten", note: "인물부터 세운다" },
@@ -68,7 +74,6 @@ function payload(overrides: Record<string, unknown> = {}): string {
       { beatId: "change", line: "500명의 크리에이터에게 후드를 보냈습니다.", startSec: 14, endSec: 22, origin: "kept", note: "그대로 둔다" },
       { beatId: "purpose", line: "지금은 연매출 1조를 봅니다.", startSec: 22, endSec: 30, origin: "kept", note: "결과로 닫는다" },
     ],
-    changes: ["깨달음 비트를 새로 넣었다", "결과를 뒤로 옮겼다"],
     ...overrides,
   });
 }
@@ -189,4 +194,33 @@ test("프롬프트는 durationSec이 0일 때 0초라고 알려주지 않는다"
   expect(userText).not.toContain("영상 길이: 0초");
   // 자막이 끝나는 지점을 대신 알려 줘야 모델이 분량을 배분할 수 있다.
   expect(userText).toContain("26");
+});
+
+// 개선안의 존재 이유는 분석이 짚은 약점을 메우는 것이다. 점수표를 넘기지 않으면
+// 모델은 "무엇이 아쉬웠는지" 모른 채 문장만 다듬는다.
+test("프롬프트는 점수가 낮은 원리와 그 처방을 싣는다", () => {
+  const { userText } = buildImprovedStoryPrompt(reel(), analysis());
+
+  expect(userText).toContain("감정 공명");
+  expect(userText).toContain("감정 단어가 없다");
+  expect(userText).toContain("통증을 드러내는 단어를 넣어라");
+});
+
+test("프롬프트는 점수가 높은 원리까지 늘어놓지 않는다", () => {
+  const { userText } = buildImprovedStoryPrompt(reel(), analysis());
+
+  // 잘한 것까지 다 실으면 정작 고칠 것이 묻힌다.
+  expect(userText).not.toContain("개선안");
+});
+
+test("첫 비트의 훅 유형을 함께 받는다", () => {
+  const improved = parseImprovedStory(payload(), analysis(), reel());
+
+  expect(improved.hookType).toBe("contrarian");
+});
+
+test("모르는 훅 유형은 막는다", () => {
+  const bogus = payload({ hookType: "clickbait" });
+
+  expect(() => parseImprovedStory(bogus, analysis(), reel())).toThrow();
 });

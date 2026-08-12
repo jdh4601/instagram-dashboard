@@ -12,6 +12,7 @@
 
 import {
   ImprovedStorySchema,
+  PRINCIPLE_LABELS,
   type ImprovedStory,
   type Reel,
   type ReelAnalysis,
@@ -29,25 +30,29 @@ import type { TextModel } from "@/lib/llm/types";
 const TRANSCRIPT_LENGTH_TOLERANCE = 1.5;
 
 const SYSTEM_PROMPT = `너는 숏폼 스토리텔링 구조를 다시 짜는 대본 편집자다.
-주어진 릴스의 자막을 같은 스토리텔링 포맷 안에서 다시 배치해, 빠진 비트를 채우고
-분량을 다시 나눈 전개안을 만든다.
+분석이 짚어 낸 약점 — 빠진 비트, 놓친 아웃라이어 조건, 점수가 낮은 원리 — 을 메우는
+것이 네 일이다. 문장만 다듬고 약점을 그대로 두면 실패다.
 
 반드시 아래 형태의 JSON으로만 답하라(설명·코드펜스 금지):
 {
   "formatId": "유지할 포맷 id",
-  "premise": "이 재배치가 노리는 것 한 문장",
+  "hookType": "problem|contrarian|personal-experience|curiosity|result-proof|how-to|other",
+  "premise": "이 전개안이 어떤 약점을 어떻게 메우는지 한 문장",
   "beats": [
     {"beatId":"포맷의 비트 id","line":"그 자리에서 실제로 말할 한국어 문장",
-     "startSec":N,"endSec":N,"origin":"kept|rewritten|added","note":"왜 이 문장을 이 자리에 뒀는지"}
-  ],
-  "changes": ["원본 대비 달라진 점"]
+     "startSec":N,"endSec":N,"origin":"kept|rewritten|added","note":"이 문장이 어떤 약점을 메우는지"}
+  ]
 }
 
 규칙:
 - formatId는 주어진 것을 그대로 쓴다. 다른 포맷으로 바꾸지 마라.
 - 그 포맷의 필수 비트를 하나도 빠뜨리지 마라. 비트 순서는 카탈로그 순서를 따른다.
 - beatId는 주어진 목록 밖의 값을 쓰지 마라.
-- 타임코드는 0에서 시작해 끊기지 않게 이어 붙이고, 영상 길이를 넘기지 마라.
+- 첫 비트는 곧 이 영상의 훅이다. 첫 3초에 붙잡을 문장으로 쓰고, 그 문장이 어떤
+  유형인지를 hookType에 적어라.
+- 아래 "메워야 할 약점"에 있는 항목은 하나도 남기지 말고 전개안에 반영해라.
+  각 비트의 note에는 그 비트가 어떤 약점을 메우는지 밝혀라.
+- 타임코드는 0에서 시작해 끊기지 않게 이어 붙이고, 주어진 길이를 넘기지 마라.
 - line은 빈칸([대괄호])을 남기지 말고 이 릴스의 실제 내용으로 채운 완성 문장이어야 한다.
 - origin은 원본 자막을 그대로 살렸으면 kept, 같은 내용을 고쳐 썼으면 rewritten,
   원본에 없던 비트를 새로 넣었으면 added로 적어라.`;
@@ -96,6 +101,37 @@ function currentBeatsBlock(analysis: ReelAnalysis): string {
     .join("\n");
 }
 
+/** 5점 만점에 이 아래면 고칠 거리로 본다. */
+const WEAK_PRINCIPLE_MAX_SCORE = 3;
+
+/**
+ * 메워야 할 약점 목록.
+ *
+ * 잘한 항목까지 다 실으면 정작 고칠 것이 묻힌다. 점수가 낮은 원리만 골라
+ * 근거와 처방을 함께 넘긴다 — 분석이 이미 "어떻게 고쳐라"까지 적어 뒀으니
+ * 그걸 버리고 모델에게 다시 판단시킬 이유가 없다.
+ */
+function weakPointsBlock(analysis: ReelAnalysis): string {
+  const missingBeats = analysis.story.beats
+    .filter((beat) => !beat.present)
+    .map((beat) => `- 빠진 비트 ${beat.beatId}: ${beat.summary}`);
+
+  const weakPrinciples = analysis.principles
+    .filter((principle) => principle.score <= WEAK_PRINCIPLE_MAX_SCORE)
+    .sort((a, b) => a.score - b.score)
+    .map(
+      (principle) =>
+        `- ${PRINCIPLE_LABELS[principle.id]} ${principle.score}/5: ${principle.evidence}\n  → ${principle.fix}`,
+    );
+
+  const sauce = analysis.story.secretSauceMissed
+    ? [`- 놓친 아웃라이어 조건: ${analysis.story.secretSauceMissed}`]
+    : [];
+
+  const all = [...missingBeats, ...sauce, ...weakPrinciples];
+  return all.length > 0 ? all.join("\n") : "(분석이 짚은 약점 없음 — 밀도와 리듬을 끌어올려라)";
+}
+
 /**
  * 모델에게 알려 줄 분량 기준. "0초"라고 알려 주면 모델이 분량을 못 잡는다.
  * 자막에서 온 값이면 그렇다고 밝혀, 뒤에 여백이 있을 수 있음을 알린다.
@@ -132,13 +168,15 @@ export function buildImprovedStoryPrompt(
     `분석이 본 현재 비트 상태:`,
     currentBeatsBlock(analysis),
     ``,
-    `살린 조건: ${analysis.story.secretSauceMet}`,
-    `놓친 조건: ${analysis.story.secretSauceMissed}`,
+    `살린 조건(유지할 것): ${analysis.story.secretSauceMet}`,
+    ``,
+    `메워야 할 약점 — 전개안은 이걸 해결해야 한다:`,
+    weakPointsBlock(analysis),
     ``,
     `원본 자막:`,
     transcriptBlock(reel),
     ``,
-    `위 맥락으로 같은 포맷(${format.id}) 안에서 개선된 전개안을 JSON으로 만들어라.`,
+    `위 약점을 메우는 전개안을 같은 포맷(${format.id}) 안에서 JSON으로 만들어라.`,
   ].join("\n");
 
   return { system: SYSTEM_PROMPT, userText };

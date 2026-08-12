@@ -8,18 +8,21 @@
 
 import type { ImprovedStory } from "@/lib/schemas";
 import { getStoryFormat, getBeatSpec } from "@/lib/analysis/storyFormats";
+import { getHookTypeSpec } from "@/lib/analysis/hookCatalog";
 
 export function improvedStoryToScript(improved: ImprovedStory): string {
   const format = getStoryFormat(improved.formatId);
   const heading = format ? `# 개선된 전개 — ${format.label}` : "# 개선된 전개";
 
-  const beats = improved.beats.map((beat) => {
-    // 라벨을 못 찾아도 빈칸으로 두지 않는다. id라도 남아야 어느 비트인지 안다.
-    const label = getBeatSpec(improved.formatId, beat.beatId)?.label ?? beat.beatId;
+  const beats = improved.beats.map((beat, index) => {
+    // 첫 비트는 화면과 마찬가지로 훅으로 부른다. 유형까지 달아야 복사본만 보고도
+    // 3초를 무엇으로 잡는지 안다. 라벨을 못 찾아도 id라도 남긴다.
+    const label =
+      index === 0
+        ? `후킹 — ${getHookTypeSpec(improved.hookType)?.label ?? improved.hookType}`
+        : (getBeatSpec(improved.formatId, beat.beatId)?.label ?? beat.beatId);
     return `## ${label} (${beat.startSec}-${beat.endSec}s)\n${beat.line}\n> ${beat.note}`;
   });
 
-  const changes = improved.changes.map((change) => `- ${change}`).join("\n");
-
-  return [heading, improved.premise, ...beats, `## 원본에서 달라진 것\n${changes}`].join("\n\n");
+  return [heading, improved.premise, ...beats].join("\n\n");
 }

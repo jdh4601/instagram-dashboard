@@ -36,7 +36,7 @@ export const HOOK_TYPES = [
   "how-to",
   "other",
 ] as const;
-const HookTypeSchema = z.enum(HOOK_TYPES);
+export const HookTypeSchema = z.enum(HOOK_TYPES);
 export type HookType = z.infer<typeof HookTypeSchema>;
 
 const ReelHookAnalysisSchema = z.object({
@@ -159,11 +159,14 @@ export type ImprovedBeat = z.infer<typeof ImprovedBeatSchema>;
 export const ImprovedStorySchema = z.object({
   /** 분석이 고른 포맷과 같아야 한다 */
   formatId: z.string().min(1),
+  /**
+   * 첫 비트가 쓰는 훅 유형. 개선안은 도입부를 다시 쓰므로 원본과 다를 수 있고,
+   * 화면은 첫 비트를 "후킹"으로 부르며 이 유형을 라벨로 단다.
+   */
+  hookType: HookTypeSchema,
   /** 이 재배치가 노리는 것 한 문장 */
   premise: z.string(),
   beats: z.array(ImprovedBeatSchema).min(1),
-  /** 원본 대비 달라진 점 */
-  changes: z.array(z.string()).min(1),
   /** 캐시 시점 (서버에서 주입) */
   generatedAt: z.string().optional(),
 });
