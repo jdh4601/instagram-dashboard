@@ -24,7 +24,7 @@ export interface RhythmDay {
   future: boolean;
 }
 
-export interface RhythmTotals {
+interface RhythmTotals {
   reels: number;
   carousels: number;
   uploadDays: number;
@@ -187,4 +187,3 @@ export function shiftMonth({ year, month }: YearMonth, step: number): YearMonth 
 
 export const DAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
-export { DAY_MS };

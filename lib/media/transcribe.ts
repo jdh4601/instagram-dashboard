@@ -52,7 +52,7 @@ export function parseWhisperResponse(raw: unknown): TranscriptLine[] {
 }
 
 /** 테스트 주입용 최소 인터페이스 (OpenAI SDK의 audio.transcriptions.create 부분만) */
-export interface TranscriptionClientLike {
+interface TranscriptionClientLike {
   audio: {
     transcriptions: {
       create(args: unknown): Promise<unknown>;

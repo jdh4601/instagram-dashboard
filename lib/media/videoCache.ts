@@ -8,7 +8,7 @@ import { pipeline } from "node:stream/promises";
  * Graph API의 `media_url`은 서명·만료되는 CDN 주소라 하루면 죽는다. 상세 페이지에서
  * 영상을 다시 볼 수 있으려면 mp4를 워크스페이스에 한 번 받아 두는 수밖에 없다.
  */
-export const VIDEO_CACHE_DIRNAME = "videos";
+const VIDEO_CACHE_DIRNAME = "videos";
 
 /** 릴스 한 편의 캐시 상한(200MB). 90초짜리 세로 영상은 한참 밑이다. */
 export const MAX_VIDEO_BYTES = 200 * 1024 * 1024;

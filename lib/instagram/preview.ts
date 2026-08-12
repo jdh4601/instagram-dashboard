@@ -133,5 +133,3 @@ export async function fetchInstagramPreview(url: string): Promise<InstagramPrevi
   }
   return preview;
 }
-
-export const EMPTY_INSTAGRAM_PREVIEW = EMPTY_PREVIEW;

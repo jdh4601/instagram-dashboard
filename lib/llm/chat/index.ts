@@ -12,13 +12,6 @@ export interface ResolvedChatModel {
   model: ChatModel;
 }
 
-/** 사람이 읽을 제공자 이름. 말풍선 배지와 오류 메시지에 함께 쓴다. */
-export function chatProviderLabel(provider: ChatProviderId): string {
-  return isCliProvider(provider)
-    ? CLI_PRESETS[provider].label
-    : PROVIDER_PRESETS[provider as ProviderId].label;
-}
-
 /**
  * 설정의 chatProvider로 채팅 모델을 만든다.
  *

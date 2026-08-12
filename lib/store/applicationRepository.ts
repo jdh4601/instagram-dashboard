@@ -12,7 +12,7 @@ export interface ApplicationRepository {
   upsertMany(applications: Application[]): Promise<number>;
 }
 
-export function sortBySubmittedAt(applications: Application[]): Application[] {
+function sortBySubmittedAt(applications: Application[]): Application[] {
   return [...applications].sort((a, b) => a.submittedAt.localeCompare(b.submittedAt));
 }
 

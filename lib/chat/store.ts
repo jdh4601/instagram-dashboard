@@ -26,7 +26,7 @@ const ChatMessageSchema = z.object({
   /** 어느 제공자가 답했는지. 말풍선 배지에 쓰고, 없으면 표시하지 않는다. */
   provider: z.string().optional(),
 });
-export type ChatMessageRecord = z.infer<typeof ChatMessageSchema>;
+type ChatMessageRecord = z.infer<typeof ChatMessageSchema>;
 
 const ConversationSchema = z.object({
   id: z.string(),
@@ -50,7 +50,7 @@ const LegacyFileSchema = z.object({
 
 type ChatFile = z.infer<typeof ChatFileSchema>;
 
-export interface ConversationSummary {
+interface ConversationSummary {
   id: string;
   /** 첫 질문에서 딴 제목. 저장하지 않고 읽을 때마다 만들어 낸다. */
   title: string;
@@ -59,7 +59,7 @@ export interface ConversationSummary {
   messageCount: number;
 }
 
-export interface Conversation extends ConversationSummary {
+interface Conversation extends ConversationSummary {
   messages: ChatMessageRecord[];
 }
 

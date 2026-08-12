@@ -21,7 +21,6 @@ const ReelIdeaAnalysisSchema = z.object({
   /** 같은 주제의 다른 영상과 갈라지는 지점 */
   differentiator: z.string(),
 });
-export type ReelIdeaAnalysis = z.infer<typeof ReelIdeaAnalysisSchema>;
 
 /**
  * 훅 유형. 분류를 열거형으로 고정해 탭에서 색·설명을 붙일 수 있게 한다.
@@ -36,7 +35,7 @@ export const HOOK_TYPES = [
   "how-to",
   "other",
 ] as const;
-export const HookTypeSchema = z.enum(HOOK_TYPES);
+const HookTypeSchema = z.enum(HOOK_TYPES);
 export type HookType = z.infer<typeof HookTypeSchema>;
 
 const ReelHookAnalysisSchema = z.object({
@@ -48,7 +47,6 @@ const ReelHookAnalysisSchema = z.object({
   /** 이 훅이 먹히는(혹은 안 먹힌) 이유 */
   why: z.string(),
 });
-export type ReelHookAnalysis = z.infer<typeof ReelHookAnalysisSchema>;
 
 /**
  * 비트는 포맷마다 다르다. 그래서 stage 열거형이 아니라 카탈로그의 비트 id를 쓴다
@@ -67,7 +65,7 @@ const StoryBeatSchema = z.object({
 });
 export type StoryBeat = z.infer<typeof StoryBeatSchema>;
 
-export const FORMAT_CONFIDENCE = ["high", "medium", "low"] as const;
+const FORMAT_CONFIDENCE = ["high", "medium", "low"] as const;
 const ConfidenceSchema = z.enum(FORMAT_CONFIDENCE);
 export type FormatConfidence = z.infer<typeof ConfidenceSchema>;
 
