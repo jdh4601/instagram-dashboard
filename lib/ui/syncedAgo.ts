@@ -1,6 +1,4 @@
-const MINUTE_MS = 60_000;
-const HOUR_MS = 60 * MINUTE_MS;
-const DAY_MS = 24 * HOUR_MS;
+import { DAY_MS, HOUR_MS, MINUTE_MS } from "@/lib/time";
 
 /**
  * 동기화 버튼 옆에 붙는 신선도 표기. 초 단위 정확도는 쓸모가 없고 "얼마나 오래된
