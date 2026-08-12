@@ -4,6 +4,7 @@ vi.mock("@/lib/store", () => ({ getRepository: vi.fn() }));
 vi.mock("@/lib/runtime/config", () => ({ resolveRuntimeConfig: vi.fn() }));
 vi.mock("@/lib/graph", () => ({ getInstagramClient: vi.fn() }));
 vi.mock("@/lib/media/ytdlpFallback", () => ({ downloadViaYtdlp: vi.fn() }));
+vi.mock("@/lib/media/probeDuration", () => ({ probeLocalDurationSec: vi.fn(async () => null) }));
 
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -15,11 +16,13 @@ import { resolveRuntimeConfig } from "@/lib/runtime/config";
 import { getInstagramClient } from "@/lib/graph";
 import { resolveCachedVideoPath, videoCacheDir } from "@/lib/media/videoCache";
 import { downloadViaYtdlp } from "@/lib/media/ytdlpFallback";
+import { probeLocalDurationSec } from "@/lib/media/probeDuration";
 
 const mockGetRepository = getRepository as unknown as Mock;
 const mockResolveRuntimeConfig = resolveRuntimeConfig as unknown as Mock;
 const mockGetInstagramClient = getInstagramClient as unknown as Mock;
 const mockDownloadViaYtdlp = downloadViaYtdlp as unknown as Mock;
+const mockProbeLocalDurationSec = probeLocalDurationSec as unknown as Mock;
 
 const PERMALINK = "https://www.instagram.com/reel/Db458XCB9RH/";
 
@@ -60,6 +63,7 @@ beforeEach(async () => {
   dataDir = await mkdtemp(join(tmpdir(), "reel-video-api-"));
   mockResolveRuntimeConfig.mockReturnValue({ dataDir });
   mockGetRepository.mockReturnValue(repo);
+  mockProbeLocalDurationSec.mockResolvedValue(null);
   repo.get.mockResolvedValue({ ...reel });
 });
 
@@ -218,6 +222,71 @@ test("영상 받기: 다운로드가 실패하면 사유를 담아 502를 준다
   expect(res.status).toBe(502);
   expect((await res.json()).error).toMatch(/403/);
   expect(repo.upsert).not.toHaveBeenCalled();
+  vi.unstubAllGlobals();
+});
+
+// Graph는 어떤 릴스에도 길이를 주지 않는다. 원격 CDN 실측이 실패해 길이가 비어 있는
+// 릴스라도, 영상을 받은 직후에는 그 파일에서 바로 잴 수 있다.
+test("영상 받기: 길이가 비어 있으면 받아 둔 mp4에서 재어 저장한다", async () => {
+  repo.get.mockResolvedValue({ ...reel, durationSec: 0 });
+  mockProbeLocalDurationSec.mockResolvedValue(33.6);
+  mockGetInstagramClient.mockResolvedValue({
+    getMediaUrl: vi.fn(async () => "https://cdn.example/x.mp4"),
+  });
+  vi.stubGlobal("fetch", vi.fn(async () => new Response("mp4-bytes", { status: 200 })));
+
+  const res = await POST(request({ "content-type": "application/json" }, "POST"), ctx());
+
+  expect(res.status).toBe(200);
+  expect(mockProbeLocalDurationSec).toHaveBeenCalledWith(resolveCachedVideoPath(dataDir, "r1"));
+  const saved = repo.upsert.mock.calls.at(-1)?.[0] as { durationSec: number; derived?: { completionRate: number } };
+  expect(saved.durationSec).toBe(33.6);
+  // 길이가 바뀌면 파생 지표도 같이 갱신돼야 대시보드 선이 살아난다(평균 시청 10초 / 33.6초).
+  expect(saved.derived?.completionRate).toBeCloseTo((10 / 33.6) * 100, 5);
+  vi.unstubAllGlobals();
+});
+
+test("영상 받기: yt-dlp로 받은 영상에서도 길이를 채운다", async () => {
+  mockResolveRuntimeConfig.mockReturnValue({ dataDir, isLocalRuntime: true });
+  repo.get.mockResolvedValue({ ...reel, durationSec: 0, permalink: PERMALINK });
+  mockGetInstagramClient.mockResolvedValue({ getMediaUrl: vi.fn(async () => null) });
+  mockDownloadViaYtdlp.mockResolvedValue({ fileName: "r1.mp4", bytes: 4171245 });
+  mockProbeLocalDurationSec.mockResolvedValue(33.6);
+
+  const res = await POST(request({ "content-type": "application/json" }, "POST"), ctx());
+
+  expect(res.status).toBe(200);
+  expect(repo.upsert).toHaveBeenCalledWith(
+    expect.objectContaining({ videoFile: "r1.mp4", durationSec: 33.6 }),
+  );
+});
+
+test("영상 받기: 이미 길이가 있으면 다시 재지 않는다", async () => {
+  mockGetInstagramClient.mockResolvedValue({
+    getMediaUrl: vi.fn(async () => "https://cdn.example/x.mp4"),
+  });
+  vi.stubGlobal("fetch", vi.fn(async () => new Response("mp4-bytes", { status: 200 })));
+
+  await POST(request({ "content-type": "application/json" }, "POST"), ctx());
+
+  expect(mockProbeLocalDurationSec).not.toHaveBeenCalled();
+  vi.unstubAllGlobals();
+});
+
+test("영상 받기: 길이를 재지 못해도 영상 캐시는 성공으로 남는다", async () => {
+  repo.get.mockResolvedValue({ ...reel, durationSec: 0 });
+  mockProbeLocalDurationSec.mockResolvedValue(null);
+  mockGetInstagramClient.mockResolvedValue({
+    getMediaUrl: vi.fn(async () => "https://cdn.example/x.mp4"),
+  });
+  vi.stubGlobal("fetch", vi.fn(async () => new Response("mp4-bytes", { status: 200 })));
+
+  const res = await POST(request({ "content-type": "application/json" }, "POST"), ctx());
+
+  expect(res.status).toBe(200);
+  expect(repo.upsert).toHaveBeenCalledWith(
+    expect.objectContaining({ videoFile: "r1.mp4", durationSec: 0 }),
+  );
   vi.unstubAllGlobals();
 });
 

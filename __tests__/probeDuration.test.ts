@@ -2,6 +2,7 @@ import {
   MAX_PROBE_DURATION_SEC,
   parseFfprobeDuration,
   probeDurationSec,
+  probeLocalDurationSec,
 } from "@/lib/media/probeDuration";
 
 const URL = "https://scontent.cdninstagram.com/o1/v/t2/f2/m86/AQ.mp4?oe=DEADBEEF";
@@ -52,4 +53,33 @@ test("http(s)가 아닌 입력에는 ffprobe를 실행하지 않는다", async (
   await expect(probeDurationSec("file:///etc/passwd", run)).resolves.toBeNull();
   await expect(probeDurationSec("", run)).resolves.toBeNull();
   expect(run).not.toHaveBeenCalled();
+});
+
+const CACHED_PATH = "/workspace/data/videos/17928205134143275.mp4";
+
+test("내려받아 둔 mp4에서도 길이를 읽는다", async () => {
+  const run = vi.fn().mockResolvedValue("33.596417\n");
+
+  await expect(probeLocalDurationSec(CACHED_PATH, run)).resolves.toBe(33.6);
+  expect(run).toHaveBeenCalledWith(CACHED_PATH);
+});
+
+test("절대 경로가 아니거나 프로토콜이 붙은 입력에는 ffprobe를 실행하지 않는다", async () => {
+  const run = vi.fn();
+
+  // 캐시 경로는 항상 resolveCachedVideoPath가 만든 절대 경로다. 그 밖의 문자열은
+  // ffprobe의 프로토콜 처리(http:, concat: 등)에 닿기 전에 막는다.
+  await expect(probeLocalDurationSec("data/videos/r1.mp4", run)).resolves.toBeNull();
+  await expect(probeLocalDurationSec("https://cdn.example/r1.mp4", run)).resolves.toBeNull();
+  await expect(probeLocalDurationSec("", run)).resolves.toBeNull();
+  expect(run).not.toHaveBeenCalled();
+});
+
+test("깨진 mp4를 만나도 예외를 던지지 않고 null을 돌려준다", async () => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const run = vi.fn().mockRejectedValue(new Error("moov atom not found"));
+
+  await expect(probeLocalDurationSec(CACHED_PATH, run)).resolves.toBeNull();
+  expect(warn).toHaveBeenCalled();
+  warn.mockRestore();
 });
