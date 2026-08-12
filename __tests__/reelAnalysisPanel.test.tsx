@@ -117,10 +117,19 @@ test("분석이 없으면 분석하기 버튼을 보여준다", () => {
   expect(html).not.toContain("다시 분석");
 });
 
-test("분석이 있으면 다시 분석할 수 있다", () => {
+test("분석이 끝나면 분석 버튼을 감춘다", () => {
   const html = render({ analysis });
 
-  expect(html).toContain("다시 분석");
+  // 같은 자막으로 다시 돌려 봐야 결과가 그대로라 버튼만 자리를 차지한다.
+  expect(html).not.toContain("다시 분석");
+  expect(html).not.toContain("분석하기");
+});
+
+test("자막이 있으면 자동 전사 버튼을 감춘다", () => {
+  const html = render();
+
+  expect(html).toContain("Transcript");
+  expect(html).not.toContain("자동 전사");
 });
 
 test("자막이 없으면 분석 대신 전사를 먼저 안내한다", () => {

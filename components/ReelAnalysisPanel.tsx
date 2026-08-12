@@ -105,8 +105,10 @@ export function ReelAnalysisPanel({ reel, analysis, onAnalyze, onTranscribe }: P
             );
           })}
         </div>
-        {hasTranscript && (
-          <AnalyzePrompt busy={busy} onAnalyze={() => run(onAnalyze)} regenerate={analysis != null} />
+        {/* 분석이 끝나면 버튼을 거둔다. 같은 자막으로 다시 돌려도 결과가 그대로라
+            자리만 차지하고, 탭 바 폭도 그만큼 좁아진다. */}
+        {hasTranscript && !analysis && (
+          <AnalyzePrompt busy={busy} onAnalyze={() => run(onAnalyze)} />
         )}
       </div>
 
@@ -149,29 +151,16 @@ export function ReelAnalysisPanel({ reel, analysis, onAnalyze, onTranscribe }: P
   );
 }
 
-function AnalyzePrompt({
-  busy,
-  onAnalyze,
-  regenerate,
-}: {
-  busy: boolean;
-  onAnalyze: () => void;
-  regenerate: boolean;
-}) {
+function AnalyzePrompt({ busy, onAnalyze }: { busy: boolean; onAnalyze: () => void }) {
   return (
     <button
       type="button"
       onClick={onAnalyze}
       disabled={busy}
-      className={cn(
-        "inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:opacity-60",
-        regenerate
-          ? "text-neutral-600 hover:bg-surface-muted"
-          : "bg-brand-600 text-white hover:bg-brand-700",
-      )}
+      className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg bg-brand-600 px-3 text-sm font-medium text-white hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:opacity-60"
     >
       {busy && <Loader2 size={15} className="animate-spin" aria-hidden />}
-      {regenerate ? "다시 분석" : "분석하기"}
+      분석하기
     </button>
   );
 }
@@ -199,17 +188,22 @@ function TranscriptTab({
             {countWords(reel)} 단어
           </span>
         )}
+        {/* 자막이 채워지면 전사 버튼을 거둔다. 다시 눌러도 같은 자막을 덮어쓸 뿐인데,
+            복사 버튼 옆에 붙어 있어 잘못 누르기 쉽다. */}
         <div className="ml-auto flex items-center gap-1">
-          {hasTranscript && <CopyButton text={fullText} />}
-          <button
-            type="button"
-            onClick={onTranscribe}
-            disabled={busy}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-brand-600 hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:opacity-60"
-          >
-            {busy && <Loader2 size={15} className="animate-spin" aria-hidden />}
-            자동 전사
-          </button>
+          {hasTranscript ? (
+            <CopyButton text={fullText} />
+          ) : (
+            <button
+              type="button"
+              onClick={onTranscribe}
+              disabled={busy}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-brand-600 hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:opacity-60"
+            >
+              {busy && <Loader2 size={15} className="animate-spin" aria-hidden />}
+              자동 전사
+            </button>
+          )}
         </div>
       </div>
 
