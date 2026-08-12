@@ -24,9 +24,12 @@ import { filterByMedia } from "@/lib/ui/mediaFilter";
 import { readNdjson } from "@/lib/ui/ndjsonStream";
 import { buildSyncToast } from "@/lib/ui/syncToast";
 import type { SyncProgress, SyncResult } from "@/lib/graph/sync";
+import { DAY_MS } from "@/lib/time";
 
 // Instagram 장기 토큰은 60일에 만료되므로 50일이 지나면 갱신을 안내한다.
 const TOKEN_WARN_DAYS = 50;
+// 만료 시각을 아는 토큰은 남은 기간으로 판단한다. 갱신에 쓸 여유를 열흘 둔다.
+const TOKEN_EXPIRY_WARN_DAYS = 10;
 
 export default function Page() {
   const [reels, setReels] = useState<Reel[]>([]);
@@ -180,8 +183,8 @@ export default function Page() {
   const tokenExpiryMs = tokenExpiresAt ? Date.parse(tokenExpiresAt) : Number.NaN;
   const tokenAgeMs = Number.isFinite(tokenSavedAtMs) ? Date.now() - tokenSavedAtMs : null;
   const tokenNeedsReview = Number.isFinite(tokenExpiryMs)
-    ? tokenExpiryMs - Date.now() < 10 * 24 * 60 * 60 * 1000
-    : tokenAgeMs !== null && tokenAgeMs > TOKEN_WARN_DAYS * 24 * 60 * 60 * 1000;
+    ? tokenExpiryMs - Date.now() < TOKEN_EXPIRY_WARN_DAYS * DAY_MS
+    : tokenAgeMs !== null && tokenAgeMs > TOKEN_WARN_DAYS * DAY_MS;
   const showTokenBanner = !tokenBannerDismissed && tokenNeedsReview;
 
   return (

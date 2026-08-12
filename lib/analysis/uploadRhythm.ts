@@ -1,10 +1,10 @@
 import type { MediaKind, Reel } from "@/lib/schemas";
 import { mediaKindOf } from "@/lib/media/kind";
+import { DAY_MS } from "@/lib/time";
 
 // 게시 시각은 UTC로 들어오지만 리듬은 올린 사람의 하루 감각을 따라야 한다.
 // UTC로 끊으면 밤에 올린 게시물이 전날 칸으로 밀려 공백이 실제와 달라진다.
 const TIME_ZONE = "Asia/Seoul";
-const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEKDAY_COUNT = 7;
 /** 조회수 진하기 단계. 0단계는 "업로드 없음"이라 1부터 쓴다. */
 const MAX_LEVEL = 4;
