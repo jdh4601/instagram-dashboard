@@ -141,3 +141,52 @@ test("영상 길이를 넘는 타임코드는 막는다", () => {
     /영상 길이/,
   );
 });
+
+// Graph가 durationSec을 안 주는 릴스가 절반이 넘는다. 0을 실제 길이로 읽으면
+// 어떤 전개안도 "0초를 넘는다"로 걸린다.
+test("durationSec이 0이면 자막 마지막 시각을 기준으로 삼는다", () => {
+  const noDuration = reel({
+    durationSec: 0,
+    transcript: [
+      { startSec: 0, endSec: 12, text: "앞부분" },
+      { startSec: 12, endSec: 26, text: "뒷부분" },
+    ],
+  });
+
+  const improved = parseImprovedStory(payload(), analysis(), noDuration);
+
+  expect(improved.beats).toHaveLength(5);
+});
+
+test("durationSec이 없어도 자막 길이에서 크게 벗어나면 막는다", () => {
+  const noDuration = reel({
+    durationSec: 0,
+    transcript: [{ startSec: 0, endSec: 12, text: "짧은 자막" }],
+  });
+  const overrun = JSON.parse(payload()) as { beats: { startSec: number; endSec: number }[] };
+  overrun.beats[4].endSec = 300;
+
+  expect(() => parseImprovedStory(JSON.stringify(overrun), analysis(), noDuration)).toThrow(
+    /영상 길이/,
+  );
+});
+
+test("길이도 자막도 없으면 타임코드 상한을 따지지 않는다", () => {
+  const unknown = reel({ durationSec: 0, transcript: [] });
+
+  // 기준이 없으면 검사할 방법이 없다. 조용히 통과시키는 편이 거짓 거부보다 낫다.
+  expect(() => parseImprovedStory(payload(), analysis(), unknown)).not.toThrow();
+});
+
+test("프롬프트는 durationSec이 0일 때 0초라고 알려주지 않는다", () => {
+  const noDuration = reel({
+    durationSec: 0,
+    transcript: [{ startSec: 0, endSec: 26, text: "자막" }],
+  });
+
+  const { userText } = buildImprovedStoryPrompt(noDuration, analysis());
+
+  expect(userText).not.toContain("영상 길이: 0초");
+  // 자막이 끝나는 지점을 대신 알려 줘야 모델이 분량을 배분할 수 있다.
+  expect(userText).toContain("26");
+});

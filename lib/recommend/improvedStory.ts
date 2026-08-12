@@ -19,6 +19,15 @@ import {
 import { getStoryFormat, requiredBeats, type StoryFormatSpec } from "@/lib/analysis/storyFormats";
 import type { TextModel } from "@/lib/llm/types";
 
+/**
+ * 자막을 길이 기준으로 쓸 때 허용하는 배수.
+ *
+ * 자막은 영상 끝까지 안 닿을 때가 있고(끝의 무음·자막 누락), 이 기능은 빠진
+ * 비트를 더해 분량을 늘리는 일이다. 그래서 자막 길이를 그대로 상한으로 쓰면
+ * 정상적인 전개안까지 걸린다. 터무니없는 값(수백 초)만 잡을 만큼만 열어 둔다.
+ */
+const TRANSCRIPT_LENGTH_TOLERANCE = 1.5;
+
 const SYSTEM_PROMPT = `너는 숏폼 스토리텔링 구조를 다시 짜는 대본 편집자다.
 주어진 릴스의 자막을 같은 스토리텔링 포맷 안에서 다시 배치해, 빠진 비트를 채우고
 분량을 다시 나눈 전개안을 만든다.
@@ -57,11 +66,45 @@ function beatCatalogBlock(format: StoryFormatSpec): string {
     .join("\n");
 }
 
+/** 자막이 실제로 끝나는 지점. 길이를 가늠할 유일한 근거일 때가 많다. */
+function transcriptEndSec(reel: Reel): number {
+  const last = reel.transcript?.at(-1);
+  return last ? last.endSec : 0;
+}
+
+/**
+ * 분량을 배분할 기준 길이.
+ *
+ * Graph가 durationSec을 안 주는 릴스가 절반이 넘고, 그때 값은 null이 아니라 0으로
+ * 들어온다. 0을 길이로 믿으면 어떤 전개안도 "0초를 넘는다"로 걸리므로, 양수일
+ * 때만 길이로 인정하고 아니면 자막이 끝나는 지점을 쓴다.
+ */
+function referenceLength(reel: Reel): { sec: number; fromTranscript: boolean } | null {
+  const declared = reel.durationSec != null && reel.durationSec > 0 ? reel.durationSec : 0;
+  if (declared > 0) return { sec: declared, fromTranscript: false };
+
+  const transcriptEnd = transcriptEndSec(reel);
+  if (transcriptEnd > 0) return { sec: transcriptEnd, fromTranscript: true };
+
+  return null;
+}
+
 /** 분석이 본 현재 상태. 어떤 비트가 비었는지가 이 프롬프트의 핵심 입력이다. */
 function currentBeatsBlock(analysis: ReelAnalysis): string {
   return analysis.story.beats
     .map((beat) => `${beat.beatId}: ${beat.present ? "있음" : "없음"} — ${beat.summary}`)
     .join("\n");
+}
+
+/**
+ * 모델에게 알려 줄 분량 기준. "0초"라고 알려 주면 모델이 분량을 못 잡는다.
+ * 자막에서 온 값이면 그렇다고 밝혀, 뒤에 여백이 있을 수 있음을 알린다.
+ */
+function lengthLine(reel: Reel): string {
+  const reference = referenceLength(reel);
+  if (!reference) return `영상 길이: 미상 (자막 흐름에 맞춰 분량을 배분하라)`;
+  if (!reference.fromTranscript) return `영상 길이: ${reference.sec}초`;
+  return `영상 길이: 미상. 자막은 ${reference.sec}초에서 끝난다 — 이 언저리를 기준으로 배분하라.`;
 }
 
 export function buildImprovedStoryPrompt(
@@ -81,7 +124,7 @@ export function buildImprovedStoryPrompt(
     `아웃라이어 조건:`,
     format.secretSauce.map((sauce) => `- ${sauce}`).join("\n"),
     ``,
-    `영상 길이: ${reel.durationSec ?? "미상"}초`,
+    lengthLine(reel),
     `훅: ${analysis.hook.line}`,
     `핵심 아이디어: ${analysis.idea.coreIdea}`,
     `타깃: ${analysis.idea.targetAudience}`,
@@ -151,9 +194,18 @@ function assertTimelineSane(improved: ImprovedStory, reel: Reel): void {
     cursor = beat.endSec;
   }
 
-  const duration = reel.durationSec;
-  if (duration != null && cursor > duration) {
-    throw new Error(`영상 길이(${duration}초)를 넘는 타임코드입니다: ${cursor}초`);
+  const reference = referenceLength(reel);
+  // 기준이 없으면 검사할 방법이 없다. 조용히 통과시키는 편이 거짓 거부보다 낫다.
+  if (!reference) return;
+
+  // 자막이 기준일 때는 여유를 준다. 자막은 영상 끝까지 안 닿을 수 있고, 이 기능은
+  // 애초에 빠진 비트를 더해 분량을 늘리는 일이라 원본보다 길어지는 게 정상이다.
+  // durationSec을 받은 릴스는 그 값이 사실이므로 그대로 상한으로 쓴다.
+  const limit = reference.fromTranscript ? reference.sec * TRANSCRIPT_LENGTH_TOLERANCE : reference.sec;
+  if (cursor > limit) {
+    throw new Error(
+      `영상 길이(${Math.round(limit)}초)를 넘는 타임코드입니다: ${cursor}초`,
+    );
   }
 }
 
