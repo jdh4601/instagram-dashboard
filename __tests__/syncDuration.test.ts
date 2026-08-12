@@ -31,17 +31,35 @@ function clientWith(media: GraphMedia[]): GraphClient {
   };
 }
 
-async function runSync(media: GraphMedia[], probe: Mock, seed?: { id: string; durationSec: number }) {
+interface SyncOverrides {
+  download?: VideoDownloader;
+  probeLocal?: LocalDurationProbe;
+}
+
+const noDownload: VideoDownloader = async () => {
+  throw new Error("이 테스트는 영상을 받지 않는다");
+};
+const noLocalProbe: LocalDurationProbe = async () => null;
+
+async function runSync(
+  media: GraphMedia[],
+  probe: Mock,
+  seed?: { id: string; durationSec: number; videoFile?: string },
+  overrides: SyncOverrides = {},
+) {
   const reelRepo = createJsonReelRepository(tmpDir());
   const accountRepo = createJsonAccountRepository(tmpDir());
   if (seed) {
     await reelRepo.upsert({
       id: seed.id, postedAt: "2026-06-01T00:00:00Z", durationSec: seed.durationSec,
       views: 1, reach: 1, likes: 0, comments: 0, saves: 0, shares: 0, avgWatchTimeSec: 1,
+      videoFile: seed.videoFile,
     });
   }
   const result = await syncFromGraph(
     clientWith(media), reelRepo, accountRepo, "2026-06-29", undefined, undefined, undefined, probe,
+    overrides.download ?? noDownload,
+    overrides.probeLocal ?? noLocalProbe,
   );
   return { result, reelRepo };
 }
@@ -98,6 +116,80 @@ test("길이 수집이 실패해도 동기화는 정상 집계된다", async () 
   expect((await reelRepo.get("reel-1"))?.durationSec).toBe(0);
 });
 
+test("원격 실측이 실패해도 방금 받아 둔 mp4에서 길이를 채운다", async () => {
+  const probeLocal = vi.fn().mockResolvedValue(33.6);
+  const { reelRepo } = await runSync([REEL], vi.fn().mockResolvedValue(null), undefined, {
+    download: async () => ({ fileName: "reel-1.mp4", bytes: 10 }),
+    probeLocal,
+  });
+
+  expect(probeLocal).toHaveBeenCalledWith("reel-1");
+  expect((await reelRepo.get("reel-1"))?.durationSec).toBe(33.6);
+});
+
+// 실제로 막혔던 상태: Graph가 media_url을 주지 않아 원격 실측은 시도조차 못 하는데,
+// mp4는 상세 화면의 '영상 받기'로 이미 받아 둔 릴스.
+test("media_url이 없어도 이전에 받아 둔 mp4가 있으면 길이를 채운다", async () => {
+  const remoteProbe = vi.fn();
+  const probeLocal = vi.fn().mockResolvedValue(33.6);
+  const { reelRepo } = await runSync(
+    [{ ...REEL, media_url: undefined }],
+    remoteProbe,
+    { id: "reel-1", durationSec: 0, videoFile: "reel-1.mp4" },
+    { probeLocal },
+  );
+
+  expect(remoteProbe).not.toHaveBeenCalled();
+  expect((await reelRepo.get("reel-1"))?.durationSec).toBe(33.6);
+});
+
+test("로컬 실측으로 채운 길이는 완료율 계산에 즉시 반영된다", async () => {
+  const probeLocal = vi.fn().mockResolvedValue(70);
+  const { reelRepo } = await runSync(
+    [{ ...REEL, media_url: undefined }],
+    vi.fn(),
+    { id: "reel-1", durationSec: 0, videoFile: "reel-1.mp4" },
+    { probeLocal },
+  );
+
+  // 평균 시청 7초 / 길이 70초 = 10%
+  expect((await reelRepo.get("reel-1"))?.derived?.completionRate).toBeCloseTo(10, 5);
+});
+
+test("원격 실측이 성공하면 로컬 mp4는 다시 재지 않는다", async () => {
+  const probeLocal = vi.fn();
+  const { reelRepo } = await runSync([REEL], vi.fn().mockResolvedValue(62.5), undefined, {
+    download: async () => ({ fileName: "reel-1.mp4", bytes: 10 }),
+    probeLocal,
+  });
+
+  expect(probeLocal).not.toHaveBeenCalled();
+  expect((await reelRepo.get("reel-1"))?.durationSec).toBe(62.5);
+});
+
+test("받아 둔 mp4가 없으면 로컬 실측을 시도하지 않는다", async () => {
+  const probeLocal = vi.fn();
+  await runSync([{ ...REEL, media_url: undefined }], vi.fn(), undefined, { probeLocal });
+
+  expect(probeLocal).not.toHaveBeenCalled();
+});
+
+test("로컬 실측이 예외를 던져도 게시물 동기화를 실패로 만들지 않는다", async () => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const probeLocal = vi.fn().mockRejectedValue(new Error("ffprobe 폭발"));
+  const { result, reelRepo } = await runSync(
+    [{ ...REEL, media_url: undefined }],
+    vi.fn(),
+    { id: "reel-1", durationSec: 0, videoFile: "reel-1.mp4" },
+    { probeLocal },
+  );
+
+  expect(result.syncedReels).toBe(1);
+  expect(result.failedReels).toBe(0);
+  expect((await reelRepo.get("reel-1"))?.durationSec).toBe(0);
+  warn.mockRestore();
+});
+
 test("길이 수집이 예외를 던져도 게시물 동기화를 실패로 만들지 않는다", async () => {
   const error = vi.spyOn(console, "error").mockImplementation(() => {});
   const probe = vi.fn().mockRejectedValue(new Error("ffprobe 폭발"));
@@ -109,3 +201,4 @@ test("길이 수집이 예외를 던져도 게시물 동기화를 실패로 만�
   error.mockRestore();
 });
 import type { Mock } from "vitest";
+import type { LocalDurationProbe, VideoDownloader } from "@/lib/graph/sync";

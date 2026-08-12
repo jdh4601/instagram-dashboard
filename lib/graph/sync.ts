@@ -5,13 +5,16 @@ import type { ProfileRepository } from "@/lib/store/profileRepository";
 import type { ReelHistoryRepository } from "@/lib/store/reelHistoryRepository";
 import { classifyMedia, mapMediaToReel, type GraphMedia } from "@/lib/graph/map";
 import { computeDerivedRates } from "@/lib/analysis/metrics";
-import { probeDurationSec } from "@/lib/media/probeDuration";
-import { downloadVideoToCache } from "@/lib/media/videoCache";
+import { probeDurationSec, probeLocalDurationSec } from "@/lib/media/probeDuration";
+import { downloadVideoToCache, resolveCachedVideoPath } from "@/lib/media/videoCache";
 import { resolveRuntimeConfig } from "@/lib/runtime/config";
 import type { MediaKind, Reel } from "@/lib/schemas";
 
 /** media_url에서 영상 길이(초)를 읽는다. 실패는 null. */
 export type DurationProbe = (mediaUrl: string) => Promise<number | null>;
+
+/** 받아 둔 mp4에서 영상 길이(초)를 읽는다. 실패는 null. */
+export type LocalDurationProbe = (reelId: string) => Promise<number | null>;
 
 /** mp4를 워크스페이스에 내려받고 저장된 파일명을 돌려준다. */
 export type VideoDownloader = (
@@ -21,6 +24,9 @@ export type VideoDownloader = (
 
 const cacheVideoInWorkspace: VideoDownloader = (reelId, mediaUrl) =>
   downloadVideoToCache(resolveRuntimeConfig().dataDir, reelId, mediaUrl);
+
+const probeCachedVideo: LocalDurationProbe = (reelId) =>
+  probeLocalDurationSec(resolveCachedVideoPath(resolveRuntimeConfig().dataDir, reelId));
 
 /** 동기화 진행 상황. total은 목록을 받은 뒤에야 확정되므로 그 전에는 0이다. */
 export interface SyncProgress {
@@ -114,6 +120,34 @@ async function withProbedDuration(
 }
 
 /**
+ * 원격 실측이 비었을 때, 받아 둔 mp4로 길이를 다시 잰다.
+ *
+ * Graph는 어떤 릴스에도 길이 필드를 주지 않아 실측이 유일한 경로인데, 원격 실측은
+ * media_url이 없으면 시도조차 못 하고(저작권 음원이 걸린 릴스가 그렇다) 있어도 CDN이
+ * 거부하면 빈다. 그렇게 0으로 남은 릴스도 mp4는 캐시에 있는 경우가 많다 — 그 파일은
+ * 만료되지 않으므로 동기화할 때마다 다시 잴 기회가 있다.
+ *
+ * 이미 길이가 있거나 캐시가 없으면 건드리지 않는다. 로컬 ffprobe는 컨테이너 메타데이터만
+ * 읽어 네트워크 왕복이 없고, 대상은 길이가 비어 있는 릴스뿐이라 매 동기화 비용도 작다.
+ */
+async function withCachedVideoDuration(
+  reel: Reel,
+  kind: MediaKind,
+  probeLocal: LocalDurationProbe,
+): Promise<Reel> {
+  if (kind !== "REELS" || reel.durationSec > 0 || !reel.videoFile) return reel;
+  try {
+    const durationSec = await probeLocal(reel.id);
+    return durationSec === null ? reel : { ...reel, durationSec };
+  } catch (err) {
+    // 원격 실측과 같은 이유로 삼킨다 — 길이는 보조 지표다.
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`[sync] 릴스 ${reel.id} 캐시 영상 길이 수집 실패 — 길이 미상으로 둡니다: ${message}`);
+    return reel;
+  }
+}
+
+/**
  * 캐시가 없는 릴스만 mp4를 받아 둔다.
  *
  * media_url은 서명이 만료되는 CDN 주소라 나중에 따로 돌릴 수 없다 — 길이 실측과 같은
@@ -147,6 +181,7 @@ export async function syncFromGraph(
   onProgress?: (progress: SyncProgress) => void,
   probeDuration: DurationProbe = probeDurationSec,
   downloadVideo: VideoDownloader = cacheVideoInWorkspace,
+  probeLocalDuration: LocalDurationProbe = probeCachedVideo,
 ): Promise<SyncResult> {
   const emptyInsights: GraphInsightResult = { metrics: {}, availableMetrics: [], unavailableMetrics: [] };
   const accountInsightsPromise = client.getAccountInsights
@@ -185,7 +220,9 @@ export async function syncFromGraph(
         kind,
         probeDuration,
       );
-      const merged = await withCachedVideo(withDuration, media, kind, downloadVideo);
+      const cached = await withCachedVideo(withDuration, media, kind, downloadVideo);
+      // 영상 캐시 뒤에 둔다 — 방금 받은 mp4도 곧바로 길이 실측 대상이 된다.
+      const merged = await withCachedVideoDuration(cached, kind, probeLocalDuration);
       await reelRepo.upsert({ ...merged, derived: computeDerivedRates(merged) });
       // 동기화 시점의 지표를 이력으로 누적(조회수/도달 추이용)
       if (historyRepo) {

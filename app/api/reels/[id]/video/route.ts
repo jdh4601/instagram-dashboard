@@ -6,8 +6,15 @@ import { getInstagramClient } from "@/lib/graph";
 import { resolveRuntimeConfig } from "@/lib/runtime/config";
 import { assertJsonRequest } from "@/lib/api/guard";
 import { parseByteRange, type ByteRange } from "@/lib/media/httpRange";
-import { downloadVideoToCache, readCachedVideoStat } from "@/lib/media/videoCache";
+import {
+  downloadVideoToCache,
+  readCachedVideoStat,
+  resolveCachedVideoPath,
+} from "@/lib/media/videoCache";
 import { downloadViaYtdlp } from "@/lib/media/ytdlpFallback";
+import { probeLocalDurationSec } from "@/lib/media/probeDuration";
+import { computeDerivedRates } from "@/lib/analysis/metrics";
+import type { Reel } from "@/lib/schemas";
 
 /**
  * 캐시된 mp4를 상세 페이지의 `<video>`에 흘려보낸다.
@@ -89,6 +96,22 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   });
 }
 
+/**
+ * 방금 받은 mp4에서 영상 길이를 채운다.
+ *
+ * Graph API는 어떤 릴스에도 길이를 주지 않고(lib/media/probeDuration.ts), 동기화 중의
+ * 원격 CDN 실측은 자주 실패한다. 여기까지 왔다면 mp4는 확실히 디스크에 있으므로,
+ * 길이가 비어 있는 릴스는 이 순간이 가장 확실한 측정 기회다.
+ */
+async function withDurationFromCache(reel: Reel, dataDir: string): Promise<Reel> {
+  if (reel.durationSec > 0) return reel;
+  const durationSec = await probeLocalDurationSec(resolveCachedVideoPath(dataDir, reel.id));
+  if (durationSec === null) return reel;
+  // 길이가 바뀌면 완료율도 같이 갱신해야 대시보드가 옛 값을 그리지 않는다.
+  const next = { ...reel, durationSec };
+  return { ...next, derived: computeDerivedRates(next) };
+}
+
 /** 영상 받기: 지금 시점의 media_url을 Graph에 다시 물어 mp4를 캐시에 내려받는다. */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const blocked = assertJsonRequest(req);
@@ -122,8 +145,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       if (!isLocalRuntime || !reel.permalink) return notFound(MEDIA_URL_MISSING);
       try {
         const fallback = await downloadViaYtdlp(dataDir, id, reel.permalink);
-        await repo.upsert({ ...reel, videoFile: fallback.fileName });
-        return NextResponse.json({ ok: true, ...fallback });
+        const cached = await withDurationFromCache({ ...reel, videoFile: fallback.fileName }, dataDir);
+        await repo.upsert(cached);
+        return NextResponse.json({ ok: true, ...fallback, durationSec: cached.durationSec });
       } catch (err) {
         // 두 사유를 함께 보여준다. 폴백 실패만 보이면 왜 폴백까지 갔는지 알 수 없다.
         const reason = err instanceof Error ? err.message : "공개 주소에서도 받지 못했습니다";
@@ -132,8 +156,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
 
     const { fileName, bytes } = await downloadVideoToCache(dataDir, id, mediaUrl);
-    await repo.upsert({ ...reel, videoFile: fileName });
-    return NextResponse.json({ ok: true, fileName, bytes });
+    const cached = await withDurationFromCache({ ...reel, videoFile: fileName }, dataDir);
+    await repo.upsert(cached);
+    return NextResponse.json({ ok: true, fileName, bytes, durationSec: cached.durationSec });
   } catch (err) {
     const message = err instanceof Error ? err.message : "영상을 내려받지 못했습니다";
     return NextResponse.json({ error: message }, { status: 502 });
