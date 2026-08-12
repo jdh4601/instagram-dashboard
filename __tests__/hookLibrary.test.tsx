@@ -132,3 +132,12 @@ test("원본 링크는 새 탭에서 열고 참조를 끊는다", () => {
   expect(html).toContain('href="https://instagram.com/reel/abc"');
   expect(html).toContain('rel="noreferrer noopener"');
 });
+
+test("썸네일은 릴스 비율 9:16으로 보여준다", () => {
+  const withThumb = render([hook("h1", { thumbnailUrl: "https://cdn.example.com/a.jpg" })]);
+  const withoutThumb = render([hook("h2")]);
+
+  expect(withThumb).toContain("aspect-[9/16]");
+  // 빈 자리도 같은 모양이어야 목록의 줄 높이가 들쭉날쭉하지 않다.
+  expect(withoutThumb).toContain("aspect-[9/16]");
+});

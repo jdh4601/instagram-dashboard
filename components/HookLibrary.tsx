@@ -46,10 +46,11 @@ function HookRow({
         <img
           src={hook.thumbnailUrl}
           alt=""
-          className="size-14 shrink-0 rounded-lg object-cover"
+          className="aspect-[9/16] w-12 shrink-0 rounded-lg object-cover"
         />
       ) : (
-        <div className="size-14 shrink-0 rounded-lg bg-surface-muted" aria-hidden />
+        // 썸네일이 없어도 같은 자리를 차지해야 줄 높이가 들쭉날쭉하지 않다.
+        <div className="aspect-[9/16] w-12 shrink-0 rounded-lg bg-surface-muted" aria-hidden />
       )}
 
       <div className="min-w-0 flex-1">

@@ -251,9 +251,9 @@ function LinkPreview({
       {thumbnailUrl ? (
         // 인스타 CDN 주소라 next/image의 도메인 허용 목록을 사람이 손으로 관리하게 된다.
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={thumbnailUrl} alt="" className="size-12 shrink-0 rounded-md object-cover" />
+        <img src={thumbnailUrl} alt="" className="aspect-[9/16] w-10 shrink-0 rounded-md object-cover" />
       ) : (
-        <div className="size-12 shrink-0 rounded-md bg-surface-muted" aria-hidden />
+        <div className="aspect-[9/16] w-10 shrink-0 rounded-md bg-surface-muted" aria-hidden />
       )}
       <div className="min-w-0">
         {preview.displayName && (
