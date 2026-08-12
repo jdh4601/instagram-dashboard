@@ -134,3 +134,37 @@ export const ReelAnalysisSchema = z.object({
   generatedAt: z.string().optional(),
 });
 export type ReelAnalysis = z.infer<typeof ReelAnalysisSchema>;
+
+/**
+ * 개선된 전개안.
+ *
+ * 분석이 고른 포맷을 그대로 유지한 채 비트를 다시 배치한 결과다. 포맷까지
+ * 바꿔 주면 "이 대본을 어떻게 고치나"가 아니라 "다른 영상을 새로 찍어라"가
+ * 되어 버려, 원본과 대조해 읽을 수가 없다.
+ */
+const ImprovedBeatSchema = z.object({
+  /** lib/analysis/storyFormats.ts의 비트 id. 유지하는 포맷의 것만 쓴다. */
+  beatId: z.string().min(1),
+  /** 그 자리에서 실제로 말할 문장 */
+  line: z.string().min(1),
+  startSec: z.number().min(0),
+  endSec: z.number().min(0),
+  /** 원본 대비 이 칸의 출처. 무엇이 바뀌었는지 화면에서 색으로 가른다. */
+  origin: z.enum(["kept", "rewritten", "added"]),
+  /** 왜 이 문장을 이 자리에 뒀는가 */
+  note: z.string(),
+});
+export type ImprovedBeat = z.infer<typeof ImprovedBeatSchema>;
+
+export const ImprovedStorySchema = z.object({
+  /** 분석이 고른 포맷과 같아야 한다 */
+  formatId: z.string().min(1),
+  /** 이 재배치가 노리는 것 한 문장 */
+  premise: z.string(),
+  beats: z.array(ImprovedBeatSchema).min(1),
+  /** 원본 대비 달라진 점 */
+  changes: z.array(z.string()).min(1),
+  /** 캐시 시점 (서버에서 주입) */
+  generatedAt: z.string().optional(),
+});
+export type ImprovedStory = z.infer<typeof ImprovedStorySchema>;

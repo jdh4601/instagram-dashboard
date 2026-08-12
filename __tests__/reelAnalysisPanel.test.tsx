@@ -57,6 +57,7 @@ function render(props: Partial<Parameters<typeof ReelAnalysisPanel>[0]> = {}): s
       analysis={null}
       onAnalyze={async () => undefined}
       onTranscribe={async () => undefined}
+      onImprove={async () => undefined}
       {...props}
     />,
   );

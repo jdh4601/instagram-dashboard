@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Mic, FlaskConical, KeyRound, LayoutList, Loader2 } from "lucide-react";
+import { Mic, FlaskConical, KeyRound, LayoutList, Loader2, Wand2 } from "lucide-react";
 import type { Reel, ReelAnalysis } from "@/lib/schemas";
 import {
   REEL_ANALYSIS_TABS,
@@ -10,12 +10,14 @@ import {
 } from "@/lib/ui/reelAnalysisTabs";
 import { CopyButton, EmptyState, cn } from "@/components/ui";
 import { StorytellingReport } from "@/components/StorytellingReport";
+import { ImprovedStoryTab } from "@/components/ImprovedStoryTab";
 
 const TAB_ICONS: Record<ReelAnalysisTabId, typeof Mic> = {
   transcript: Mic,
   idea: FlaskConical,
   hook: KeyRound,
   story: LayoutList,
+  improved: Wand2,
 };
 
 const HOOK_TYPE_LABELS: Record<string, string> = {
@@ -33,6 +35,7 @@ interface Props {
   analysis: ReelAnalysis | null;
   onAnalyze: () => Promise<void>;
   onTranscribe: () => Promise<void>;
+  onImprove: () => Promise<void>;
 }
 
 function countWords(reel: Reel): number {
@@ -51,7 +54,7 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function ReelAnalysisPanel({ reel, analysis, onAnalyze, onTranscribe }: Props) {
+export function ReelAnalysisPanel({ reel, analysis, onAnalyze, onTranscribe, onImprove }: Props) {
   const [tab, setTab] = useState<ReelAnalysisTabId>(DEFAULT_TAB_ID);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -144,6 +147,13 @@ export function ReelAnalysisPanel({ reel, analysis, onAnalyze, onTranscribe }: P
             {tab === "idea" && <IdeaTab analysis={analysis} />}
             {tab === "hook" && <HookTab analysis={analysis} />}
             {tab === "story" && <StoryTab analysis={analysis} />}
+            {tab === "improved" && (
+              <ImprovedStoryTab
+                improved={reel.improvedStory ?? null}
+                busy={busy}
+                onGenerate={() => run(onImprove)}
+              />
+            )}
           </>
         )}
       </div>

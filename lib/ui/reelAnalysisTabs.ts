@@ -3,6 +3,8 @@ export const REEL_ANALYSIS_TABS = [
   { id: "idea", label: "Idea Analysis" },
   { id: "hook", label: "Hook" },
   { id: "story", label: "Storytelling Format" },
+  // 앞 탭이 짚은 빠진 비트를 실제 문장으로 채우는 자리라 맨 뒤에 둔다.
+  { id: "improved", label: "Improved Story" },
 ] as const;
 
 export type ReelAnalysisTabId = (typeof REEL_ANALYSIS_TABS)[number]["id"];
