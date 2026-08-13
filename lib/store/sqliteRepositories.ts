@@ -27,7 +27,9 @@ interface VersionRow {
 function hardenDatabaseFiles(databasePath: string): void {
   if (process.platform === "win32") return;
   for (const path of [databasePath, `${databasePath}-wal`, `${databasePath}-shm`]) {
-    if (existsSync(path)) chmodSync(path, 0o600);
+    // 런타임 데이터 파일 경로다 — 번들에 포함할 모듈이 아니다. 표시하지 않으면
+    // Turbopack이 동적 경로를 보고 프로젝트 전체를 standalone 산출물에 끌어넣는다.
+    if (existsSync(/* turbopackIgnore: true */ path)) chmodSync(path, 0o600);
   }
 }
 

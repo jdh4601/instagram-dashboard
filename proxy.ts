@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { checkBasicAuth } from "@/lib/auth/basicAuth";
 
-export function middleware(request: NextRequest): NextResponse {
+export function proxy(request: NextRequest): NextResponse {
   const blocked = checkBasicAuth(request);
   return blocked ?? NextResponse.next();
 }
