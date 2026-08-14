@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getRepository, getReelHistoryRepository } from "@/lib/store";
 import { analyzeReel } from "@/lib/analysis/analyze";
 import { reelKpiDeltas } from "@/lib/analysis/reelKpiDeltas";
-import { adjacentReelIds } from "@/lib/analysis/reelNavigation";
 import { mediaKindOf } from "@/lib/media/kind";
 import { computeDerivedRates } from "@/lib/analysis/metrics";
 import { assertJsonRequest } from "@/lib/api/guard";
@@ -14,19 +13,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const reel = await repo.get(id);
   if (!reel) return NextResponse.json({ error: "게시물을 찾을 수 없습니다" }, { status: 404 });
 
-  // 캐러셀 기준선이 릴스 중앙값으로 오염되지 않도록, 그리고 목록에서 보던
-  // 종류와 다른 게시물로 이동하지 않도록 같은 미디어 종류끼리만 비교한다.
+  // 캐러셀 기준선이 릴스 중앙값으로 오염되지 않도록 같은 미디어 종류끼리만 비교한다.
   const kind = mediaKindOf(reel);
-  const sameKind = (await repo.list()).filter((candidate) => mediaKindOf(candidate) === kind);
-  const history = sameKind
-    .filter((r) => r.id !== reel.id)
+  const history = (await repo.list())
+    .filter((candidate) => mediaKindOf(candidate) === kind && candidate.id !== reel.id)
     .sort((a, b) => a.postedAt.localeCompare(b.postedAt));
   const analysis = analyzeReel(reel, history);
   const metricHistory = await getReelHistoryRepository().list(id);
   const kpiDeltas = reelKpiDeltas(reel, history);
-  const nav = adjacentReelIds(sameKind, reel.id);
 
-  return NextResponse.json({ reel, analysis, metricHistory, kpiDeltas, nav });
+  return NextResponse.json({ reel, analysis, metricHistory, kpiDeltas });
 }
 
 // 릴스 한 편이 넘길 수 없는 길이. 오타(150000)를 걸러낸다.
