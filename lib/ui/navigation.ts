@@ -1,3 +1,5 @@
+import type { MediaKind } from "@/lib/schemas";
+
 export interface NavItem {
   href: string;
   label: string;
@@ -14,6 +16,16 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/story-formats", label: "스토리텔링 포맷", activePrefixes: ["/story-formats"] },
   { href: "/settings", label: "설정", activePrefixes: ["/settings"] },
 ];
+
+/**
+ * 게시물 상세에서 돌아갈 목록 경로.
+ *
+ * 상세는 종류를 가리지 않고 /reel/:id 하나를 쓰지만 목록은 탭이 갈린다. 캐러셀을
+ * 보다가 뒤로 갔는데 릴스 목록이 나오면 왔던 자리를 잃는다.
+ */
+export function listPathForMedia(kind: MediaKind): string {
+  return kind === "CAROUSEL" ? "/carousels" : "/reels";
+}
 
 export function isNavActive(pathname: string, prefix: string): boolean {
   // "/"는 모든 경로의 접두사라 접두사 규칙을 그대로 쓰면 항상 켜진다.

@@ -2,12 +2,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, ExternalLink, Film } from "lucide-react";
+import { ArrowLeft, ExternalLink, Film } from "lucide-react";
 import type { Reel, ReelMetricSnapshot } from "@/lib/schemas";
 import type { AnalyzeResult } from "@/lib/analysis/analyze";
 import type { ReelKpiDeltas } from "@/lib/analysis/reelKpiDeltas";
 import { reelTitle } from "@/lib/ui/reelTitle";
 import { mediaKindOf } from "@/lib/media/kind";
+import { listPathForMedia } from "@/lib/ui/navigation";
+import { MEDIA_FILTER_LABELS } from "@/lib/ui/mediaFilter";
 import { Skeleton, EmptyState } from "@/components/ui";
 import { BottleneckBanner } from "@/components/BottleneckBanner";
 import { DiagnosisCards } from "@/components/DiagnosisCards";
@@ -24,17 +26,11 @@ import { ReelPerformanceDashboard } from "@/components/ReelPerformanceDashboard"
 import { ReelVideoPlayer } from "@/components/ReelVideoPlayer";
 import { ReelAnalysisPanel } from "@/components/ReelAnalysisPanel";
 
-interface ReelNav {
-  prevId: string | null;
-  nextId: string | null;
-}
-
 interface DetailResponse {
   reel: Reel;
   analysis: AnalyzeResult;
   metricHistory: ReelMetricSnapshot[];
   kpiDeltas?: ReelKpiDeltas;
-  nav?: ReelNav;
 }
 
 export default function ReelDetailPage() {
@@ -63,11 +59,13 @@ export default function ReelDetailPage() {
 
   return (
     <main className="mx-auto max-w-5xl space-y-5 p-4 sm:p-6">
+      {/* 왔던 목록으로 되돌린다 — 릴스 상세는 릴스 탭으로, 캐러셀 상세는 캐러셀 탭으로.
+          아직 불러오는 중이면 종류를 모르니 릴스 목록을 기본으로 둔다. */}
       <Link
-        href="/"
+        href={data ? listPathForMedia(mediaKindOf(data.reel)) : "/reels"}
         className="inline-flex min-h-11 items-center gap-1 rounded-lg text-sm text-brand-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 sm:min-h-9"
       >
-        <ArrowLeft size={14} /> 대시보드
+        <ArrowLeft size={14} /> {data ? MEDIA_FILTER_LABELS[mediaKindOf(data.reel)] : "릴스"} 목록
       </Link>
 
       {error && <EmptyState icon={<Film size={26} />} title={error} />}
@@ -108,7 +106,6 @@ function ReelDetail({
   analysis,
   metricHistory,
   kpiDeltas,
-  nav,
   onChange,
 }: DetailResponse & { onChange: () => void }) {
   // 자막과 훅·엔딩 생성은 영상 전제라 캐러셀에서는 의미가 없다.
@@ -118,32 +115,6 @@ function ReelDetail({
 
   return (
     <>
-      {/* 이전·다음 이동 */}
-      {(nav?.prevId || nav?.nextId) && (
-        <div className="flex items-center justify-between text-sm">
-          {nav?.prevId ? (
-            <Link
-              href={`/reel/${nav.prevId}`}
-              className="inline-flex min-h-11 items-center gap-1 rounded-lg text-neutral-600 hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 sm:min-h-9"
-            >
-              <ArrowLeft size={14} /> 이전 {mediaLabel}
-            </Link>
-          ) : (
-            <span />
-          )}
-          {nav?.nextId ? (
-            <Link
-              href={`/reel/${nav.nextId}`}
-              className="inline-flex min-h-11 items-center gap-1 rounded-lg text-neutral-600 hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 sm:min-h-9"
-            >
-              다음 {mediaLabel} <ArrowRight size={14} />
-            </Link>
-          ) : (
-            <span />
-          )}
-        </div>
-      )}
-
       {/* 헤더 — 릴스는 아래 플레이어가 썸네일을 대신하므로 여기서 겹쳐 그리지 않는다. */}
       <div className="flex gap-4">
         {!isReel && (

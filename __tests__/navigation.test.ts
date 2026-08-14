@@ -1,4 +1,4 @@
-import { NAV_ITEMS, isNavActive, isNavItemActive } from "@/lib/ui/navigation";
+import { NAV_ITEMS, isNavActive, isNavItemActive, listPathForMedia } from "@/lib/ui/navigation";
 
 test("사이드바는 여섯 개 탭을 이 순서로 노출한다", () => {
   expect(NAV_ITEMS.map((item) => item.href)).toEqual([
@@ -48,6 +48,18 @@ test("캐러셀 탭은 캐러셀 경로에서만 켜진다", () => {
   expect(isNavItemActive("/carousels", carousels)).toBe(true);
   expect(isNavItemActive("/carousels", reels)).toBe(false);
   expect(isNavItemActive("/reels", carousels)).toBe(false);
+});
+
+test("상세에서 뒤로 가면 그 게시물이 있던 목록으로 돌아간다", () => {
+  expect(listPathForMedia("REELS")).toBe("/reels");
+  expect(listPathForMedia("CAROUSEL")).toBe("/carousels");
+});
+
+test("돌아갈 목록 경로는 실제 탭 주소와 같다", () => {
+  // 탭 주소가 바뀌면 뒤로가기가 404로 떨어진다. 두 목록을 한 출처에 묶어 둔다.
+  const hrefs = NAV_ITEMS.map((item) => item.href);
+  expect(hrefs).toContain(listPathForMedia("REELS"));
+  expect(hrefs).toContain(listPathForMedia("CAROUSEL"));
 });
 
 test("게시물 상세는 릴스 탭에 묶인다", () => {
