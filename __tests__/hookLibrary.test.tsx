@@ -111,13 +111,20 @@ test("하트는 현재 즐겨찾기 상태를 보조기술에 알린다", () => 
   expect(off).toContain("즐겨찾기");
 });
 
-test("검색·분류·정렬 컨트롤이 상단에 있다", () => {
+test("분류·정렬 컨트롤이 상단에 있다", () => {
   const html = render([hook("h1")]);
 
-  expect(html).toContain("훅 또는 계정으로 검색");
   expect(html).toContain("최신순");
   expect(html).toContain("조회수순");
   expect(html).toContain("전체 분류");
+});
+
+test("검색창은 두지 않는다", () => {
+  // 보관함은 한 화면에 들어오는 크기라 분류 칩만으로 충분하다.
+  const html = render([hook("h1")]);
+
+  expect(html).not.toContain("검색");
+  expect(html).not.toContain("<input");
 });
 
 test("손가락으로 누를 수 있는 크기를 지킨다", () => {

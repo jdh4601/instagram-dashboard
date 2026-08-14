@@ -2,6 +2,7 @@
 import { useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { Card, cn } from "@/components/ui";
+import { CatalogCopyButton } from "@/components/CatalogCopyButton";
 
 interface CatalogSectionProps {
   title: string;
@@ -48,6 +49,30 @@ export function CatalogSection({ title, count, description, children }: CatalogS
       </div>
     </Card>
   );
+}
+
+interface CatalogCardProps {
+  title: string;
+  /** 카드 전체를 마크다운으로 복사하는 버튼에 실을 내용 */
+  copyMarkdown: string;
+  children: ReactNode;
+}
+
+/** 카탈로그 항목 한 장. 제목 줄 오른쪽에 통째로 복사하는 버튼이 붙는다. */
+export function CatalogCard({ title, copyMarkdown, children }: CatalogCardProps) {
+  return (
+    <article className="space-y-3 rounded-card border border-border-subtle bg-surface p-4">
+      <header className="flex items-start justify-between gap-2">
+        <h4 className="min-w-0 text-sm font-semibold text-neutral-900">{title}</h4>
+        <CatalogCopyButton markdown={copyMarkdown} label={title} />
+      </header>
+      {children}
+    </article>
+  );
+}
+
+export function CatalogParagraph({ children }: { children: ReactNode }) {
+  return <p className="text-sm leading-relaxed text-neutral-700">{children}</p>;
 }
 
 interface CatalogFieldProps {

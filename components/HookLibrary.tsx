@@ -16,7 +16,7 @@ import {
 } from "@/lib/ui/hookSelect";
 import { fmtCount } from "@/lib/ui/format";
 import { HOOK_CATEGORY_CLASSES } from "@/lib/ui/hookCategoryStyle";
-import { Input, EmptyState, cn } from "@/components/ui";
+import { EmptyState, cn } from "@/components/ui";
 import { HookForm } from "@/components/HookForm";
 
 interface Props {
@@ -141,16 +141,12 @@ function Section({ title, count, children }: { title: string; count: number; chi
 }
 
 export function HookLibrary({ hooks, onSave, onToggleFavorite, onDelete }: Props) {
-  const [query, setQuery] = useState("");
   const [category, setCategory] = useState<HookCategoryFilter>("all");
   const [sort, setSort] = useState<HookSort>("latest");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Hook | null>(null);
 
-  const visible = useMemo(
-    () => selectHooks(hooks, query, category, sort),
-    [hooks, query, category, sort],
-  );
+  const visible = useMemo(() => selectHooks(hooks, category, sort), [hooks, category, sort]);
   const sections = splitHookSections(visible);
 
   function openAdd() {
@@ -174,14 +170,6 @@ export function HookLibrary({ hooks, onSave, onToggleFavorite, onDelete }: Props
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="훅 또는 계정으로 검색"
-          aria-label="훅 검색"
-          className="min-w-56 flex-1"
-        />
-
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value as HookSort)}
@@ -198,7 +186,7 @@ export function HookLibrary({ hooks, onSave, onToggleFavorite, onDelete }: Props
         <button
           type="button"
           onClick={openAdd}
-          className="inline-flex min-h-11 items-center gap-1 rounded-lg bg-brand-600 px-3 text-sm font-medium text-white hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+          className="ml-auto inline-flex min-h-11 items-center gap-1 rounded-lg bg-brand-600 px-3 text-sm font-medium text-white hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
         >
           <Plus size={16} aria-hidden />
           훅 추가
@@ -244,7 +232,7 @@ export function HookLibrary({ hooks, onSave, onToggleFavorite, onDelete }: Props
           hint="잘된 릴스의 첫 문장을 훅 추가로 담아 두면 다음 대본을 쓸 때 바로 꺼내 쓸 수 있습니다."
         />
       ) : visible.length === 0 ? (
-        <EmptyState title="조건에 맞는 훅이 없습니다" hint="검색어나 분류를 바꿔 보세요." />
+        <EmptyState title="이 분류에 담아 둔 훅이 없습니다" hint="다른 분류를 골라 보세요." />
       ) : (
         <div className="space-y-5">
           {sections.favorites.length > 0 && (

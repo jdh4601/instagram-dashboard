@@ -1,12 +1,18 @@
 "use client";
-import { HOOK_TYPE_CATALOG, type HookTypeSpec } from "@/lib/analysis/hookCatalog";
+import { HOOK_TYPE_CATALOG } from "@/lib/analysis/hookCatalog";
 import { SCRIPT_PRINCIPLES, type ScriptPrincipleSpec } from "@/lib/analysis/scriptPrinciples";
 import { STORY_FORMATS } from "@/lib/analysis/storyFormats";
-import { hookTypeToMarkdown, scriptPrincipleToMarkdown } from "@/lib/analysis/catalogMarkdown";
+import { scriptPrincipleToMarkdown } from "@/lib/analysis/catalogMarkdown";
 import type { HookExample } from "@/lib/ui/hookExamples";
 import type { HookType } from "@/lib/schemas/reelAnalysis";
-import { CatalogCopyButton } from "@/components/CatalogCopyButton";
-import { CatalogSection, CatalogField, CatalogBullets } from "@/components/CatalogSection";
+import {
+  CatalogSection,
+  CatalogField,
+  CatalogBullets,
+  CatalogCard,
+  CatalogParagraph,
+} from "@/components/CatalogSection";
+import { HookTypePicker } from "@/components/HookTypePicker";
 import { StoryFormatCatalog } from "@/components/StoryFormatCatalog";
 
 interface HookCatalogProps {
@@ -14,75 +20,15 @@ interface HookCatalogProps {
   examples?: Partial<Record<HookType, HookExample[]>>;
 }
 
-function CardShell({
-  title,
-  copyMarkdown,
-  children,
-}: {
-  title: string;
-  copyMarkdown: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <article className="space-y-3 rounded-card border border-border-subtle bg-surface p-4">
-      <header className="flex items-start justify-between gap-2">
-        <h4 className="min-w-0 text-sm font-semibold text-neutral-900">{title}</h4>
-        <CatalogCopyButton markdown={copyMarkdown} label={title} />
-      </header>
-      {children}
-    </article>
-  );
-}
-
-function Paragraph({ children }: { children: React.ReactNode }) {
-  return <p className="text-sm leading-relaxed text-neutral-700">{children}</p>;
-}
-
-function MyReelExamples({ examples }: { examples: HookExample[] }) {
-  return (
-    <CatalogField label="내 릴스에서 나온 사례">
-      <ul className="space-y-2">
-        {examples.map((example) => (
-          <li key={example.reelId} className="rounded-lg bg-surface-muted px-2.5 py-2">
-            <p className="text-sm leading-relaxed text-neutral-800">{example.line}</p>
-            <p className="mt-1 text-xs text-neutral-500">{example.why}</p>
-            <p className="mt-1 text-xs text-neutral-400">{example.reelTitle}</p>
-          </li>
-        ))}
-      </ul>
-    </CatalogField>
-  );
-}
-
-function HookTypeCard({ spec, examples }: { spec: HookTypeSpec; examples: HookExample[] }) {
-  return (
-    <CardShell title={spec.label} copyMarkdown={hookTypeToMarkdown(spec)}>
-      <CatalogField label="원리">
-        <Paragraph>{spec.principle}</Paragraph>
-      </CatalogField>
-      <CatalogField label="언제 쓰는가">
-        <Paragraph>{spec.whenToUse}</Paragraph>
-      </CatalogField>
-      <CatalogField label="템플릿 문장">
-        <CatalogBullets items={spec.templates} template />
-      </CatalogField>
-      <CatalogField label="예시">
-        <CatalogBullets items={spec.examples} />
-      </CatalogField>
-      {examples.length > 0 && <MyReelExamples examples={examples} />}
-    </CardShell>
-  );
-}
-
 function PrincipleCard({ spec }: { spec: ScriptPrincipleSpec }) {
   return (
-    <CardShell title={spec.label} copyMarkdown={scriptPrincipleToMarkdown(spec)}>
+    <CatalogCard title={spec.label} copyMarkdown={scriptPrincipleToMarkdown(spec)}>
       <p className="text-xs leading-relaxed text-neutral-600">{spec.summary}</p>
       <CatalogField label="정의">
-        <Paragraph>{spec.definition}</Paragraph>
+        <CatalogParagraph>{spec.definition}</CatalogParagraph>
       </CatalogField>
       <CatalogField label="왜 작동하는가">
-        <Paragraph>{spec.whyItWorks}</Paragraph>
+        <CatalogParagraph>{spec.whyItWorks}</CatalogParagraph>
       </CatalogField>
       <CatalogField label="실행 방법">
         <CatalogBullets items={spec.howTo} />
@@ -97,7 +43,7 @@ function PrincipleCard({ spec }: { spec: ScriptPrincipleSpec }) {
           </p>
         </div>
       </CatalogField>
-    </CardShell>
+    </CatalogCard>
   );
 }
 
@@ -116,9 +62,7 @@ export function HookCatalog({ examples = {} }: HookCatalogProps) {
         count={HOOK_TYPE_CATALOG.length}
         description="첫 3초를 어디서 비트는가에 따라 나뉜 7가지 유형입니다."
       >
-        {HOOK_TYPE_CATALOG.map((spec) => (
-          <HookTypeCard key={spec.id} spec={spec} examples={examples[spec.id] ?? []} />
-        ))}
+        <HookTypePicker examples={examples} />
       </CatalogSection>
 
       <CatalogSection
