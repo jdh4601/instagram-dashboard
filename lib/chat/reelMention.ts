@@ -80,3 +80,22 @@ export function findMentionedReels(message: string, reels: Reel[]): Reel[] {
     .slice(0, MAX_MENTIONED_REELS)
     .map((candidate) => candidate.reel);
 }
+
+/**
+ * 질문이 지목한 게시물에, 질문할 때 열어 두고 있던 게시물을 합친다.
+ *
+ * 상세 화면에서는 "이거 훅 왜 약해?"처럼 대상을 말로 밝히지 않는다. 화면이 이미
+ * 대상을 정해 놓았기 때문이다. 그래서 열어 둔 릴스를 맨 앞에 세우고, 캡션으로
+ * 걸린 것들을 뒤에 붙인 다음 같은 상한으로 자른다.
+ */
+export function selectContextReels(
+  message: string,
+  openReelId: string | null | undefined,
+  reels: Reel[],
+): Reel[] {
+  const mentioned = findMentionedReels(message, reels);
+  const open = openReelId ? reels.find((reel) => reel.id === openReelId) : undefined;
+  if (!open) return mentioned;
+
+  return [open, ...mentioned.filter((reel) => reel.id !== open.id)].slice(0, MAX_MENTIONED_REELS);
+}

@@ -1,4 +1,4 @@
-import { findMentionedReels, MAX_MENTIONED_REELS } from "@/lib/chat/reelMention";
+import { findMentionedReels, selectContextReels, MAX_MENTIONED_REELS } from "@/lib/chat/reelMention";
 import type { Reel } from "@/lib/schemas";
 
 function reel(id: string, caption: string, postedAt = "2026-07-20T09:00:00Z"): Reel {
@@ -54,4 +54,39 @@ test(`아무리 많이 걸려도 ${MAX_MENTIONED_REELS}개까지만 확장한다
 test("한 글자짜리 우연한 겹침으로는 매칭되지 않는다", () => {
   // "왜"·"이"처럼 흔한 조각이 매칭을 만들면 모든 질문에 릴스가 딸려간다.
   expect(findMentionedReels("이 계정 왜 이래?", reels)).toEqual([]);
+});
+
+describe("보고 있는 릴스 합치기", () => {
+  test("열어 둔 릴스는 질문이 지목하지 않아도 컨텍스트에 들어간다", () => {
+    const picked = selectContextReels("이거 훅 왜 약해?", "18116210029810012", reels);
+    expect(picked.map((r) => r.id)).toEqual(["18116210029810012"]);
+  });
+
+  test("열어 둔 릴스가 먼저 오고 지목된 릴스가 뒤따른다", () => {
+    const picked = selectContextReels("가격 정할 때 얘기는 어땠어?", "18116210029810012", reels);
+    expect(picked.map((r) => r.id)).toEqual(["18116210029810012", "18550142134073665"]);
+  });
+
+  test("열어 둔 릴스를 질문이 또 지목해도 한 번만 싣는다", () => {
+    const picked = selectContextReels("가격 정할 때 얘기", "18550142134073665", reels);
+    expect(picked.map((r) => r.id)).toEqual(["18550142134073665"]);
+  });
+
+  test("보고 있는 릴스가 없으면 지목 결과와 같다", () => {
+    expect(selectContextReels("가격 정할 때 얘기", null, reels)).toEqual(
+      findMentionedReels("가격 정할 때 얘기", reels),
+    );
+  });
+
+  test("저장소에 없는 id는 조용히 무시한다", () => {
+    expect(selectContextReels("내 계정 병목이 어디야?", "없는-릴스", reels)).toEqual([]);
+  });
+
+  test(`합쳐도 ${MAX_MENTIONED_REELS}개를 넘지 않는다`, () => {
+    const many = Array.from({ length: 10 }, (_, i) =>
+      reel(`id-${i}`, "창업가 가격 번아웃 성장 인터뷰"),
+    );
+    const picked = selectContextReels("창업가 가격 번아웃 성장 인터뷰 이야기", "id-9", many);
+    expect(picked.length).toBeLessThanOrEqual(MAX_MENTIONED_REELS);
+  });
 });
