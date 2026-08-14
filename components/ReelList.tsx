@@ -8,26 +8,19 @@ import { reelTitle } from "@/lib/ui/reelTitle";
 import { selectReels, SORT_LABELS, type EarlyViewsMap, type ReelSort } from "@/lib/ui/reelSelect";
 import { fmtCount, fmtPct } from "@/lib/ui/format";
 import { cn } from "@/components/ui";
-import { MediaTypeToggle } from "@/components/MediaTypeToggle";
 import { emptyListMessage, type MediaFilter } from "@/lib/ui/mediaFilter";
 
 interface Props {
   reels: Reel[];
+  /** 이미 이 종류로 걸러진 목록이 들어온다. 화면에서 바꿀 수 없고, 빈 목록 문구에만 쓴다. */
   filter: MediaFilter;
-  onFilterChange: (value: MediaFilter) => void;
   /** 동기화가 진행 중이면 목록이 아직 갱신 전이라는 뜻이다. */
   syncing?: boolean;
   /** 게시 후 48시간 조회수. 경과일이 다른 게시물을 공정하게 견주는 정렬에 쓴다. */
   earlyViews?: EarlyViewsMap;
 }
 
-export function ReelList({
-  reels,
-  filter,
-  onFilterChange,
-  syncing = false,
-  earlyViews,
-}: Props) {
+export function ReelList({ reels, filter, syncing = false, earlyViews }: Props) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<ReelSort>("latest");
 
@@ -39,10 +32,7 @@ export function ReelList({
   if (reels.length === 0) {
     return (
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-neutral-700">게시물 목록</h2>
-          <MediaTypeToggle value={filter} onChange={onFilterChange} />
-        </div>
+        <h2 className="text-sm font-semibold text-neutral-700">게시물 목록</h2>
         <div
           role={syncing ? "status" : undefined}
           aria-live={syncing ? "polite" : undefined}
@@ -63,10 +53,7 @@ export function ReelList({
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-neutral-700">게시물 목록</h2>
-        <div className="flex items-center gap-2">
-          <MediaTypeToggle value={filter} onChange={onFilterChange} />
-          <span className="text-xs text-neutral-500">{visible.length}개</span>
-        </div>
+        <span className="text-xs text-neutral-500">{visible.length}개</span>
       </div>
 
       <div className="flex items-center gap-2">

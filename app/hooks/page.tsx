@@ -102,9 +102,9 @@ export default function HooksPage() {
   return (
     <main className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold text-neutral-900">훅</h1>
+        <h1 className="text-xl font-semibold text-neutral-900">훅 저장소</h1>
         <p className="text-sm text-neutral-600">
-          잘된 릴스의 훅을 모아두는 보관함과, 유형·원리·포맷을 찾아보는 카탈로그입니다.
+          잘된 릴스의 훅을 모아두는 보관함과, 유형·원리를 찾아보는 카탈로그입니다.
         </p>
       </header>
 

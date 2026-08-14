@@ -7,8 +7,11 @@ export interface NavItem {
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/", label: "대시보드", activePrefixes: ["/"] },
+  // 캐러셀도 상세는 /reel/:id를 함께 쓴다. 상세에서 켜질 탭은 하나여야 하므로 목록 탭 하나에 묶는다.
   { href: "/reels", label: "릴스", activePrefixes: ["/reels", "/reel"] },
-  { href: "/hooks", label: "훅", activePrefixes: ["/hooks"] },
+  { href: "/carousels", label: "캐러셀", activePrefixes: ["/carousels"] },
+  { href: "/hooks", label: "훅 저장소", activePrefixes: ["/hooks"] },
+  { href: "/story-formats", label: "스토리텔링 포맷", activePrefixes: ["/story-formats"] },
   { href: "/settings", label: "설정", activePrefixes: ["/settings"] },
 ];
 
