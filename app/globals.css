@@ -165,10 +165,62 @@ section:hover .funnel-flow-branch {
   background-color: var(--color-brand-200);
 }
 
+/* 진단 AI가 첫 토큰을 보내기 전까지 도는 진행 표시(ThinkingIndicator) */
+@keyframes thinking-text-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes thinking-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+.thinking-text {
+  animation: thinking-text-in 260ms ease-out both;
+}
+
+.thinking-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 9999px;
+  background-color: currentColor;
+  animation: thinking-dot 1.2s ease-in-out infinite;
+}
+
+.thinking-dot:nth-child(2) {
+  animation-delay: 160ms;
+}
+
+.thinking-dot:nth-child(3) {
+  animation-delay: 320ms;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .funnel-flow-node,
-  .funnel-flow-line {
+  .funnel-flow-line,
+  .thinking-text,
+  .thinking-dot {
     animation: none;
+  }
+
+  /* 애니메이션을 끄면 keyframes가 주던 불투명도까지 사라져 점이 흐릿하게 남는다. */
+  .thinking-dot {
+    opacity: 0.6;
   }
 }
 
