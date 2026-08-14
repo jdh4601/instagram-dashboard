@@ -68,9 +68,18 @@ function errorText(error: unknown): string {
   return "요청을 처리하지 못했습니다";
 }
 
-export function useChat(): UseChat {
+export interface UseChatOptions {
+  /** 질문하는 순간 열어 두고 있던 릴스. 서버가 이 릴스를 컨텍스트에 싣는다. */
+  reelId?: string | null;
+}
+
+export function useChat(options: UseChatOptions = {}): UseChat {
   const [state, setState] = useState<ChatState>(INITIAL);
   const abortRef = useRef<AbortController | null>(null);
+  // send는 한 번만 만들어져 컴포저에 내려가므로, 경로가 바뀔 때마다 바뀌는 값을
+  // 클로저에 가두면 옛날 릴스를 계속 보낸다. ref로 최신 값을 읽는다.
+  const reelIdRef = useRef<string | null>(null);
+  reelIdRef.current = options.reelId ?? null;
 
   useEffect(() => {
     let active = true;
@@ -154,7 +163,9 @@ export function useChat(): UseChat {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
-        body: JSON.stringify({ message: trimmed }),
+        body: JSON.stringify(
+          reelIdRef.current ? { message: trimmed, reelId: reelIdRef.current } : { message: trimmed },
+        ),
         signal: controller.signal,
       });
 

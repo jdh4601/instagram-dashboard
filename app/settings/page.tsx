@@ -243,7 +243,7 @@ export default function SettingsPage() {
           {data.chat.localRuntime ? (
             <>
               <p className="text-xs text-neutral-500">
-                대시보드 우측 진단 챗봇이 쓸 제공자입니다. 자막 분석용 제공자와 따로 고를 수 있습니다.
+                화면 우측 진단 챗봇이 쓸 제공자입니다. 자막 분석용 제공자와 따로 고를 수 있습니다.
               </p>
               <div className="space-y-1">
                 {PROVIDER_ORDER.map((id) => (

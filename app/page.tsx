@@ -17,7 +17,6 @@ import { buildAccountFunnel } from "@/lib/analysis/accountFunnel";
 import { buildAudienceMix } from "@/lib/analysis/audienceMix";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { DashboardToast, type SyncToast } from "@/components/DashboardToast";
-import { ChatPanel } from "@/components/chat/ChatPanel";
 import { PerformanceChartsCard } from "@/components/PerformanceChartsCard";
 import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { filterByMedia } from "@/lib/ui/mediaFilter";
@@ -188,10 +187,8 @@ export default function Page() {
   const showTokenBanner = !tokenBannerDismissed && tokenNeedsReview;
 
   return (
-    // xl 이상에서 대시보드와 진단 패널이 나란히 서고, 그 아래 폭에서는 패널이
-    // 오른쪽 가장자리에 접혀 손잡이만 남는다.
-    <div className="mx-auto flex w-full max-w-[110rem] items-start">
-      <div className="min-w-0 flex-1">
+    // 진단 패널은 AppShell이 모든 화면에 붙인다. 이 페이지는 본문만 그린다.
+    <>
       <DashboardActions onSync={onSync} syncing={syncing} lastSyncedAt={lastSyncedAt} />
       {syncing && syncProgress && <SyncProgressBar progress={syncProgress} />}
       <main className="mx-auto max-w-5xl space-y-5 px-4 pb-4 sm:px-6 sm:pb-6">
@@ -243,11 +240,7 @@ export default function Page() {
         )}
       </main>
 
-      </div>
-
-      <ChatPanel />
-
       {toast && <DashboardToast toast={toast} onDismiss={() => setToast(null)} />}
-    </div>
+    </>
   );
 }
