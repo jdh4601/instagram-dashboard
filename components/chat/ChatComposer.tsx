@@ -34,13 +34,13 @@ export function ChatComposer({ disabled, sending, onSend, onStop }: ChatComposer
         </label>
         <textarea
           id="chat-input"
-          rows={1}
+          rows={3}
           value={draft}
           disabled={disabled}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={onKeyDown}
           placeholder={disabled ? "설정에서 제공자를 먼저 선택하세요" : "계정에 대해 물어보세요"}
-          className="max-h-32 min-h-6 flex-1 resize-none bg-transparent text-sm leading-relaxed text-neutral-900 outline-none placeholder:text-neutral-400 disabled:cursor-not-allowed"
+          className="max-h-56 min-h-16 flex-1 resize-none bg-transparent text-sm leading-relaxed text-neutral-900 outline-none placeholder:text-neutral-400 disabled:cursor-not-allowed"
         />
         {sending ? (
           <button
