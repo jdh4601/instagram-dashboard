@@ -1,5 +1,5 @@
 import { STORY_FORMATS } from "@/lib/analysis/storyFormats";
-import { StoryFormatCatalog } from "@/components/StoryFormatCatalog";
+import { StoryFormatGrid } from "@/components/StoryFormatGrid";
 
 export default function StoryFormatsPage() {
   return (
@@ -7,15 +7,12 @@ export default function StoryFormatsPage() {
       <header className="space-y-1">
         <h1 className="text-xl font-semibold text-neutral-900">스토리텔링 포맷</h1>
         <p className="text-sm text-neutral-600">
-          포맷 {STORY_FORMATS.length}종의 비트 시퀀스입니다. 빠진 비트가 곧 대본이 약해지는
-          지점입니다.
+          포맷 {STORY_FORMATS.length}종입니다. 하나를 고르면 아웃라이어 조건과 비트 시퀀스를
+          펼쳐 봅니다.
         </p>
       </header>
 
-      {/* 훅 저장소에 얹혀 있을 땐 접어 뒀지만, 여기서는 이 목록이 화면의 전부라 바로 편다. */}
-      <section aria-label="스토리텔링 포맷 카탈로그" className="space-y-3">
-        <StoryFormatCatalog />
-      </section>
+      <StoryFormatGrid />
     </main>
   );
 }
