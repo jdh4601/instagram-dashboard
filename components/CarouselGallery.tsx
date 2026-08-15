@@ -1,8 +1,8 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Images } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { CarouselSlide } from "@/lib/graph/map";
-import { Badge, Card, cn } from "@/components/ui";
+import { Card, cn } from "@/components/ui";
 
 interface Props {
   reelId: string;
@@ -69,22 +69,6 @@ export function CarouselGallery({ reelId, thumbnailUrl }: Props) {
 
   return (
     <Card className="overflow-hidden">
-      <div className="flex items-center justify-between border-b border-border-subtle px-4 py-2.5">
-        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-neutral-800">
-          <Images size={16} className="text-brand-600" aria-hidden />
-          캐러셀 낱장
-        </h2>
-        {loading ? (
-          <Badge>낱장 확인 중</Badge>
-        ) : (
-          total > 0 && (
-            <Badge className="tabular-nums">
-              {current + 1} / {total}
-            </Badge>
-          )
-        )}
-      </div>
-
       {total === 0 ? (
         <div className="flex aspect-[4/5] items-center justify-center bg-surface-muted text-sm text-neutral-500">
           {loading ? "낱장을 불러오는 중입니다" : "보여줄 이미지가 없습니다"}
@@ -93,7 +77,7 @@ export function CarouselGallery({ reelId, thumbnailUrl }: Props) {
         <div
           role="group"
           aria-roledescription="캐러셀"
-          aria-label="캐러셀 낱장 보기"
+          aria-label="게시물 사진"
           tabIndex={0}
           onKeyDown={(event) => {
             if (event.key === "ArrowLeft") goTo(current - 1);
@@ -130,6 +114,10 @@ export function CarouselGallery({ reelId, thumbnailUrl }: Props) {
 
           {total > 1 && (
             <>
+              {/* 몇 장짜리인지는 사진 위에 얹는다 — 카드 머리글을 두면 그만큼 사진이 준다. */}
+              <span className="pointer-events-none absolute right-3 top-3 rounded-full bg-neutral-950/55 px-2 py-0.5 text-xs font-medium tabular-nums text-white">
+                {current + 1} / {total}
+              </span>
               <NavButton side="left" disabled={current === 0} onClick={() => goTo(current - 1)} />
               <NavButton
                 side="right"
