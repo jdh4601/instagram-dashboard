@@ -1,13 +1,20 @@
 import type { MediaKind, Reel } from "@/lib/schemas";
 import { mediaKindOf } from "@/lib/media/kind";
-import { DAY_MS } from "@/lib/time";
+import { reelTitle } from "@/lib/ui/reelTitle";
 
 // 게시 시각은 UTC로 들어오지만 리듬은 올린 사람의 하루 감각을 따라야 한다.
 // UTC로 끊으면 밤에 올린 게시물이 전날 칸으로 밀려 공백이 실제와 달라진다.
 const TIME_ZONE = "Asia/Seoul";
 const WEEKDAY_COUNT = 7;
-/** 조회수 진하기 단계. 0단계는 "업로드 없음"이라 1부터 쓴다. */
-const MAX_LEVEL = 4;
+
+/** 달력 칸을 가리켰을 때 보여 줄 게시물 한 건. */
+export interface RhythmPost {
+  id: string;
+  kind: MediaKind;
+  title: string;
+  thumbnailUrl?: string;
+  views: number;
+}
 
 export interface RhythmDay {
   /** 한국 시간 기준 날짜 (YYYY-MM-DD) */
@@ -16,10 +23,8 @@ export interface RhythmDay {
   reels: number;
   carousels: number;
   views: number;
-  /** 진하기를 정할 때 기준이 된 종류. 업로드가 없으면 null */
-  dominant: MediaKind | null;
-  /** 1~4. 업로드가 없으면 0 */
-  level: number;
+  /** 그날 올린 게시물. 올린 순서대로 담긴다. */
+  posts: RhythmPost[];
   /** 아직 오지 않은 날. 쉰 날로 세지 않는다. */
   future: boolean;
 }
@@ -79,24 +84,6 @@ function compareYearMonth(a: YearMonth, b: YearMonth): number {
   return a.year !== b.year ? a.year - b.year : a.month - b.month;
 }
 
-/**
- * 종류별 조회수 사분위로 진하기 단계를 나눈다. 릴스와 캐러셀은 조회수 자릿수가
- * 달라 한데 묶으면 캐러셀이 전부 옅은 칸이 된다.
- */
-function buildLevelScale(values: number[]): (value: number) => number {
-  if (values.length === 0) return () => 1;
-  const sorted = [...values].sort((a, b) => a - b);
-  const quantile = (ratio: number) => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * ratio))];
-  const thresholds = [quantile(0.25), quantile(0.5), quantile(0.75)];
-  return (value: number) => {
-    let level = 1;
-    for (const threshold of thresholds) {
-      if (value > threshold) level++;
-    }
-    return Math.min(level, MAX_LEVEL);
-  };
-}
-
 function countGap(days: RhythmDay[]): number {
   let longest = 0;
   let current = 0;
@@ -117,9 +104,22 @@ export function buildUploadRhythm(
   target?: YearMonth,
   now: Date = new Date(),
 ): UploadRhythm {
+  // 같은 날 여러 건이면 올린 순서대로 보여 준다 — 달력 칸의 동그라미 순서가 곧 그날의 순서다.
   const posted = reels
-    .map((reel) => ({ date: toSeoulDate(new Date(reel.postedAt)), kind: mediaKindOf(reel), views: reel.views }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+    .map((reel) => ({
+      date: toSeoulDate(new Date(reel.postedAt)),
+      postedAt: reel.postedAt,
+      kind: mediaKindOf(reel),
+      views: reel.views,
+      post: {
+        id: reel.id,
+        kind: mediaKindOf(reel),
+        title: reelTitle(reel),
+        ...(reel.thumbnailUrl ? { thumbnailUrl: reel.thumbnailUrl } : {}),
+        views: reel.views,
+      } satisfies RhythmPost,
+    }))
+    .sort((a, b) => a.postedAt.localeCompare(b.postedAt));
 
   const today = toSeoulDate(now);
   const currentMonth = parseYearMonth(today);
@@ -127,32 +127,18 @@ export function buildUploadRhythm(
   const earliestMonth = posted.length > 0 ? parseYearMonth(posted[0].date) : currentMonth;
   const shown = target ?? latestMonth;
 
-  const levelOf: Record<MediaKind, (value: number) => number> = {
-    REELS: buildLevelScale(posted.filter((p) => p.kind === "REELS").map((p) => p.views)),
-    CAROUSEL: buildLevelScale(posted.filter((p) => p.kind === "CAROUSEL").map((p) => p.views)),
-  };
-
   const monthPrefix = `${shown.year}-${String(shown.month).padStart(2, "0")}`;
   const days: RhythmDay[] = [];
   for (let day = 1; day <= daysInMonth(shown); day++) {
     const date = `${monthPrefix}-${String(day).padStart(2, "0")}`;
     const onDay = posted.filter((p) => p.date === date);
-    const reelCount = onDay.filter((p) => p.kind === "REELS").length;
-    const carouselCount = onDay.filter((p) => p.kind === "CAROUSEL").length;
-    const dominant: MediaKind | null =
-      onDay.length === 0 ? null : carouselCount > reelCount ? "CAROUSEL" : "REELS";
-    const views = onDay.reduce((sum, p) => sum + p.views, 0);
-    const dominantViews = onDay
-      .filter((p) => p.kind === dominant)
-      .reduce((sum, p) => sum + p.views, 0);
     days.push({
       date,
       day,
-      reels: reelCount,
-      carousels: carouselCount,
-      views,
-      dominant,
-      level: dominant ? levelOf[dominant](dominantViews) : 0,
+      reels: onDay.filter((p) => p.kind === "REELS").length,
+      carousels: onDay.filter((p) => p.kind === "CAROUSEL").length,
+      views: onDay.reduce((sum, p) => sum + p.views, 0),
+      posts: onDay.map((p) => p.post),
       future: date > today,
     });
   }

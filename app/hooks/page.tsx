@@ -5,6 +5,7 @@ import { groupHookExamplesByType, type HookExamplesByType } from "@/lib/ui/hookE
 import { HookLibrary } from "@/components/HookLibrary";
 import { HookCatalog } from "@/components/HookCatalog";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
+import { readNdjson } from "@/lib/ui/ndjsonStream";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
@@ -99,12 +100,39 @@ export default function HooksPage() {
     await reload();
   }
 
+  async function breakdown(
+    id: string,
+    onProgress: (progress: { percent: number; message: string }) => void,
+  ) {
+    const res = await fetch(`/api/hooks/${id}/breakdown`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
+    });
+    if (!res.ok || !res.body) {
+      throw new Error(await failureMessage(res, "릴스를 해체하지 못했습니다"));
+    }
+
+    let completed = false;
+    for await (const event of readNdjson(res.body)) {
+      const parsed = event as { type?: string; percent?: number; message?: string; error?: string };
+      if (parsed.type === "progress") {
+        onProgress({ percent: Number(parsed.percent), message: String(parsed.message) });
+      } else if (parsed.type === "error") {
+        throw new Error(parsed.error ?? "릴스 해체에 실패했습니다");
+      } else if (parsed.type === "result") {
+        completed = true;
+      }
+    }
+    if (!completed) throw new Error("릴스 해체 응답이 끝까지 오지 않았습니다");
+    await reload();
+  }
+
   return (
     <main className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold text-neutral-900">훅</h1>
+        <h1 className="text-xl font-semibold text-neutral-900">훅 저장소</h1>
         <p className="text-sm text-neutral-600">
-          잘된 릴스의 훅을 모아두는 보관함과, 유형·원리·포맷을 찾아보는 카탈로그입니다.
+          잘된 릴스의 훅을 모아두는 보관함과, 유형·원리를 찾아보는 카탈로그입니다.
         </p>
       </header>
 
@@ -122,6 +150,7 @@ export default function HooksPage() {
           onSave={save}
           onToggleFavorite={toggleFavorite}
           onDelete={remove}
+          onBreakdown={breakdown}
         />
       )}
 

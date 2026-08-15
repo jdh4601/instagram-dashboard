@@ -304,6 +304,12 @@ export async function syncFromGraph(
     profileLinksTapsLast7d: accountInsights.metrics.profile_links_taps,
     followerReachLast7d: accountInsights.metrics.reach_follower,
     nonFollowerReachLast7d: accountInsights.metrics.reach_non_follower,
+    paidReachLast7d: accountInsights.metrics.reach_ad,
+    organicReachLast7d: accountInsights.metrics.reach_organic,
+    paidViewsLast7d: accountInsights.metrics.views_ad,
+    organicViewsLast7d: accountInsights.metrics.views_organic,
+    paidInteractionsLast7d: accountInsights.metrics.total_interactions_ad,
+    organicInteractionsLast7d: accountInsights.metrics.total_interactions_organic,
     availableMetrics: accountInsights.availableMetrics,
     unavailableMetrics: accountInsights.unavailableMetrics,
   });

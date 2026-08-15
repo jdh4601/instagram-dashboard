@@ -8,6 +8,7 @@ import {
   type TextBlock,
   type TextSegment,
 } from "@/lib/chat/renderText";
+import { ThinkingIndicator } from "@/components/chat/ThinkingIndicator";
 import type { ChatMessage } from "@/components/chat/useChat";
 
 interface ChatMessagesProps {
@@ -170,7 +171,7 @@ export function ChatMessages({ messages, streaming, error }: ChatMessagesProps) 
       {streaming !== null && (
         <div className="text-neutral-800">
           {streaming === "" ? (
-            <p className="text-neutral-400">진단하는 중…</p>
+            <ThinkingIndicator />
           ) : (
             <Blocks text={streaming} />
           )}

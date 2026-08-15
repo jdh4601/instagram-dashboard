@@ -1,12 +1,21 @@
 import Link from "next/link";
-import { LayoutDashboard, Film, Anchor, Settings } from "lucide-react";
+import {
+  LayoutDashboard,
+  Film,
+  GalleryHorizontalEnd,
+  Anchor,
+  BookOpen,
+  Settings,
+} from "lucide-react";
 import { NAV_ITEMS, isNavItemActive } from "@/lib/ui/navigation";
 import { cn } from "@/components/ui";
 
 const ICONS = {
   "/": LayoutDashboard,
   "/reels": Film,
+  "/carousels": GalleryHorizontalEnd,
   "/hooks": Anchor,
+  "/story-formats": BookOpen,
   "/settings": Settings,
 } as const;
 

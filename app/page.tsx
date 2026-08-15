@@ -10,14 +10,14 @@ import { DashboardActions } from "@/components/DashboardActions";
 import { SyncProgressBar } from "@/components/SyncProgressBar";
 import { AccountHeader } from "@/components/AccountHeader";
 import { UploadRhythmCard } from "@/components/UploadRhythmCard";
+import { PaidReachCard } from "@/components/PaidReachCard";
 import { AccountOverview } from "@/components/AccountOverview";
 import { AccountFunnelCard } from "@/components/AccountFunnelCard";
-import { AudienceMixCard } from "@/components/AudienceMixCard";
 import { buildAccountFunnel } from "@/lib/analysis/accountFunnel";
 import { buildAudienceMix } from "@/lib/analysis/audienceMix";
+import { buildPaidMix } from "@/lib/analysis/paidMix";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { DashboardToast, type SyncToast } from "@/components/DashboardToast";
-import { ChatPanel } from "@/components/chat/ChatPanel";
 import { PerformanceChartsCard } from "@/components/PerformanceChartsCard";
 import { DashboardMetrics } from "@/components/DashboardMetrics";
 import { filterByMedia } from "@/lib/ui/mediaFilter";
@@ -176,6 +176,8 @@ export default function Page() {
   const funnel = buildAccountFunnel(snapshots, applications ?? undefined);
   // 도달 구성도 계정 레벨 스냅샷에서 온다.
   const audienceMix = buildAudienceMix(snapshots);
+  // 광고/오가닉 구성. 게시물 레벨에는 광고 지표가 없어 계정 레벨에서만 갈린다.
+  const paidMix = buildPaidMix(snapshots);
 
   // 저장 시점을 모르는 토큰은 경고하지 않는다. 토큰을 이 앱에 저장하기 전부터 쓰던
   // 사용자는 갱신 여부와 무관하게 배너가 영구히 떠서, 조치할 수 없는 알림이 된다.
@@ -188,10 +190,8 @@ export default function Page() {
   const showTokenBanner = !tokenBannerDismissed && tokenNeedsReview;
 
   return (
-    // xl 이상에서 대시보드와 진단 패널이 나란히 서고, 그 아래 폭에서는 패널이
-    // 오른쪽 가장자리에 접혀 손잡이만 남는다.
-    <div className="mx-auto flex w-full max-w-[110rem] items-start">
-      <div className="min-w-0 flex-1">
+    // 진단 패널은 AppShell이 모든 화면에 붙인다. 이 페이지는 본문만 그린다.
+    <>
       <DashboardActions onSync={onSync} syncing={syncing} lastSyncedAt={lastSyncedAt} />
       {syncing && syncProgress && <SyncProgressBar progress={syncProgress} />}
       <main className="mx-auto max-w-5xl space-y-5 px-4 pb-4 sm:px-6 sm:pb-6">
@@ -222,17 +222,16 @@ export default function Page() {
                 </button>
               </div>
             )}
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
-              <div className="shrink-0 lg:max-w-md">
-                <AccountHeader profile={profile} followerDelta={followerDelta} contentCount={reels.length} />
-              </div>
-              <UploadRhythmCard reels={reels} />
-            </div>
+            <AccountHeader profile={profile} followerDelta={followerDelta} contentCount={reels.length} />
             <AccountOverview overview={overview} />
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
               <AccountFunnelCard funnel={funnel} />
-              <AudienceMixCard mix={audienceMix} reels={reels} />
+              <UploadRhythmCard reels={reels} mix={audienceMix} />
             </div>
+
+            {/* 도달 구성(팔로워 vs 비팔로워) 바로 다음에 온다 — 둘 다 "이 도달이
+                어디서 왔나"를 가르는 질문이고, 광고분을 모르면 앞의 구성도 잘못 읽힌다. */}
+            <PaidReachCard mix={paidMix} />
 
             {/* 추이는 가로가 길수록 읽기 쉬우므로 한 행을 다 쓴다. 팔로워 추이는
                 이 카드의 누적 차트가 대신하므로 FollowerGrowthChart는 걷어냈다. */}
@@ -243,11 +242,7 @@ export default function Page() {
         )}
       </main>
 
-      </div>
-
-      <ChatPanel />
-
       {toast && <DashboardToast toast={toast} onDismiss={() => setToast(null)} />}
-    </div>
+    </>
   );
 }

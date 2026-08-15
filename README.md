@@ -25,6 +25,8 @@ project combines deterministic analysis with an optional LLM layer:
 - **Audience mix** — follower versus non-follower reach
 - **Rule-based diagnosis** — reproducible strengths, weaknesses, and bottlenecks
 - **Transcript analysis** — upload SRT captions and generate hooks, endings, and segment-level fixes
+- **Reel breakdowns** — turn saved hook links into beat clips, original/translated dialogue, and a
+  16-type hook classification
 - **Graph API sync** — pagination, optional-metric fallback, history snapshots, and deleted-post
   cleanup
 - **Daily email report** — optional recent-performance summary through Resend
@@ -40,6 +42,8 @@ Instagram account or paid API key.
 - Node.js 22.16 or newer
 - npm 10 or newer
 - `ffprobe` from FFmpeg for automatic Reel-duration detection during real-account sync
+- Reel breakdowns additionally require `yt-dlp`, FFmpeg (`ffmpeg`/`ffprobe`), an OpenAI
+  transcription key, and an active vision-capable LLM provider
 
 ### Run with demo data
 
@@ -57,6 +61,7 @@ diagnoses.
 
 `ffprobe` is optional for the demo. On macOS, install it with `brew install ffmpeg`; on
 Ubuntu/Debian, use `sudo apt-get install ffmpeg`. The Docker image already includes it.
+For local Reel breakdowns on macOS, install `yt-dlp` with `brew install yt-dlp`.
 
 ## Connect an Instagram account
 

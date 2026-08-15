@@ -21,6 +21,7 @@ function render(hooks: Hook[]): string {
       onSave={async () => undefined}
       onToggleFavorite={async () => undefined}
       onDelete={async () => undefined}
+      onBreakdown={async () => undefined}
     />,
   );
 }
@@ -111,13 +112,20 @@ test("하트는 현재 즐겨찾기 상태를 보조기술에 알린다", () => 
   expect(off).toContain("즐겨찾기");
 });
 
-test("검색·분류·정렬 컨트롤이 상단에 있다", () => {
+test("분류·정렬 컨트롤이 상단에 있다", () => {
   const html = render([hook("h1")]);
 
-  expect(html).toContain("훅 또는 계정으로 검색");
   expect(html).toContain("최신순");
   expect(html).toContain("조회수순");
   expect(html).toContain("전체 분류");
+});
+
+test("검색창은 두지 않는다", () => {
+  // 보관함은 한 화면에 들어오는 크기라 분류 칩만으로 충분하다.
+  const html = render([hook("h1")]);
+
+  expect(html).not.toContain("검색");
+  expect(html).not.toContain("<input");
 });
 
 test("손가락으로 누를 수 있는 크기를 지킨다", () => {
@@ -140,4 +148,39 @@ test("썸네일은 릴스 비율 9:16으로 보여준다", () => {
   expect(withThumb).toContain("aspect-[9/16]");
   // 빈 자리도 같은 모양이어야 목록의 줄 높이가 들쭉날쭉하지 않다.
   expect(withoutThumb).toContain("aspect-[9/16]");
+});
+
+test("원본 링크가 있는 훅에는 해체하기 버튼이 생긴다", () => {
+  const html = render([hook("h1", { sourceUrl: "https://instagram.com/reel/abc" })]);
+
+  expect(html).toContain("해체하기");
+});
+
+test("완료된 훅은 해체 결과 화면으로 연결한다", () => {
+  const html = render([
+    hook("h1", {
+      sourceUrl: "https://instagram.com/reel/abc",
+      breakdown: {
+        reelUrl: "https://www.instagram.com/reel/abc/",
+        assetKey: "asset-1",
+        durationSec: 10,
+        cuts: [2],
+        hookType: "demo",
+        beats: Array.from({ length: 5 }, (_, index) => ({
+          start: index * 2,
+          end: (index + 1) * 2,
+          label: index === 0 ? "훅" : `구간 ${index + 1}`,
+          scene: "화자가 화면을 가리킨다",
+          original: "Original",
+          translation: "번역",
+          clipFile: `${index + 1}`.padStart(2, "0") + ".mp4",
+          posterFile: `${index + 1}`.padStart(4, "0") + ".jpg",
+        })),
+        generatedAt: "2026-08-15T00:00:00.000Z",
+      },
+    }),
+  ]);
+
+  expect(html).toContain("해체 결과");
+  expect(html).toContain('/hooks/h1/breakdown');
 });

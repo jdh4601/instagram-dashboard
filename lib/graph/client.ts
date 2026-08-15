@@ -1,4 +1,12 @@
-import { classifyMedia, flattenInsights, type GraphMedia, type GraphInsightsResponse } from "@/lib/graph/map";
+import {
+  classifyMedia,
+  flattenInsights,
+  mapCarouselChildren,
+  type CarouselSlide,
+  type GraphChildrenResponse,
+  type GraphMedia,
+  type GraphInsightsResponse,
+} from "@/lib/graph/map";
 import type { MediaKind } from "@/lib/schemas";
 
 const DEFAULT_BASE = "https://graph.instagram.com";
@@ -64,6 +72,14 @@ const ACCOUNT_METRICS = [
 // follow_type breakdown을 공유하는 계정 지표. 한 호출에 함께 실어 보낸다.
 const FOLLOW_TYPE_METRICS = ["reach", "follows_and_unfollows"];
 
+// media_product_type breakdown을 지원하는 계정 지표. AD 차원이 곧 "광고로 산 몫"이다.
+// follows·profile_views·accounts_engaged는 이 breakdown을 받지 않는다(실측 확인).
+const PRODUCT_TYPE_METRICS = ["views", "reach", "total_interactions"];
+
+// 광고/오가닉 분리가 가능한지를 나타내는 능력 이름. 지표 하나가 아니라 breakdown
+// 한 벌이 통째로 되거나 안 되거나이므로 이름도 하나로 둔다.
+const PRODUCT_TYPE_CAPABILITY = "media_product_type";
+
 export interface GraphInsightResult {
   metrics: Record<string, number>;
   availableMetrics: string[];
@@ -119,6 +135,11 @@ export interface GraphClient {
    * 이미지·만료된 게시물은 필드가 없어 null이다.
    */
   getMediaUrl?(mediaId: string): Promise<string | null>;
+  /**
+   * 캐러셀 낱장 목록. media_url과 마찬가지로 서명이 만료되므로 저장해 두지 않고
+   * 상세 화면을 열 때마다 다시 물어본다.
+   */
+  getCarouselChildren?(mediaId: string): Promise<CarouselSlide[]>;
 }
 
 export function createGraphClient(opts: Options): GraphClient {
@@ -258,6 +279,44 @@ export function createGraphClient(opts: Options): GraphClient {
     }
   }
 
+  /**
+   * media_product_type breakdown 묶음. 게시물 레벨에는 광고 지표가 없어서(Instagram
+   * Login 토큰으로는 total_views·boost_ads_list가 막혀 있다) 계정 레벨의 이 breakdown이
+   * 광고로 산 도달·조회수를 볼 수 있는 유일한 경로다.
+   *
+   * follow_type과 마찬가지로 breakdown 있는 요청은 없는 요청과 한 호출에 담을 수 없다.
+   */
+  async function productTypeInsights(
+    window: Record<string, string>,
+  ): Promise<GraphInsightResult> {
+    const failed: GraphInsightResult = {
+      metrics: {},
+      availableMetrics: [],
+      unavailableMetrics: [PRODUCT_TYPE_CAPABILITY],
+    };
+    try {
+      const json = (await request("me/insights", {
+        ...window,
+        metric: PRODUCT_TYPE_METRICS.join(","),
+        breakdown: PRODUCT_TYPE_CAPABILITY,
+      })) as GraphInsightsResponse;
+      const values = flattenInsights(json);
+      const split = PRODUCT_TYPE_METRICS.some((metric) => `${metric}_ad` in values);
+      if (!split) return { ...failed, metrics: values };
+      return {
+        metrics: values,
+        availableMetrics: [PRODUCT_TYPE_CAPABILITY],
+        unavailableMetrics: [],
+      };
+    } catch (err) {
+      console.warn(
+        `[graph] media_product_type breakdown 실패 — 광고/오가닉 분리를 건너뜁니다: ` +
+          safeGraphMessage(err instanceof Error ? err.message : String(err)),
+      );
+      return failed;
+    }
+  }
+
   return {
     async getProfile() {
       const json = (await request("me", {
@@ -315,6 +374,13 @@ export function createGraphClient(opts: Options): GraphClient {
       return json.media_url ?? null;
     },
 
+    async getCarouselChildren(mediaId) {
+      const json = (await request(mediaId, {
+        fields: "children{media_url,media_type,thumbnail_url}",
+      })) as GraphChildrenResponse;
+      return mapCarouselChildren(json);
+    },
+
     async getInsights(mediaId, kind = "REELS") {
       const { required: requiredMetrics, optional: optionalMetrics } = METRICS_BY_KIND[kind];
       const json = (await request(`${mediaId}/insights`, {
@@ -352,15 +418,25 @@ export function createGraphClient(opts: Options): GraphClient {
       };
       // breakdown 있이/없이는 한 호출에 담을 수 없어(Graph 규약) 따로 요청한다.
       // 계정 지표와 반드시 같은 기간을 써야 화면에서 두 창의 숫자가 섞이지 않는다(INS-1).
-      const [base, followType] = await Promise.all([
+      const [base, followType, productType] = await Promise.all([
         optionalInsights("me/insights", ACCOUNT_METRICS, window),
         followTypeInsights(window),
+        productTypeInsights(window),
       ]);
       return {
-        // followType의 reach는 breakdown 합(추산)이라 base의 정식 reach를 덮지 않게 뒤로 병합하지 않는다.
-        metrics: { ...followType.metrics, ...base.metrics },
-        availableMetrics: [...base.availableMetrics, ...followType.availableMetrics],
-        unavailableMetrics: [...base.unavailableMetrics, ...followType.unavailableMetrics],
+        // breakdown 호출의 reach·views는 breakdown 합(추산)이라 base의 정식 값을 덮지
+        // 않게 뒤로 병합하지 않는다. 갈라 놓은 _ad/_organic 키만 살아남으면 된다.
+        metrics: { ...followType.metrics, ...productType.metrics, ...base.metrics },
+        availableMetrics: [
+          ...base.availableMetrics,
+          ...followType.availableMetrics,
+          ...productType.availableMetrics,
+        ],
+        unavailableMetrics: [
+          ...base.unavailableMetrics,
+          ...followType.unavailableMetrics,
+          ...productType.unavailableMetrics,
+        ],
       };
     },
   };

@@ -50,15 +50,11 @@ async function detail(id: string) {
   return { status: res.status, body: await res.json() };
 }
 
-test("이전·다음 이동은 같은 미디어 종류 안에서만 이뤄진다", async () => {
+test("상세 응답에 이전·다음 이동 정보를 싣지 않는다", async () => {
+  // 상세에서 옆 게시물로 건너뛰는 동선을 걷어냈다. 아무도 읽지 않는 필드를 계속
+  // 계산하면 목록 전체를 훑는 비용만 남는다.
   const { body } = await detail("캐러셀-2");
-  expect(body.nav.prevId).toBe("캐러셀-1");
-  expect(body.nav.nextId).toBeNull();
-});
-
-test("릴스의 이전 게시물은 중간의 캐러셀을 건너뛴다", async () => {
-  const { body } = await detail("릴스-2");
-  expect(body.nav.prevId).toBe("릴스-1");
+  expect(body.nav).toBeUndefined();
 });
 
 test("캐러셀 진단에는 훅 잔존·평균 시청 비율 판정이 들어가지 않는다", async () => {

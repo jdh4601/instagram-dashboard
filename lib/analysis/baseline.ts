@@ -5,7 +5,7 @@ import {
   type ThresholdTable,
 } from "@/config/benchmarks";
 import type { MediaKind, Reel } from "@/lib/schemas";
-import { computeDerivedRates } from "@/lib/analysis/metrics";
+import { metricValue } from "@/lib/analysis/metrics";
 
 export function median(nums: number[]): number {
   if (nums.length === 0) return 0;
@@ -14,11 +14,8 @@ export function median(nums: number[]): number {
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
 
-function valueOf(reel: Reel, key: MetricKey): number | undefined {
-  if (key === "hookRetention3s") return reel.hookRetention3s;
-  const d = computeDerivedRates(reel);
-  return d[key as keyof typeof d];
-}
+// 진단과 같은 분모로 읽어야 기준과 판정이 어긋나지 않는다 — metricValue 주석 참고.
+const valueOf = metricValue;
 
 export function buildBaselineThresholds(
   history: Reel[],

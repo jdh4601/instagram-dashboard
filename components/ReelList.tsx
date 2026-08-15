@@ -1,35 +1,32 @@
 "use client";
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Search, Film, Eye, Calendar, Heart, MessageCircle, Share2, Bookmark, RefreshCw } from "lucide-react";
+import { Search, Film, Eye, Users, Calendar, Heart, MessageCircle, Share2, Bookmark, RefreshCw } from "lucide-react";
 import type { Reel } from "@/lib/schemas";
 import { AGE_TARGET_HOURS, type AgeNormalizedViews } from "@/lib/analysis/ageNormalized";
 import { reelTitle } from "@/lib/ui/reelTitle";
-import { selectReels, SORT_LABELS, type EarlyViewsMap, type ReelSort } from "@/lib/ui/reelSelect";
+import { metricValue } from "@/lib/analysis/metrics";
+import { selectReels, SORT_LABELS, sortsFor, type EarlyViewsMap, type ReelSort } from "@/lib/ui/reelSelect";
 import { fmtCount, fmtPct } from "@/lib/ui/format";
 import { cn } from "@/components/ui";
-import { MediaTypeToggle } from "@/components/MediaTypeToggle";
 import { emptyListMessage, type MediaFilter } from "@/lib/ui/mediaFilter";
+import { mediaKindOf } from "@/lib/media/kind";
+import { detailPathForMedia } from "@/lib/ui/navigation";
 
 interface Props {
   reels: Reel[];
+  /** 이미 이 종류로 걸러진 목록이 들어온다. 화면에서 바꿀 수 없고, 빈 목록 문구에만 쓴다. */
   filter: MediaFilter;
-  onFilterChange: (value: MediaFilter) => void;
   /** 동기화가 진행 중이면 목록이 아직 갱신 전이라는 뜻이다. */
   syncing?: boolean;
   /** 게시 후 48시간 조회수. 경과일이 다른 게시물을 공정하게 견주는 정렬에 쓴다. */
   earlyViews?: EarlyViewsMap;
 }
 
-export function ReelList({
-  reels,
-  filter,
-  onFilterChange,
-  syncing = false,
-  earlyViews,
-}: Props) {
+export function ReelList({ reels, filter, syncing = false, earlyViews }: Props) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<ReelSort>("latest");
+  const sorts = sortsFor(filter);
 
   const visible = useMemo(
     () => selectReels(reels, query, sort, earlyViews),
@@ -39,10 +36,7 @@ export function ReelList({
   if (reels.length === 0) {
     return (
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-neutral-700">게시물 목록</h2>
-          <MediaTypeToggle value={filter} onChange={onFilterChange} />
-        </div>
+        <h2 className="text-sm font-semibold text-neutral-700">게시물 목록</h2>
         <div
           role={syncing ? "status" : undefined}
           aria-live={syncing ? "polite" : undefined}
@@ -63,10 +57,7 @@ export function ReelList({
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-neutral-700">게시물 목록</h2>
-        <div className="flex items-center gap-2">
-          <MediaTypeToggle value={filter} onChange={onFilterChange} />
-          <span className="text-xs text-neutral-500">{visible.length}개</span>
-        </div>
+        <span className="text-xs text-neutral-500">{visible.length}개</span>
       </div>
 
       <div className="flex items-center gap-2">
@@ -89,7 +80,7 @@ export function ReelList({
           aria-label="게시물 정렬"
           className="flex gap-1 rounded-lg border border-border-subtle bg-surface p-0.5"
         >
-          {(Object.keys(SORT_LABELS) as ReelSort[]).map((s) => (
+          {sorts.map((s) => (
             <button
               type="button"
               key={s}
@@ -132,9 +123,17 @@ function ReelRow({
   /** undefined = 표시 안 함, null = 이력이 없어 값을 낼 수 없음 */
   early?: AgeNormalizedViews | null;
 }) {
+  // 캐러셀의 조회수는 노출이라 도달의 3배 안팎으로 부푼다. 그 분모로 만든
+  // 인게이지먼트는 릴스와 견줄 수 없는 숫자라, 목록에서도 캐러셀은 도달과
+  // 도달 기준 저장율로 읽는다 — lib/analysis/metrics.ts의 metricValue 참고.
+  const isCarousel = mediaKindOf(reel) === "CAROUSEL";
+  const headline = isCarousel
+    ? { label: "저장율", value: metricValue(reel, "saveRate") ?? 0 }
+    : { label: "인게이지먼트", value: reel.derived?.engagementRate ?? 0 };
+
   return (
     <Link
-      href={`/reel/${reel.id}`}
+      href={detailPathForMedia(mediaKindOf(reel), reel.id)}
       className="group flex items-center gap-3 p-3 text-left transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-400"
     >
       <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded-md bg-neutral-100">
@@ -158,8 +157,8 @@ function ReelRow({
             {reel.postedAt.slice(0, 10)}
           </span>
           <span className="inline-flex items-center gap-0.5">
-            <Eye size={11} />
-            {fmtCount(reel.views)}
+            {isCarousel ? <Users size={11} /> : <Eye size={11} />}
+            {isCarousel ? `도달 ${fmtCount(reel.reach)}` : fmtCount(reel.views)}
           </span>
           {early !== undefined && (
             <span className="text-brand-600">
@@ -183,10 +182,8 @@ function ReelRow({
       </div>
 
       <div className="shrink-0 text-right">
-        <div className="text-xs font-semibold text-neutral-900">
-          {fmtPct(reel.derived?.engagementRate ?? 0)}
-        </div>
-        <div className="text-[10px] text-neutral-500">인게이지먼트</div>
+        <div className="text-xs font-semibold text-neutral-900">{fmtPct(headline.value)}</div>
+        <div className="text-[10px] text-neutral-500">{headline.label}</div>
       </div>
     </Link>
   );

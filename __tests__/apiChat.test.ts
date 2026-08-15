@@ -142,6 +142,36 @@ test("POST는 사용자 메시지와 답변을 대화에 저장한다", async ()
   expect(stored[1].content).toBe("답변입니다");
 });
 
+test("보고 있는 릴스 id를 함께 보내면 지목 없이도 그 릴스 상세가 실린다", async () => {
+  let system = "";
+  chatModel = {
+    async *stream(request: { system: string }) {
+      system = request.system;
+      yield "답변";
+    },
+  };
+
+  // "이거"는 불용어라 캡션 겹침으로는 아무 릴스도 지목되지 않는다.
+  await readEvents(await POST(post({ message: "이거 훅 왜 약해?", reelId: "reel-1" })));
+
+  expect(system).toContain("지목한 게시물 상세");
+  expect(system).toContain("id=reel-1");
+});
+
+test("모르는 릴스 id는 무시하고 계정 질문으로 답한다", async () => {
+  let system = "";
+  chatModel = {
+    async *stream(request: { system: string }) {
+      system = request.system;
+      yield "답변";
+    },
+  };
+
+  await readEvents(await POST(post({ message: "요즘 어때?", reelId: "없는-릴스" })));
+
+  expect(system).not.toContain("지목한 게시물 상세");
+});
+
 test("GET은 저장된 대화와 사용 가능 여부를 준다", async () => {
   chatModel = modelYielding("답변");
   await readEvents(await POST(post({ message: "안녕" })));

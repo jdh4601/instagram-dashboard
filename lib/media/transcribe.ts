@@ -70,11 +70,28 @@ export async function transcribeVideoFile(
   videoPath: string,
   opts: TranscribeOptions,
 ): Promise<TranscriptLine[]> {
+  return transcribeMediaFile(videoPath, "reel.mp4", "video/mp4", opts);
+}
+
+/** 해체 파이프라인은 mp4에서 작은 mp3를 먼저 뽑아 전사 업로드 상한을 피한다. */
+export async function transcribeAudioFile(
+  audioPath: string,
+  opts: TranscribeOptions,
+): Promise<TranscriptLine[]> {
+  return transcribeMediaFile(audioPath, "reel.mp3", "audio/mpeg", opts);
+}
+
+async function transcribeMediaFile(
+  mediaPath: string,
+  fileName: string,
+  mediaType: string,
+  opts: TranscribeOptions,
+): Promise<TranscriptLine[]> {
   const client: TranscriptionClientLike =
     opts.client ?? (new OpenAI({ apiKey: opts.apiKey }) as unknown as TranscriptionClientLike);
 
-  // 영상을 통째로 메모리에 올리지 않고 스트림으로 넘긴다.
-  const file = await toFile(createReadStream(videoPath), "reel.mp4", { type: "video/mp4" });
+  // 미디어를 통째로 메모리에 올리지 않고 스트림으로 넘긴다.
+  const file = await toFile(createReadStream(mediaPath), fileName, { type: mediaType });
   const response = await client.audio.transcriptions.create({
     file,
     model: opts.model ?? DEFAULT_TRANSCRIPTION_MODEL,

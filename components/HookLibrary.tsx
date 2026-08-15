@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Heart, Plus, Link2, Trash2, Pencil } from "lucide-react";
+import Link from "next/link";
+import { Heart, Plus, Link2, Trash2, Pencil, Scissors, LoaderCircle } from "lucide-react";
 import {
   HOOK_CATEGORIES,
   HOOK_CATEGORY_LABELS,
@@ -16,7 +17,7 @@ import {
 } from "@/lib/ui/hookSelect";
 import { fmtCount } from "@/lib/ui/format";
 import { HOOK_CATEGORY_CLASSES } from "@/lib/ui/hookCategoryStyle";
-import { Input, EmptyState, cn } from "@/components/ui";
+import { EmptyState, cn } from "@/components/ui";
 import { HookForm } from "@/components/HookForm";
 
 interface Props {
@@ -24,6 +25,17 @@ interface Props {
   onSave: (draft: HookDraft, id?: string) => Promise<void>;
   onToggleFavorite: (id: string, next: boolean) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onBreakdown: (
+    id: string,
+    onProgress: (progress: { percent: number; message: string }) => void,
+  ) => Promise<void>;
+}
+
+interface BreakdownJob {
+  running: boolean;
+  percent: number;
+  message: string;
+  error?: string;
 }
 
 function HookRow({
@@ -31,11 +43,15 @@ function HookRow({
   onToggleFavorite,
   onDelete,
   onEdit,
+  onBreakdown,
+  breakdownJob,
 }: {
   hook: Hook;
   onToggleFavorite: Props["onToggleFavorite"];
   onDelete: Props["onDelete"];
   onEdit: (hook: Hook) => void;
+  onBreakdown: (hook: Hook) => void;
+  breakdownJob?: BreakdownJob;
 }) {
   return (
     <li className="flex items-center gap-3 rounded-card border border-border-subtle bg-surface p-3">
@@ -61,6 +77,16 @@ function HookRow({
           </p>
         )}
         {hook.note && <p className="mt-1 text-xs text-neutral-500">{hook.note}</p>}
+        {breakdownJob?.running && (
+          <p role="status" className="mt-1 text-xs font-medium text-brand-700">
+            {breakdownJob.message} · {breakdownJob.percent}%
+          </p>
+        )}
+        {breakdownJob?.error && (
+          <p role="alert" className="mt-1 text-xs text-band-weak">
+            {breakdownJob.error}
+          </p>
+        )}
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5">
@@ -93,6 +119,31 @@ function HookRow({
             <Link2 size={16} />
           </a>
         )}
+
+        {hook.sourceUrl &&
+          (hook.breakdown && !breakdownJob?.running ? (
+            <Link
+              href={`/hooks/${hook.id}/breakdown`}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-neutral-900 px-3 text-xs font-semibold text-white hover:bg-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+            >
+              <Scissors size={14} aria-hidden />
+              해체 결과
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onBreakdown(hook)}
+              disabled={breakdownJob?.running}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-brand-50 px-3 text-xs font-semibold text-brand-700 hover:bg-brand-100 disabled:cursor-wait disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+            >
+              {breakdownJob?.running ? (
+                <LoaderCircle size={14} className="animate-spin" aria-hidden />
+              ) : (
+                <Scissors size={14} aria-hidden />
+              )}
+              {breakdownJob?.running ? `${breakdownJob.percent}%` : "해체하기"}
+            </button>
+          ))}
 
         <button
           type="button"
@@ -140,48 +191,94 @@ function Section({ title, count, children }: { title: string; count: number; chi
   );
 }
 
-export function HookLibrary({ hooks, onSave, onToggleFavorite, onDelete }: Props) {
-  const [query, setQuery] = useState("");
+export function HookLibrary({ hooks, onSave, onToggleFavorite, onDelete, onBreakdown }: Props) {
   const [category, setCategory] = useState<HookCategoryFilter>("all");
   const [sort, setSort] = useState<HookSort>("latest");
-  const [formOpen, setFormOpen] = useState(false);
-  const [editing, setEditing] = useState<Hook | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [breakdownJobs, setBreakdownJobs] = useState<Record<string, BreakdownJob>>({});
 
-  const visible = useMemo(
-    () => selectHooks(hooks, query, category, sort),
-    [hooks, query, category, sort],
-  );
+  const visible = useMemo(() => selectHooks(hooks, category, sort), [hooks, category, sort]);
   const sections = splitHookSections(visible);
 
   function openAdd() {
-    setEditing(null);
-    setFormOpen(true);
+    setEditingId(null);
+    setAdding(true);
   }
 
-  function openEdit(hook: Hook) {
-    setEditing(hook);
-    setFormOpen(true);
+  function close() {
+    setAdding(false);
+    setEditingId(null);
   }
 
   async function submit(draft: HookDraft, id?: string) {
     await onSave(draft, id);
-    setFormOpen(false);
-    setEditing(null);
+    close();
   }
 
-  const rowProps = { onToggleFavorite, onDelete, onEdit: openEdit };
+  async function startBreakdown(hook: Hook) {
+    setBreakdownJobs((current) => ({
+      ...current,
+      [hook.id]: { running: true, percent: 1, message: "해체를 준비하는 중" },
+    }));
+    try {
+      await onBreakdown(hook.id, (progress) =>
+        setBreakdownJobs((current) => ({
+          ...current,
+          [hook.id]: { running: true, ...progress },
+        })),
+      );
+      setBreakdownJobs((current) => ({
+        ...current,
+        [hook.id]: { running: false, percent: 100, message: "해체 완료" },
+      }));
+    } catch (error) {
+      setBreakdownJobs((current) => ({
+        ...current,
+        [hook.id]: {
+          running: false,
+          percent: 0,
+          message: "해체 실패",
+          error: error instanceof Error ? error.message : "릴스 해체에 실패했습니다",
+        },
+      }));
+    }
+  }
+
+  /**
+   * 수정 폼은 누른 행 자리에서 연다.
+   *
+   * 목록 맨 위에 열면 스무 번째 줄에서 연필을 눌렀을 때 폼이 화면 밖에 생겨
+   * 버튼이 안 먹은 것처럼 보인다. 새 훅 추가만 목록 위에 둔다 — 그건 어느 행과도
+   * 묶이지 않고, 버튼 바로 아래라 이미 눈에 들어온다.
+   */
+  function renderRow(hook: Hook) {
+    if (hook.id === editingId) {
+      return (
+        <li key={hook.id}>
+          <HookForm key={hook.id} editing={hook} onSubmit={submit} onCancel={close} />
+        </li>
+      );
+    }
+    return (
+      <HookRow
+        key={hook.id}
+        hook={hook}
+        onToggleFavorite={onToggleFavorite}
+        onDelete={onDelete}
+        onBreakdown={startBreakdown}
+        breakdownJob={breakdownJobs[hook.id]}
+        onEdit={(target) => {
+          setAdding(false);
+          setEditingId(target.id);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="훅 또는 계정으로 검색"
-          aria-label="훅 검색"
-          className="min-w-56 flex-1"
-        />
-
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value as HookSort)}
@@ -198,7 +295,7 @@ export function HookLibrary({ hooks, onSave, onToggleFavorite, onDelete }: Props
         <button
           type="button"
           onClick={openAdd}
-          className="inline-flex min-h-11 items-center gap-1 rounded-lg bg-brand-600 px-3 text-sm font-medium text-white hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+          className="ml-auto inline-flex min-h-11 items-center gap-1 rounded-lg bg-brand-600 px-3 text-sm font-medium text-white hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
         >
           <Plus size={16} aria-hidden />
           훅 추가
@@ -226,17 +323,7 @@ export function HookLibrary({ hooks, onSave, onToggleFavorite, onDelete }: Props
         ))}
       </div>
 
-      {formOpen && (
-        <HookForm
-          key={editing?.id ?? "new"}
-          editing={editing}
-          onSubmit={submit}
-          onCancel={() => {
-            setFormOpen(false);
-            setEditing(null);
-          }}
-        />
-      )}
+      {adding && <HookForm key="new" editing={null} onSubmit={submit} onCancel={close} />}
 
       {hooks.length === 0 ? (
         <EmptyState
@@ -244,21 +331,17 @@ export function HookLibrary({ hooks, onSave, onToggleFavorite, onDelete }: Props
           hint="잘된 릴스의 첫 문장을 훅 추가로 담아 두면 다음 대본을 쓸 때 바로 꺼내 쓸 수 있습니다."
         />
       ) : visible.length === 0 ? (
-        <EmptyState title="조건에 맞는 훅이 없습니다" hint="검색어나 분류를 바꿔 보세요." />
+        <EmptyState title="이 분류에 담아 둔 훅이 없습니다" hint="다른 분류를 골라 보세요." />
       ) : (
         <div className="space-y-5">
           {sections.favorites.length > 0 && (
             <Section title="즐겨찾는 훅" count={sections.favorites.length}>
-              {sections.favorites.map((hook) => (
-                <HookRow key={hook.id} hook={hook} {...rowProps} />
-              ))}
+              {sections.favorites.map(renderRow)}
             </Section>
           )}
 
           <Section title="전체 훅" count={sections.all.length}>
-            {sections.all.map((hook) => (
-              <HookRow key={hook.id} hook={hook} {...rowProps} />
-            ))}
+            {sections.all.map(renderRow)}
           </Section>
         </div>
       )}

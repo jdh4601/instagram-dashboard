@@ -115,8 +115,10 @@ export function HookForm({ editing, onSubmit, onCancel }: Props) {
         <label htmlFor="hook-text" className="text-xs font-medium text-neutral-600">
           훅 문장
         </label>
+        {/* 목록 한가운데서 수정을 눌렀을 때 커서까지 옮겨 와야 폼이 열린 걸 알아차린다. */}
         <Input
           id="hook-text"
+          autoFocus
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="첫 3초에 들어갈 한 줄"

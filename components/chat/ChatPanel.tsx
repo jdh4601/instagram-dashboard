@@ -12,8 +12,13 @@ import { readPanelExpanded, writePanelExpanded } from "@/lib/ui/panelPreference"
 const ICON_BUTTON =
   "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:bg-surface-muted hover:text-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400";
 
-export function ChatPanel() {
-  const chat = useChat();
+interface ChatPanelProps {
+  /** 릴스 상세를 보고 있다면 그 릴스 id. 질문에 이름이 없어도 컨텍스트로 실린다. */
+  reelId?: string | null;
+}
+
+export function ChatPanel({ reelId = null }: ChatPanelProps = {}) {
+  const chat = useChat({ reelId });
   // 서버 렌더와 첫 클라이언트 렌더가 어긋나면 하이드레이션이 깨진다. 저장된 값은
   // 마운트 뒤에 읽고, 그 전까지는 기본값(열림)으로 그린다.
   const [expanded, setExpanded] = useState(true);

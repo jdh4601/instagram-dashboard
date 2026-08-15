@@ -5,12 +5,16 @@ import { getAccountRepository, getProfileRepository, getRepository } from "@/lib
 import { getChatStore } from "@/lib/chat";
 import { notFoundIfRemote } from "@/lib/chat/routeGuard";
 import { buildAccountContext, renderAccountContext } from "@/lib/chat/context";
-import { findMentionedReels } from "@/lib/chat/reelMention";
+import { selectContextReels } from "@/lib/chat/reelMention";
 import { buildChatSystemPrompt, selectContextTurns } from "@/lib/chat/prompt";
 import { getChatModel } from "@/lib/llm/chat";
 import type { ChatTurn } from "@/lib/llm/types";
 
-const BodySchema = z.object({ message: z.string().trim().min(1) });
+const BodySchema = z.object({
+  message: z.string().trim().min(1),
+  /** 질문할 때 열어 두고 있던 릴스. 지목하는 말이 없어도 이 릴스를 컨텍스트에 싣는다. */
+  reelId: z.string().trim().min(1).optional(),
+});
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다";
@@ -59,7 +63,7 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "메시지를 입력해 주세요" }, { status: 400 });
   }
-  const message = parsed.data.message;
+  const { message, reelId } = parsed.data;
 
   const store = getChatStore();
   const history = await store.append([
@@ -83,7 +87,10 @@ export async function POST(req: Request) {
         ]);
 
         const context = renderAccountContext(buildAccountContext(reels, snapshots, profile));
-        const system = buildChatSystemPrompt(context, findMentionedReels(message, reels));
+        const system = buildChatSystemPrompt(
+          context,
+          selectContextReels(message, reelId, reels),
+        );
         const turns: ChatTurn[] = selectContextTurns(
           history.map((record) => ({ role: record.role, content: record.content })),
         );

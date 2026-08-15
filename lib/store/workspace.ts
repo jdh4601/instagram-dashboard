@@ -19,7 +19,7 @@ export interface WorkspaceRepositories {
   reelHistory: ReelHistoryRepository;
   /** 외부 신청 폼(Walla)에서 끌어온 지원 신청. */
   applications: ApplicationRepository;
-  /** 손으로 모은 훅 북마크. 동기화가 아니라 사용자가 직접 쓰는 유일한 저장소다. */
+  /** 손으로 모은 훅 북마크와 링크에서 만든 선택적 릴스 해체 결과. */
   hooks: HookRepository;
   close?: () => void | Promise<void>;
 }

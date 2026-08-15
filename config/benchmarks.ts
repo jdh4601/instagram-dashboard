@@ -37,13 +37,22 @@ export const REELS_BENCHMARKS: Record<ReelMetricKey, Threshold> = {
 // 캐러셀은 도달을 늘리는 포맷이 아니라 이미 닿은 사람을 팬으로 바꾸는 포맷이다.
 // 그래서 1순위가 저장율이고(다시 꺼내 볼 가치), 그 다음이 프로필 방문율이다.
 // 영상 지표(hookRetention3s, completionRate)는 개념 자체가 없어 아예 넣지 않는다.
+//
+// 분모는 전부 도달이다. 캐러셀의 views는 노출이라 도달의 3배 안팎으로 부푼다 —
+// 자세한 이유는 lib/analysis/metrics.ts의 metricValue 주석에 있다. 라벨에 (도달)을
+// 달아 두는 건 화면에서 릴스 표(조회수 분모)와 헷갈리지 않게 하려는 것이다.
+//
+// 좋아요·댓글 기준은 릴스 표에서 그대로 베껴 온 값이었다. 도달 분모로 옮기면 거의
+// 모든 게시물이 강점으로 뜨는 무의미한 자가 되어(좋아요율 중앙값 3.5%) 실측 32건의
+// 사분위로 다시 잡았다. 저장·공유·프로필 방문·팔로우는 원래 도달 기준 업계 추정치라
+// 숫자를 그대로 둔다.
 export const CAROUSEL_BENCHMARKS: ThresholdTable = {
-  saveRate:         { weakBelow: 1, strongAbove: 2, weight: 5, label: "저장율" },
-  profileVisitRate: { weakBelow: 1, strongAbove: 2, weight: 4, label: "프로필 방문율" },
-  followRate:       { weakBelow: 0.4, strongAbove: 0.8, weight: 4, label: "팔로우 전환율" },
-  shareRate:        { weakBelow: 0.4, strongAbove: 0.8, weight: 3, label: "공유율" },
-  commentRate:      { weakBelow: 0.1, strongAbove: 0.3, weight: 2, label: "댓글율" },
-  likeRate:         { weakBelow: 1.5, strongAbove: 3, weight: 1, label: "좋아요율" },
+  saveRate:         { weakBelow: 1, strongAbove: 2, weight: 5, label: "저장율(도달)" },
+  profileVisitRate: { weakBelow: 1, strongAbove: 2, weight: 4, label: "프로필 방문율(도달)" },
+  followRate:       { weakBelow: 0.4, strongAbove: 0.8, weight: 4, label: "팔로우 전환율(도달)" },
+  shareRate:        { weakBelow: 0.8, strongAbove: 2, weight: 3, label: "공유율(도달)" },
+  commentRate:      { weakBelow: 0.2, strongAbove: 0.6, weight: 2, label: "댓글율(도달)" },
+  likeRate:         { weakBelow: 2, strongAbove: 5, weight: 1, label: "좋아요율(도달)" },
 };
 
 export const BENCHMARKS_BY_KIND: Record<MediaKind, ThresholdTable> = {
