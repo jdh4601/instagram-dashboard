@@ -146,6 +146,15 @@ export const AccountSnapshotSchema = z.object({
   // 반복 소비인지 가른다. 게시물 레벨은 미지원이라 없을 수 있어 optional.
   followerReachLast7d: z.number().nonnegative().optional(),
   nonFollowerReachLast7d: z.number().nonnegative().optional(),
+  // media_product_type breakdown의 AD 차원과 나머지 면의 합. "광고로 산 도달·조회수"를
+  // 가르는 유일한 경로다 — 게시물 레벨에는 광고 지표가 없다(Instagram Login 토큰 기준).
+  // 오가닉은 breakdown 합에서 온 값이라 reachLast7d(중복 제거된 총량)와 더해지지 않는다.
+  paidReachLast7d: z.number().nonnegative().optional(),
+  organicReachLast7d: z.number().nonnegative().optional(),
+  paidViewsLast7d: z.number().nonnegative().optional(),
+  organicViewsLast7d: z.number().nonnegative().optional(),
+  paidInteractionsLast7d: z.number().nonnegative().optional(),
+  organicInteractionsLast7d: z.number().nonnegative().optional(),
   availableMetrics: z.array(z.string()).optional(),
   unavailableMetrics: z.array(z.string()).optional(),
 });

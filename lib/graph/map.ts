@@ -8,10 +8,52 @@ export interface GraphInsightsResponse {
     total_value?: {
       value?: number;
       breakdowns?: Array<{
+        dimension_keys?: string[];
         results?: Array<{ dimension_values?: string[]; value?: number }>;
       }>;
     };
   }>;
+}
+
+type BreakdownResult = { dimension_values?: string[]; value?: number };
+
+/**
+ * follow_type breakdown. 실제 dimension_value는 FOLLOWER / NON_FOLLOWER다.
+ *
+ * NON_FOLLOWER에도 "follower"가 들어 있어 검사 순서가 중요하다. "unfollow"로 검사하면
+ * 어느 쪽도 걸리지 않아 언팔 수가 follows를 덮어쓴다.
+ */
+function applyFollowType(map: Record<string, number>, metric: string, results: BreakdownResult[]) {
+  for (const result of results) {
+    if (typeof result.value !== "number") continue;
+    const label = (result.dimension_values ?? []).join(" ").toLowerCase();
+    if (metric === "follows_and_unfollows") {
+      if (label.includes("non_follower")) map.unfollows = result.value;
+      else if (label.includes("follower")) map.follows = result.value;
+    } else if (metric === "reach") {
+      if (label.includes("non_follower")) map.reach_non_follower = result.value;
+      else if (label.includes("follower")) map.reach_follower = result.value;
+    }
+  }
+}
+
+/**
+ * media_product_type breakdown → `{metric}_ad`(광고로 산 몫)와 `{metric}_organic`(나머지 면의 합).
+ *
+ * 오가닉을 total_value에서 빼서 구하지 않는다. reach는 면 사이의 중복을 제거해
+ * total_value가 breakdown 합보다 작고(실측 13,922 < 15,228), 빼면 음수로도 갈 수 있다.
+ * 광고를 한 건도 집행하지 않은 기간에는 AD 차원 자체가 없으므로 광고분은 0이다.
+ */
+function applyProductType(map: Record<string, number>, metric: string, results: BreakdownResult[]) {
+  let ad = 0;
+  let organic = 0;
+  for (const result of results) {
+    if (typeof result.value !== "number") continue;
+    if (result.dimension_values?.[0]?.toUpperCase() === "AD") ad += result.value;
+    else organic += result.value;
+  }
+  map[`${metric}_ad`] = ad;
+  map[`${metric}_organic`] = organic;
 }
 
 export function flattenInsights(response: GraphInsightsResponse): Record<string, number> {
@@ -21,20 +63,12 @@ export function flattenInsights(response: GraphInsightsResponse): Record<string,
     if (typeof value === "number") map[item.name] = value;
 
     for (const breakdown of item.total_value?.breakdowns ?? []) {
-      for (const result of breakdown.results ?? []) {
-        if (typeof result.value !== "number") continue;
-        const label = (result.dimension_values ?? []).join(" ").toLowerCase();
-        if (item.name === "follows_and_unfollows") {
-          // follow_type breakdown의 실제 값은 FOLLOWER / NON_FOLLOWER다. reach와 같은
-          // 함정 — NON_FOLLOWER에도 "follower"가 들어 있어 순서가 중요하다.
-          // "unfollow"로 검사하면 어느 쪽도 걸리지 않아 언팔 수가 follows를 덮어쓴다.
-          if (label.includes("non_follower")) map.unfollows = result.value;
-          else if (label.includes("follower")) map.follows = result.value;
-        } else if (item.name === "reach") {
-          // follow_type breakdown. NON_FOLLOWER에도 "follower"가 들어 있어 순서가 중요하다.
-          if (label.includes("non_follower")) map.reach_non_follower = result.value;
-          else if (label.includes("follower")) map.reach_follower = result.value;
-        }
+      const results = breakdown.results ?? [];
+      // dimension_keys가 빠진 응답도 있어(구버전 follows_and_unfollows) 기본은 follow_type이다.
+      if (breakdown.dimension_keys?.[0] === "media_product_type") {
+        applyProductType(map, item.name, results);
+      } else {
+        applyFollowType(map, item.name, results);
       }
     }
   }

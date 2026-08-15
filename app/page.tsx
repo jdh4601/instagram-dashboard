@@ -10,10 +10,12 @@ import { DashboardActions } from "@/components/DashboardActions";
 import { SyncProgressBar } from "@/components/SyncProgressBar";
 import { AccountHeader } from "@/components/AccountHeader";
 import { UploadRhythmCard } from "@/components/UploadRhythmCard";
+import { PaidReachCard } from "@/components/PaidReachCard";
 import { AccountOverview } from "@/components/AccountOverview";
 import { AccountFunnelCard } from "@/components/AccountFunnelCard";
 import { buildAccountFunnel } from "@/lib/analysis/accountFunnel";
 import { buildAudienceMix } from "@/lib/analysis/audienceMix";
+import { buildPaidMix } from "@/lib/analysis/paidMix";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { DashboardToast, type SyncToast } from "@/components/DashboardToast";
 import { PerformanceChartsCard } from "@/components/PerformanceChartsCard";
@@ -174,6 +176,8 @@ export default function Page() {
   const funnel = buildAccountFunnel(snapshots, applications ?? undefined);
   // 도달 구성도 계정 레벨 스냅샷에서 온다.
   const audienceMix = buildAudienceMix(snapshots);
+  // 광고/오가닉 구성. 게시물 레벨에는 광고 지표가 없어 계정 레벨에서만 갈린다.
+  const paidMix = buildPaidMix(snapshots);
 
   // 저장 시점을 모르는 토큰은 경고하지 않는다. 토큰을 이 앱에 저장하기 전부터 쓰던
   // 사용자는 갱신 여부와 무관하게 배너가 영구히 떠서, 조치할 수 없는 알림이 된다.
@@ -224,6 +228,10 @@ export default function Page() {
               <AccountFunnelCard funnel={funnel} />
               <UploadRhythmCard reels={reels} mix={audienceMix} />
             </div>
+
+            {/* 도달 구성(팔로워 vs 비팔로워) 바로 다음에 온다 — 둘 다 "이 도달이
+                어디서 왔나"를 가르는 질문이고, 광고분을 모르면 앞의 구성도 잘못 읽힌다. */}
+            <PaidReachCard mix={paidMix} />
 
             {/* 추이는 가로가 길수록 읽기 쉬우므로 한 행을 다 쓴다. 팔로워 추이는
                 이 카드의 누적 차트가 대신하므로 FollowerGrowthChart는 걷어냈다. */}
