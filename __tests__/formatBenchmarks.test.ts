@@ -61,8 +61,9 @@ describe("포맷별 임계값 표", () => {
 });
 
 describe("포맷별 진단 (INS-3)", () => {
-  test("같은 저장율이 릴스에서는 강점, 캐러셀에서는 약점이다", () => {
-    // 저장 3 / 조회 470 = 0.638%
+  test("같은 저장 수가 릴스에서는 강점, 캐러셀에서는 약점이다", () => {
+    // 릴스는 저장 3 / 조회 470 = 0.638% (하한 0.3 초과 → 강점)
+    // 캐러셀은 저장 3 / 도달 400 = 0.75% (하한 1 미달 → 약점)
     const asReel = diagnose(reels());
     const asCarousel = diagnose(carousel());
 
@@ -71,8 +72,8 @@ describe("포맷별 진단 (INS-3)", () => {
   });
 
   test("캐러셀 병목은 공유율보다 저장율을 먼저 지목한다", () => {
-    // 저장율·공유율 모두 하한 대비 같은 비율로 미달시켜 가중치만 겨루게 한다.
-    const d = diagnose(carousel({ views: 1000, saves: 5, shares: 2 }));
+    // 저장율·공유율 모두 하한의 절반(0.5%, 0.4%)으로 미달시켜 가중치만 겨루게 한다.
+    const d = diagnose(carousel({ reach: 1000, saves: 5, shares: 4 }));
     expect(d.bottleneck?.key).toBe("saveRate");
   });
 
@@ -93,10 +94,12 @@ describe("포맷별 진단 (INS-3)", () => {
 
 describe("베이스라인 절대 하한 (INS-3)", () => {
   // 저장율 0.10~0.20% 대에 몰린 캐러셀 이력. 중앙값 0.15% 부근.
+  // 캐러셀 지표의 분모는 도달이라 도달 10,000에 저장 10~20건을 준다.
   const history: Reel[] = [0.1, 0.12, 0.15, 0.16, 0.18, 0.2].map((rate, i) =>
     carousel({
       id: `h${i}`,
-      views: 10000,
+      reach: 10000,
+      views: 34000, // 노출은 도달의 3.4배(실측 중앙값) — 분모로 쓰이지 않는다
       saves: Math.round(rate * 100),
       shares: 40,
       profileVisits: 1,
@@ -112,7 +115,7 @@ describe("베이스라인 절대 하한 (INS-3)", () => {
 
   test("글로벌 하한 아래 값은 베이스라인이 있어도 강점이 될 수 없다", () => {
     const t = buildBaselineThresholds(history, "CAROUSEL")!;
-    // 저장율 0.638% — 자기 중앙값(0.15%)의 4배지만 캐러셀 절대 기준 1%에는 못 미친다.
+    // 저장율 0.75% — 자기 중앙값(0.15%)의 5배지만 캐러셀 절대 기준 1%에는 못 미친다.
     const d = diagnose(carousel(), t);
     const save = d.verdicts.find((v) => v.key === "saveRate");
 
@@ -122,8 +125,8 @@ describe("베이스라인 절대 하한 (INS-3)", () => {
 
   test("글로벌 하한을 넘으면 베이스라인 강점 판정이 그대로 살아난다", () => {
     const t = buildBaselineThresholds(history, "CAROUSEL")!;
-    // 저장 20 / 조회 1000 = 2.0% — 절대 기준도 통과한다.
-    const d = diagnose(carousel({ views: 1000, saves: 20 }), t);
+    // 저장 20 / 도달 1000 = 2.0% — 절대 기준도 통과한다.
+    const d = diagnose(carousel({ reach: 1000, saves: 20 }), t);
     expect(d.verdicts.find((v) => v.key === "saveRate")?.band).toBe("strong");
   });
 });

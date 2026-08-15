@@ -6,7 +6,7 @@ import {
   type ThresholdTable,
 } from "@/config/benchmarks";
 import type { Reel } from "@/lib/schemas";
-import { computeDerivedRates } from "@/lib/analysis/metrics";
+import { metricValue } from "@/lib/analysis/metrics";
 import { mediaKindOf } from "@/lib/media/kind";
 
 export type Band = "weak" | "ok" | "strong";
@@ -37,22 +37,6 @@ export function classifyBand(value: number, t: Threshold): Band {
   return "ok";
 }
 
-// MetricKey → 해당 릴스의 측정값(없으면 undefined)
-function metricValues(reel: Reel): Partial<Record<MetricKey, number>> {
-  const d = computeDerivedRates(reel);
-  return {
-    hookRetention3s: reel.hookRetention3s,
-    // 영상 길이를 모르면(0) 완료율은 계산 불가 → verdict에서 제외
-    completionRate: reel.durationSec > 0 ? d.completionRate : undefined,
-    shareRate: d.shareRate,
-    saveRate: d.saveRate,
-    likeRate: d.likeRate,
-    commentRate: d.commentRate,
-    followRate: d.followRate,
-    profileVisitRate: d.profileVisitRate,
-  };
-}
-
 function priorityScore(value: number, t: Threshold): number {
   const gap = Math.max(0, (t.weakBelow - value) / t.weakBelow);
   return t.weight * gap;
@@ -62,11 +46,10 @@ export function diagnose(
   reel: Reel,
   thresholds: ThresholdTable = BENCHMARKS_BY_KIND[mediaKindOf(reel)],
 ): Diagnosis {
-  const values = metricValues(reel);
   const verdicts: MetricVerdict[] = [];
 
   for (const key of Object.keys(thresholds) as MetricKey[]) {
-    const value = values[key];
+    const value = metricValue(reel, key);
     const t = thresholds[key];
     if (value === undefined || t === undefined) continue;
     const band = classifyBand(value, t);
