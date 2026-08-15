@@ -143,29 +143,55 @@ function Section({ title, count, children }: { title: string; count: number; chi
 export function HookLibrary({ hooks, onSave, onToggleFavorite, onDelete }: Props) {
   const [category, setCategory] = useState<HookCategoryFilter>("all");
   const [sort, setSort] = useState<HookSort>("latest");
-  const [formOpen, setFormOpen] = useState(false);
-  const [editing, setEditing] = useState<Hook | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const visible = useMemo(() => selectHooks(hooks, category, sort), [hooks, category, sort]);
   const sections = splitHookSections(visible);
 
   function openAdd() {
-    setEditing(null);
-    setFormOpen(true);
+    setEditingId(null);
+    setAdding(true);
   }
 
-  function openEdit(hook: Hook) {
-    setEditing(hook);
-    setFormOpen(true);
+  function close() {
+    setAdding(false);
+    setEditingId(null);
   }
 
   async function submit(draft: HookDraft, id?: string) {
     await onSave(draft, id);
-    setFormOpen(false);
-    setEditing(null);
+    close();
   }
 
-  const rowProps = { onToggleFavorite, onDelete, onEdit: openEdit };
+  /**
+   * 수정 폼은 누른 행 자리에서 연다.
+   *
+   * 목록 맨 위에 열면 스무 번째 줄에서 연필을 눌렀을 때 폼이 화면 밖에 생겨
+   * 버튼이 안 먹은 것처럼 보인다. 새 훅 추가만 목록 위에 둔다 — 그건 어느 행과도
+   * 묶이지 않고, 버튼 바로 아래라 이미 눈에 들어온다.
+   */
+  function renderRow(hook: Hook) {
+    if (hook.id === editingId) {
+      return (
+        <li key={hook.id}>
+          <HookForm key={hook.id} editing={hook} onSubmit={submit} onCancel={close} />
+        </li>
+      );
+    }
+    return (
+      <HookRow
+        key={hook.id}
+        hook={hook}
+        onToggleFavorite={onToggleFavorite}
+        onDelete={onDelete}
+        onEdit={(target) => {
+          setAdding(false);
+          setEditingId(target.id);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -214,17 +240,7 @@ export function HookLibrary({ hooks, onSave, onToggleFavorite, onDelete }: Props
         ))}
       </div>
 
-      {formOpen && (
-        <HookForm
-          key={editing?.id ?? "new"}
-          editing={editing}
-          onSubmit={submit}
-          onCancel={() => {
-            setFormOpen(false);
-            setEditing(null);
-          }}
-        />
-      )}
+      {adding && <HookForm key="new" editing={null} onSubmit={submit} onCancel={close} />}
 
       {hooks.length === 0 ? (
         <EmptyState
@@ -237,16 +253,12 @@ export function HookLibrary({ hooks, onSave, onToggleFavorite, onDelete }: Props
         <div className="space-y-5">
           {sections.favorites.length > 0 && (
             <Section title="즐겨찾는 훅" count={sections.favorites.length}>
-              {sections.favorites.map((hook) => (
-                <HookRow key={hook.id} hook={hook} {...rowProps} />
-              ))}
+              {sections.favorites.map(renderRow)}
             </Section>
           )}
 
           <Section title="전체 훅" count={sections.all.length}>
-            {sections.all.map((hook) => (
-              <HookRow key={hook.id} hook={hook} {...rowProps} />
-            ))}
+            {sections.all.map(renderRow)}
           </Section>
         </div>
       )}
