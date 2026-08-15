@@ -15,15 +15,41 @@ export interface PaidSplit {
   paidShare: number;
 }
 
+/**
+ * 산 도달과 그냥 온 도달 중 어느 쪽이 더 반응했는가.
+ *
+ * 절대량 비교(광고 1,229 vs 오가닉 7,660)는 볼 것이 없다 — 오가닉이 큰 건 당연하다.
+ * 도달을 분모로 깔아야 "같은 한 명에게 닿았을 때" 어느 쪽이 움직였는지가 나온다.
+ */
+export interface PaidEfficiency {
+  /** 광고 도달당 상호작용률(%) */
+  paidRate: number;
+  /** 오가닉 도달당 상호작용률(%) */
+  organicRate: number;
+  /** 오가닉 대비 광고의 반응률 배수. 1보다 작으면 산 도달이 덜 반응했다는 뜻이다. */
+  ratio: number;
+}
+
 export interface PaidMix {
   /** 도달. 광고/오가닉 분리가 성립하는 최소 조건이다. */
   reach: PaidSplit;
   views?: PaidSplit;
   interactions?: PaidSplit;
+  /** 도달과 상호작용이 모두 있어야 계산된다. */
+  efficiency?: PaidEfficiency;
   /** 값을 채택한 스냅샷 날짜 */
   date: string;
   /** 이 기간에 광고 집행이 한 건이라도 있었는지. 없으면 카드가 그렇게 말한다. */
   hasPaid: boolean;
+}
+
+function efficiencyOf(reach: PaidSplit, interactions?: PaidSplit): PaidEfficiency | undefined {
+  if (interactions === undefined) return undefined;
+  if (reach.paid <= 0 || reach.organic <= 0) return undefined;
+  const paidRate = (interactions.paid / reach.paid) * 100;
+  const organicRate = (interactions.organic / reach.organic) * 100;
+  if (organicRate <= 0) return undefined;
+  return { paidRate, organicRate, ratio: paidRate / organicRate };
 }
 
 function split(paid: number | undefined, organic: number | undefined): PaidSplit | undefined {
@@ -55,6 +81,7 @@ export function buildPaidMix(snapshots: AccountSnapshot[]): PaidMix | null {
     reach,
     views,
     interactions,
+    efficiency: efficiencyOf(reach, interactions),
     date: latest.date,
     hasPaid: reach.paid > 0 || (views?.paid ?? 0) > 0 || (interactions?.paid ?? 0) > 0,
   };
