@@ -12,7 +12,6 @@ import { AccountHeader } from "@/components/AccountHeader";
 import { UploadRhythmCard } from "@/components/UploadRhythmCard";
 import { AccountOverview } from "@/components/AccountOverview";
 import { AccountFunnelCard } from "@/components/AccountFunnelCard";
-import { AudienceMixCard } from "@/components/AudienceMixCard";
 import { buildAccountFunnel } from "@/lib/analysis/accountFunnel";
 import { buildAudienceMix } from "@/lib/analysis/audienceMix";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
@@ -223,9 +222,8 @@ export default function Page() {
             <AccountOverview overview={overview} />
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
               <AccountFunnelCard funnel={funnel} />
-              <UploadRhythmCard reels={reels} />
+              <UploadRhythmCard reels={reels} mix={audienceMix} />
             </div>
-            <AudienceMixCard mix={audienceMix} />
 
             {/* 추이는 가로가 길수록 읽기 쉬우므로 한 행을 다 쓴다. 팔로워 추이는
                 이 카드의 누적 차트가 대신하므로 FollowerGrowthChart는 걷어냈다. */}

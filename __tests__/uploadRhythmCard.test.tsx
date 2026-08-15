@@ -1,5 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { UploadRhythmCard } from "@/components/UploadRhythmCard";
+import { UploadRhythmCard, DayPostsPopover } from "@/components/UploadRhythmCard";
+import type { AudienceMix } from "@/lib/analysis/audienceMix";
+import type { RhythmDay } from "@/lib/analysis/uploadRhythm";
 import type { Reel } from "@/lib/schemas";
 
 function reel(postedAt: string, overrides: Partial<Reel> = {}): Reel {
@@ -22,8 +24,18 @@ function reel(postedAt: string, overrides: Partial<Reel> = {}): Reel {
 
 const NOW = new Date("2026-07-31T00:00:00+09:00");
 
-function render(reels: Reel[]): string {
-  return renderToStaticMarkup(<UploadRhythmCard reels={reels} now={NOW} />);
+const mix: AudienceMix = {
+  followerReach: 227,
+  nonFollowerReach: 2847,
+  total: 3074,
+  nonFollowerShare: 92.62,
+  date: "2026-07-30",
+};
+
+function render(reels: Reel[], audienceMix: AudienceMix | null = null): string {
+  return renderToStaticMarkup(
+    <UploadRhythmCard reels={reels} mix={audienceMix} now={NOW} />,
+  );
 }
 
 test("카드는 표시 중인 달과 좌우 이동 버튼을 보여준다", () => {
@@ -35,34 +47,54 @@ test("카드는 표시 중인 달과 좌우 이동 버튼을 보여준다", () =
   expect(html).toContain("다음 달");
 });
 
-test("칸은 종류와 무관하게 초록 한 계열로만 칠한다", () => {
-  // 종류마다 색을 다르게 주면 칸마다 색이 튀어 리듬(꾸준함)이 안 보인다.
+test("도달 구성은 같은 카드 안 달력 위에 있다", () => {
+  const html = render([reel("2026-07-01T09:00:00+09:00")], mix);
+
+  // 카드 껍데기는 하나 — 도달 구성과 달력이 따로 놀면 시선이 두 번 끊긴다.
+  expect(html.match(/rounded-card/g)?.length).toBe(1);
+  expect(html).toContain("도달 구성");
+  expect(html).toContain("2,847");
+  expect(html.indexOf("도달 구성")).toBeLessThan(html.indexOf("업로드 리듬 달력"));
+});
+
+test("도달 구성 데이터가 없으면 달력만 남는다", () => {
+  const html = render([reel("2026-07-01T09:00:00+09:00")]);
+
+  expect(html).not.toContain("도달 구성");
+  expect(html).toContain("업로드 리듬 달력");
+});
+
+test("칸마다 날짜 숫자를 적어 달력으로 읽히게 한다", () => {
+  const html = render([reel("2026-07-01T09:00:00+09:00")]);
+
+  expect(html).toContain("grid-cols-7");
+  // 잔디가 아니라 달력이다 — 1일부터 31일까지 숫자가 다 있어야 한다.
+  for (const day of [1, 15, 31]) expect(html).toContain(`>${day}<`);
+  expect(html).not.toContain("bg-rhythm-");
+});
+
+test("릴스와 캐러셀은 진한 파랑·연한 파랑 동그라미로 갈린다", () => {
   const html = render([
     reel("2026-07-01T09:00:00+09:00", { id: "r", mediaType: "REELS" }),
     reel("2026-07-02T09:00:00+09:00", { id: "c", mediaType: "CAROUSEL" }),
   ]);
-  const shades = html.match(/bg-rhythm-[1-4]/g) ?? [];
 
-  // 릴스 하루 + 캐러셀 하루. 둘 다 같은 잔디 계열에서 칠해진다.
-  expect(shades).toHaveLength(2);
-  expect(html).not.toContain("bg-rhythm-reels");
-  expect(html).not.toContain("bg-rhythm-carousel");
+  expect(html).toContain("bg-post-reel");
+  expect(html).toContain("bg-post-carousel");
 });
 
-test("요일은 가로로, 주는 세로로 배열한다", () => {
-  const html = render([reel("2026-07-01T09:00:00+09:00")]);
+test("동그라미는 그날 올린 개수만큼 찍는다", () => {
+  const html = render([
+    reel("2026-07-01T09:00:00+09:00", { id: "a", mediaType: "REELS" }),
+    reel("2026-07-01T12:00:00+09:00", { id: "b", mediaType: "REELS" }),
+    reel("2026-07-01T18:00:00+09:00", { id: "c", mediaType: "CAROUSEL" }),
+  ]);
+  // 아래 요약 줄에도 색 안내 점이 하나씩 붙는다. 빈 달과의 차이가 곧 달력에 찍힌 점이다.
+  const empty = render([]);
+  const count = (source: string, kind: string) => (source.match(new RegExp(kind, "g")) ?? []).length;
 
-  expect(html).toContain("grid-cols-7");
-  const dayOrder = ["일", "월", "화", "수", "목", "금", "토"].map((d) => html.indexOf(`>${d}<`));
-  expect(dayOrder.every((index, i) => i === 0 || index > dayOrder[i - 1])).toBe(true);
-});
-
-test("달력이 카드 폭을 꽉 채운다", () => {
-  // 잔디를 한쪽에 몰아 두면 남는 공간만 커지고 칸은 그대로다.
-  const html = render([reel("2026-07-01T09:00:00+09:00")]);
-
-  expect(html).toContain("w-full grid-cols-7");
-  expect(html).toContain("aspect-square");
+  expect(count(html, "bg-post-reel") - count(empty, "bg-post-reel")).toBe(2);
+  expect(count(html, "bg-post-carousel") - count(empty, "bg-post-carousel")).toBe(1);
 });
 
 test("요약은 릴스·캐러셀 개수와 업로드일만 말한다", () => {
@@ -74,35 +106,56 @@ test("요약은 릴스·캐러셀 개수와 업로드일만 말한다", () => {
   expect(html).toContain("릴스 1개");
   expect(html).toContain("캐러셀 1개");
   expect(html).toContain("업로드일 2일");
-  // 달력이 이미 공백을 보여 주므로 숫자로 또 말하지 않는다.
   expect(html).not.toContain("최장 공백");
-  expect(html).not.toContain("많음");
 });
 
-test("올린 날은 눌러서도 볼 수 있는 버튼이고, 종류별 개수를 함께 읽어 준다", () => {
-  const html = render([
-    reel("2026-07-01T09:00:00+09:00", { id: "a", mediaType: "REELS", views: 1200 }),
-    reel("2026-07-01T12:00:00+09:00", { id: "b", mediaType: "REELS", views: 822 }),
-    reel("2026-07-01T18:00:00+09:00", { id: "c", mediaType: "CAROUSEL", views: 500 }),
-  ]);
-
-  // 릴스만·캐러셀만·둘 다를 툴팁 한 줄에서 구분할 수 있어야 한다.
-  expect(html).toContain("7월 1일 · 릴스 2 · 캐러셀 1 · 조회 2,522");
-  expect(html).toContain("<button");
-});
-
-test("올리지 않은 날은 누를 것이 없어 버튼으로 만들지 않는다", () => {
+test("가리키기 전에는 어떤 말풍선도 떠 있지 않다", () => {
+  // 이전에 가리킨 칸의 말풍선이 남아 있던 문제. 떠 있는 것은 언제나 하나뿐이어야 한다.
   const html = render([reel("2026-07-01T09:00:00+09:00")]);
-  const buttons = html.match(/<button/g) ?? [];
 
-  // 달 이동 2개 + 업로드한 하루치 1개.
-  expect(buttons).toHaveLength(3);
+  expect(html).not.toContain('role="tooltip"');
 });
 
-test("업로드가 없는 달에도 격자는 남기고 요약으로 알린다", () => {
-  // 격자를 통째로 감추면 레이아웃이 튀고, 빈 격자 자체가 "이 달은 쉬었다"는 정보다.
-  const html = render([]);
+const day: RhythmDay = {
+  date: "2026-07-01",
+  day: 1,
+  reels: 1,
+  carousels: 1,
+  views: 1700,
+  future: false,
+  posts: [
+    {
+      id: "r1",
+      kind: "REELS",
+      title: "호날두에게 N억 투자받은 스타트업",
+      thumbnailUrl: "https://cdn.example.com/a.jpg",
+      views: 1200,
+    },
+    { id: "c1", kind: "CAROUSEL", title: "제품을 만들기 전에 확인할 5가지", views: 500 },
+  ],
+};
 
-  expect(html).toContain("업로드일 0일");
-  expect(html).toContain("업로드 리듬 달력");
+test("말풍선은 그날 게시물의 썸네일과 제목을 보여준다", () => {
+  const html = renderToStaticMarkup(<DayPostsPopover day={day} />);
+
+  expect(html).toContain("7월 1일");
+  expect(html).toContain("호날두에게 N억 투자받은 스타트업");
+  expect(html).toContain("제품을 만들기 전에 확인할 5가지");
+  expect(html).toContain('src="https://cdn.example.com/a.jpg"');
+});
+
+test("말풍선은 게시물마다 종류를 알려준다", () => {
+  const html = renderToStaticMarkup(<DayPostsPopover day={day} />);
+
+  expect(html).toContain("릴스");
+  expect(html).toContain("캐러셀");
+});
+
+test("썸네일이 없는 게시물도 자리를 지킨다", () => {
+  const html = renderToStaticMarkup(<DayPostsPopover day={day} />);
+  const images = html.match(/<img/g) ?? [];
+
+  // 릴스 1건에만 썸네일이 있다. 캐러셀은 빈 자리표시자로 줄 높이를 맞춘다.
+  expect(images).toHaveLength(1);
+  expect(html).toContain("aspect-[9/16]");
 });

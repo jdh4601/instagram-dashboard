@@ -60,7 +60,7 @@ test("릴스와 캐러셀을 따로 센다", () => {
   expect(rhythm.totals.uploadDays).toBe(3);
 });
 
-test("한 날에 두 종류가 겹치면 많이 올린 쪽을 진하기 기준으로 삼는다", () => {
+test("한 날에 두 종류가 겹치면 종류별로 따로 센다", () => {
   const rhythm = buildUploadRhythm(
     [
       reel("2026-07-01T09:00:00+09:00", { id: "a", mediaType: "CAROUSEL" }),
@@ -72,28 +72,49 @@ test("한 날에 두 종류가 겹치면 많이 올린 쪽을 진하기 기준�
   );
 
   const cell = rhythm.weeks[0][3];
-  expect(cell?.dominant).toBe("CAROUSEL");
   expect(cell?.reels).toBe(1);
   expect(cell?.carousels).toBe(2);
+  expect(cell?.posts).toHaveLength(3);
 });
 
-test("조회수 강도는 같은 종류끼리 비교한다", () => {
-  // 캐러셀 조회수가 릴스보다 훨씬 낮아도, 캐러셀 중에서 가장 높으면 진한 칸이어야 한다.
-  const reels = [
-    reel("2026-07-01T09:00:00+09:00", { id: "r1", mediaType: "REELS", views: 8000 }),
-    reel("2026-07-02T09:00:00+09:00", { id: "r2", mediaType: "REELS", views: 9000 }),
-    reel("2026-07-03T09:00:00+09:00", { id: "r3", mediaType: "REELS", views: 10000 }),
-    reel("2026-07-06T09:00:00+09:00", { id: "c1", mediaType: "CAROUSEL", views: 100 }),
-    reel("2026-07-07T09:00:00+09:00", { id: "c2", mediaType: "CAROUSEL", views: 200 }),
-    reel("2026-07-08T09:00:00+09:00", { id: "c3", mediaType: "CAROUSEL", views: 900 }),
-  ];
-  const rhythm = buildUploadRhythm(reels, JULY, NOW);
+test("칸마다 그날 올린 게시물을 제목·썸네일까지 싣는다", () => {
+  // 달력에서 칸을 가리키면 무엇을 올렸는지 바로 보여줘야 해서, 개수만으로는 부족하다.
+  const rhythm = buildUploadRhythm(
+    [
+      reel("2026-07-01T09:00:00+09:00", {
+        id: "r1",
+        mediaType: "REELS",
+        caption: "호날두에게 N억 투자받은 스타트업\n두 번째 줄",
+        thumbnailUrl: "https://cdn.example.com/a.jpg",
+        views: 1200,
+      }),
+    ],
+    JULY,
+    NOW,
+  );
 
-  const topCarousel = rhythm.weeks[1][3]; // 7/8 수요일, 둘째 주
-  const lowestReel = rhythm.weeks[0][3]; // 7/1 수요일, 첫 주
-  expect(topCarousel?.day).toBe(8);
-  expect(lowestReel?.day).toBe(1);
-  expect(topCarousel?.level).toBeGreaterThan(lowestReel?.level ?? 0);
+  expect(rhythm.weeks[0][3]?.posts).toEqual([
+    {
+      id: "r1",
+      kind: "REELS",
+      title: "호날두에게 N억 투자받은 스타트업",
+      thumbnailUrl: "https://cdn.example.com/a.jpg",
+      views: 1200,
+    },
+  ]);
+});
+
+test("게시물은 올린 순서대로 담긴다", () => {
+  const rhythm = buildUploadRhythm(
+    [
+      reel("2026-07-01T21:00:00+09:00", { id: "늦게", mediaType: "REELS" }),
+      reel("2026-07-01T09:00:00+09:00", { id: "일찍", mediaType: "CAROUSEL" }),
+    ],
+    JULY,
+    NOW,
+  );
+
+  expect(rhythm.weeks[0][3]?.posts.map((post) => post.id)).toEqual(["일찍", "늦게"]);
 });
 
 test("표시 중인 달의 최장 업로드 공백을 센다", () => {

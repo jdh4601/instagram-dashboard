@@ -18,13 +18,10 @@
   --color-surface-muted: #f8fafc;
   --color-border-subtle: #e9edf3;
 
-  /* 업로드 리듬 히트맵 — GitHub 잔디와 같은 초록 한 계열. 종류를 색으로 가르면
-     칸마다 색이 튀어 리듬(꾸준함)이 안 보인다. 진하기만 조회수를 뜻한다. */
-  --color-rhythm-0: #ebedf0;
-  --color-rhythm-1: #9be9a8;
-  --color-rhythm-2: #40c463;
-  --color-rhythm-3: #30a14e;
-  --color-rhythm-4: #216e39;
+  /* 업로드 달력의 게시물 점 — 파랑 한 계열의 두 단계로 종류만 가른다.
+     색상환을 넓게 쓰면 달력이 알록달록해져 "무엇을 몇 개 올렸나"가 안 읽힌다. */
+  --color-post-reel: #1d4ed8;
+  --color-post-carousel: #93c5fd;
 
   /* 진단 밴드: 본문색 / 부드러운 배경 / 경계 */
   --color-band-weak: #dc2626;
@@ -75,12 +72,10 @@
   --color-surface: #151922;
   --color-surface-muted: #1d2330;
   --color-border-subtle: #2b3444;
-  /* GitHub 다크 잔디 — 어두운 바탕에서는 밝을수록 "많다"로 읽힌다. */
-  --color-rhythm-0: #21262d;
-  --color-rhythm-1: #0e4429;
-  --color-rhythm-2: #006d32;
-  --color-rhythm-3: #26a641;
-  --color-rhythm-4: #39d353;
+  /* 어두운 바탕에서 "진하다"는 짙은 색이 아니라 또렷한 색이다. 릴스를 밝게 세우고
+     캐러셀은 한 단계 죽여, 밝기 순서가 뒤집히지 않게 한다. */
+  --color-post-reel: #60a5fa;
+  --color-post-carousel: #3b5a8f;
   --color-neutral-50: #0d1117;
   --color-neutral-100: #1d2330;
   --color-neutral-200: #2b3444;
