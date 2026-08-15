@@ -24,6 +24,7 @@ Instagram Insights는 수치를 보여 주지만 다음에 무엇을 바꿔야 �
 - **오디언스 구성** — 팔로워·비팔로워 도달 비교
 - **규칙 기반 진단** — 같은 데이터에는 같은 강점·약점·병목 결과
 - **자막 분석** — SRT 업로드 후 훅·엔딩·구간별 개선안 생성
+- **릴스 해체** — 훅 저장소의 원본 링크를 장면별 클립·원문/번역 대사·16가지 훅 유형으로 분해
 - **Graph API 동기화** — 페이지네이션, 선택 지표 폴백, 이력 스냅샷, 삭제 게시물 정리
 - **일일 이메일 리포트** — Resend를 통한 최근 성과 요약(선택)
 - **LLM 직접 선택** — Anthropic, OpenAI, Kimi, Google Gemini
@@ -38,6 +39,8 @@ Instagram Insights는 수치를 보여 주지만 다음에 무엇을 바꿔야 �
 - Node.js 22.16 이상
 - npm 10 이상
 - 실제 계정 동기화에서 릴스 길이를 자동 확인하려면 FFmpeg의 `ffprobe`
+- 훅 저장소의 릴스 해체 기능에는 `yt-dlp`, FFmpeg(`ffmpeg`/`ffprobe`), OpenAI 전사 키,
+  이미지 입력을 지원하는 활성 LLM 제공자
 
 ### 데모 데이터로 실행
 
@@ -54,6 +57,7 @@ npm run dev
 
 데모에서는 `ffprobe`가 없어도 된다. macOS는 `brew install ffmpeg`, Ubuntu/Debian은
 `sudo apt-get install ffmpeg`로 설치할 수 있다. Docker 이미지에는 이미 포함되어 있다.
+릴스 해체를 로컬에서 쓸 때 macOS의 `yt-dlp`는 `brew install yt-dlp`로 설치한다.
 
 ## 실제 Instagram 계정 연결
 

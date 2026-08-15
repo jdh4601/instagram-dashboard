@@ -3,6 +3,8 @@ import { assertJsonRequest, readJsonBody } from "@/lib/api/guard";
 import { invalidBody } from "@/lib/api/validation";
 import { HookPatchSchema } from "@/lib/schemas";
 import { getHookRepository } from "@/lib/store";
+import { resolveRuntimeConfig } from "@/lib/runtime/config";
+import { removeReelBreakdownAssets } from "@/lib/reelBreakdown/files";
 
 interface Context {
   params: Promise<{ id: string }>;
@@ -10,6 +12,11 @@ interface Context {
 
 function notFound(): NextResponse {
   return NextResponse.json({ error: "훅을 찾을 수 없습니다" }, { status: 404 });
+}
+
+export async function GET(_req: Request, { params }: Context) {
+  const hook = await getHookRepository().get((await params).id);
+  return hook ? NextResponse.json({ hook }) : notFound();
 }
 
 /** 훅 수정. 하트 토글도 isFavorite 하나만 담아 이 라우트로 온다. */
@@ -37,8 +44,17 @@ export async function DELETE(req: Request, { params }: Context) {
   const blocked = assertJsonRequest(req);
   if (blocked) return blocked;
 
-  const removed = await getHookRepository().remove((await params).id);
+  const id = (await params).id;
+  const repo = getHookRepository();
+  const existing = await repo.get(id);
+  const removed = await repo.remove(id);
   if (!removed) return notFound();
+
+  if (existing?.breakdown) {
+    removeReelBreakdownAssets(resolveRuntimeConfig().dataDir, existing.breakdown.assetKey).catch(
+      (error) => console.warn("[reel-breakdown] 훅 삭제 후 asset 정리 실패", error),
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }

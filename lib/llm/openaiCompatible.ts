@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import type { TextModel } from "@/lib/llm/types";
+import type { TextModel, VisionModel } from "@/lib/llm/types";
 
 // 테스트 주입용 최소 인터페이스 (OpenAI SDK의 chat.completions.create 부분만)
 interface OpenAILike {
@@ -35,6 +35,38 @@ export function createOpenAICompatibleTextModel(opts: Options): TextModel {
       const content = response.choices[0]?.message?.content;
       if (!content) throw new Error("응답이 비어 있습니다");
       return content.trim();
+    },
+  };
+}
+
+/** OpenAI 호환 멀티모달 형식. Kimi·Gemini도 같은 image_url 블록을 받는다. */
+export function createOpenAICompatibleVisionModel(opts: Options): VisionModel {
+  const client: OpenAILike =
+    opts.client ?? (new OpenAI({ apiKey: opts.apiKey, baseURL: opts.baseURL }) as unknown as OpenAILike);
+
+  return {
+    async generate({ system, userText, images }) {
+      const content: unknown[] = [{ type: "text", text: userText }];
+      for (const image of images) {
+        content.push(
+          { type: "text", text: image.label },
+          {
+            type: "image_url",
+            image_url: { url: `data:${image.mediaType};base64,${image.base64}`, detail: "low" },
+          },
+        );
+      }
+      const response = await client.chat.completions.create({
+        model: opts.model,
+        max_tokens: 8192,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content },
+        ],
+      });
+      const text = response.choices[0]?.message?.content;
+      if (!text) throw new Error("응답이 비어 있습니다");
+      return text.trim();
     },
   };
 }

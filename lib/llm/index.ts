@@ -1,8 +1,11 @@
 import { getSettingsStore } from "@/lib/settings";
 import { PROVIDER_PRESETS, type ProviderId, type ProviderPreset } from "@/lib/llm/providers";
-import { createAnthropicTextModel } from "@/lib/llm/anthropic";
-import { createOpenAICompatibleTextModel } from "@/lib/llm/openaiCompatible";
-import type { TextModel } from "@/lib/llm/types";
+import { createAnthropicTextModel, createAnthropicVisionModel } from "@/lib/llm/anthropic";
+import {
+  createOpenAICompatibleTextModel,
+  createOpenAICompatibleVisionModel,
+} from "@/lib/llm/openaiCompatible";
+import type { TextModel, VisionModel } from "@/lib/llm/types";
 
 interface ResolvedProvider {
   active: ProviderId;
@@ -33,4 +36,12 @@ export async function getTextModel(): Promise<TextModel> {
   const { active, apiKey, model, preset } = await resolveActiveProvider();
   if (active === "anthropic") return createAnthropicTextModel({ apiKey, model });
   return createOpenAICompatibleTextModel({ apiKey, baseURL: preset.baseURL!, model });
+}
+
+/** 릴스 프레임을 읽는 해체 기능용. 활성 텍스트 제공자의 같은 모델·키를 재사용한다. */
+export async function getVisionModel(): Promise<VisionModel> {
+  const { active, apiKey, model, preset } = await resolveActiveProvider();
+  if (!preset.vision) throw new Error(`${preset.label}의 현재 모델은 이미지를 읽을 수 없습니다.`);
+  if (active === "anthropic") return createAnthropicVisionModel({ apiKey, model });
+  return createOpenAICompatibleVisionModel({ apiKey, baseURL: preset.baseURL!, model });
 }

@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Heart, Plus, Link2, Trash2, Pencil } from "lucide-react";
+import Link from "next/link";
+import { Heart, Plus, Link2, Trash2, Pencil, Scissors, LoaderCircle } from "lucide-react";
 import {
   HOOK_CATEGORIES,
   HOOK_CATEGORY_LABELS,
@@ -24,6 +25,17 @@ interface Props {
   onSave: (draft: HookDraft, id?: string) => Promise<void>;
   onToggleFavorite: (id: string, next: boolean) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onBreakdown: (
+    id: string,
+    onProgress: (progress: { percent: number; message: string }) => void,
+  ) => Promise<void>;
+}
+
+interface BreakdownJob {
+  running: boolean;
+  percent: number;
+  message: string;
+  error?: string;
 }
 
 function HookRow({
@@ -31,11 +43,15 @@ function HookRow({
   onToggleFavorite,
   onDelete,
   onEdit,
+  onBreakdown,
+  breakdownJob,
 }: {
   hook: Hook;
   onToggleFavorite: Props["onToggleFavorite"];
   onDelete: Props["onDelete"];
   onEdit: (hook: Hook) => void;
+  onBreakdown: (hook: Hook) => void;
+  breakdownJob?: BreakdownJob;
 }) {
   return (
     <li className="flex items-center gap-3 rounded-card border border-border-subtle bg-surface p-3">
@@ -61,6 +77,16 @@ function HookRow({
           </p>
         )}
         {hook.note && <p className="mt-1 text-xs text-neutral-500">{hook.note}</p>}
+        {breakdownJob?.running && (
+          <p role="status" className="mt-1 text-xs font-medium text-brand-700">
+            {breakdownJob.message} · {breakdownJob.percent}%
+          </p>
+        )}
+        {breakdownJob?.error && (
+          <p role="alert" className="mt-1 text-xs text-band-weak">
+            {breakdownJob.error}
+          </p>
+        )}
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5">
@@ -93,6 +119,31 @@ function HookRow({
             <Link2 size={16} />
           </a>
         )}
+
+        {hook.sourceUrl &&
+          (hook.breakdown && !breakdownJob?.running ? (
+            <Link
+              href={`/hooks/${hook.id}/breakdown`}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-neutral-900 px-3 text-xs font-semibold text-white hover:bg-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+            >
+              <Scissors size={14} aria-hidden />
+              해체 결과
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onBreakdown(hook)}
+              disabled={breakdownJob?.running}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-brand-50 px-3 text-xs font-semibold text-brand-700 hover:bg-brand-100 disabled:cursor-wait disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+            >
+              {breakdownJob?.running ? (
+                <LoaderCircle size={14} className="animate-spin" aria-hidden />
+              ) : (
+                <Scissors size={14} aria-hidden />
+              )}
+              {breakdownJob?.running ? `${breakdownJob.percent}%` : "해체하기"}
+            </button>
+          ))}
 
         <button
           type="button"
@@ -140,11 +191,12 @@ function Section({ title, count, children }: { title: string; count: number; chi
   );
 }
 
-export function HookLibrary({ hooks, onSave, onToggleFavorite, onDelete }: Props) {
+export function HookLibrary({ hooks, onSave, onToggleFavorite, onDelete, onBreakdown }: Props) {
   const [category, setCategory] = useState<HookCategoryFilter>("all");
   const [sort, setSort] = useState<HookSort>("latest");
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [breakdownJobs, setBreakdownJobs] = useState<Record<string, BreakdownJob>>({});
 
   const visible = useMemo(() => selectHooks(hooks, category, sort), [hooks, category, sort]);
   const sections = splitHookSections(visible);
@@ -162,6 +214,35 @@ export function HookLibrary({ hooks, onSave, onToggleFavorite, onDelete }: Props
   async function submit(draft: HookDraft, id?: string) {
     await onSave(draft, id);
     close();
+  }
+
+  async function startBreakdown(hook: Hook) {
+    setBreakdownJobs((current) => ({
+      ...current,
+      [hook.id]: { running: true, percent: 1, message: "해체를 준비하는 중" },
+    }));
+    try {
+      await onBreakdown(hook.id, (progress) =>
+        setBreakdownJobs((current) => ({
+          ...current,
+          [hook.id]: { running: true, ...progress },
+        })),
+      );
+      setBreakdownJobs((current) => ({
+        ...current,
+        [hook.id]: { running: false, percent: 100, message: "해체 완료" },
+      }));
+    } catch (error) {
+      setBreakdownJobs((current) => ({
+        ...current,
+        [hook.id]: {
+          running: false,
+          percent: 0,
+          message: "해체 실패",
+          error: error instanceof Error ? error.message : "릴스 해체에 실패했습니다",
+        },
+      }));
+    }
   }
 
   /**
@@ -185,6 +266,8 @@ export function HookLibrary({ hooks, onSave, onToggleFavorite, onDelete }: Props
         hook={hook}
         onToggleFavorite={onToggleFavorite}
         onDelete={onDelete}
+        onBreakdown={startBreakdown}
+        breakdownJob={breakdownJobs[hook.id]}
         onEdit={(target) => {
           setAdding(false);
           setEditingId(target.id);
