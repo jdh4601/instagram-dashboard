@@ -9,6 +9,8 @@ import { selectReels, SORT_LABELS, type EarlyViewsMap, type ReelSort } from "@/l
 import { fmtCount, fmtPct } from "@/lib/ui/format";
 import { cn } from "@/components/ui";
 import { emptyListMessage, type MediaFilter } from "@/lib/ui/mediaFilter";
+import { mediaKindOf } from "@/lib/media/kind";
+import { detailPathForMedia } from "@/lib/ui/navigation";
 
 interface Props {
   reels: Reel[];
@@ -121,7 +123,7 @@ function ReelRow({
 }) {
   return (
     <Link
-      href={`/reel/${reel.id}`}
+      href={detailPathForMedia(mediaKindOf(reel), reel.id)}
       className="group flex items-center gap-3 p-3 text-left transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-400"
     >
       <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded-md bg-neutral-100">

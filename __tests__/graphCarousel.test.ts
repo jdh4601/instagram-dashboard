@@ -1,5 +1,5 @@
 import { createGraphClient } from "@/lib/graph/client";
-import { classifyMedia, mapMediaToReel } from "@/lib/graph/map";
+import { classifyMedia, mapCarouselChildren, mapMediaToReel } from "@/lib/graph/map";
 
 function fakeFetch(routes: Record<string, unknown>, calls: string[] = []) {
   return async (url: string) => {
@@ -104,4 +104,53 @@ test("mapMediaToReel은 릴스에 mediaType REELS를 심는다", () => {
   expect(reel.mediaType).toBe("REELS");
   expect(reel.thumbnailUrl).toBe("https://cdn/thumb.jpg");
   expect(reel.hookRetention3s).toBe(60);
+});
+
+test("mapCarouselChildren은 낱장을 순서대로 이미지·영상으로 가른다", () => {
+  const slides = mapCarouselChildren({
+    children: {
+      data: [
+        { id: "1", media_type: "IMAGE", media_url: "https://cdn/1.jpg" },
+        { id: "2", media_type: "VIDEO", media_url: "https://cdn/2.mp4", thumbnail_url: "https://cdn/2.jpg" },
+      ],
+    },
+  });
+
+  expect(slides).toEqual([
+    { id: "1", kind: "IMAGE", url: "https://cdn/1.jpg", posterUrl: undefined },
+    { id: "2", kind: "VIDEO", url: "https://cdn/2.mp4", posterUrl: "https://cdn/2.jpg" },
+  ]);
+});
+
+test("mapCarouselChildren은 주소 없는 낱장을 버린다", () => {
+  // media_url이 빠진 낱장(만료·저작권)을 그대로 넘기면 화면에 깨진 이미지가 뜬다.
+  const slides = mapCarouselChildren({
+    children: { data: [{ id: "1", media_type: "IMAGE" }, { id: "2", media_type: "IMAGE", media_url: "https://cdn/2.jpg" }] },
+  });
+
+  expect(slides.map((slide) => slide.id)).toEqual(["2"]);
+});
+
+test("mapCarouselChildren은 children이 없으면 빈 배열", () => {
+  expect(mapCarouselChildren({})).toEqual([]);
+});
+
+test("getCarouselChildren은 낱장 주소를 그때그때 다시 물어본다", async () => {
+  const calls: string[] = [];
+  const client = createGraphClient({
+    accessToken: "tok",
+    fetchImpl: fakeFetch(
+      {
+        "/carousel-1": {
+          children: { data: [{ id: "1", media_type: "IMAGE", media_url: "https://cdn/1.jpg" }] },
+        },
+      },
+      calls,
+    ) as unknown as typeof fetch,
+  });
+
+  const slides = await client.getCarouselChildren!("carousel-1");
+
+  expect(calls[0]).toContain("children");
+  expect(slides).toEqual([{ id: "1", kind: "IMAGE", url: "https://cdn/1.jpg", posterUrl: undefined }]);
 });

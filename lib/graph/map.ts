@@ -52,6 +52,44 @@ export interface GraphMedia {
   permalink?: string;
 }
 
+/** 캐러셀 낱장 한 장. Graph의 children 항목을 화면이 쓰는 모양으로 좁힌 것이다. */
+export interface CarouselSlide {
+  id: string;
+  kind: "IMAGE" | "VIDEO";
+  /** 이미지 주소 또는 mp4 주소. 서명이 만료되는 CDN URL이라 저장하지 않는다. */
+  url: string;
+  /** 영상 낱장의 포스터. 이미지 낱장에는 없다. */
+  posterUrl?: string;
+}
+
+export interface GraphChildrenResponse {
+  children?: {
+    data?: Array<{
+      id: string;
+      media_type?: string;
+      media_url?: string;
+      thumbnail_url?: string;
+    }>;
+  };
+}
+
+/**
+ * 캐러셀 낱장 목록. 게시된 순서를 그대로 지킨다 — 순서가 곧 전개라 섞이면 읽을 수 없다.
+ *
+ * media_url이 없는 낱장(저작권 음원이 걸린 영상, 만료된 항목)은 버린다. 넘겨 봐야
+ * 화면에는 깨진 이미지만 남는다.
+ */
+export function mapCarouselChildren(json: GraphChildrenResponse): CarouselSlide[] {
+  return (json.children?.data ?? [])
+    .filter((child) => typeof child.media_url === "string" && child.media_url.length > 0)
+    .map((child) => ({
+      id: child.id,
+      kind: child.media_type === "VIDEO" ? ("VIDEO" as const) : ("IMAGE" as const),
+      url: child.media_url!,
+      posterUrl: child.thumbnail_url,
+    }));
+}
+
 // 대시보드가 다루는 두 종류만 통과시킨다. 단일 사진·단일 영상 피드 글과
 // 스토리는 분석 대상이 아니라 null이다.
 export function classifyMedia(media: GraphMedia): MediaKind | null {

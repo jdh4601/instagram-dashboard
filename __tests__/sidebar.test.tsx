@@ -41,6 +41,16 @@ test("릴스 상세에서도 릴스 탭이 활성으로 남는다", () => {
   expect(html).toMatch(/href="\/reels"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/reels"/);
 });
 
+test("캐러셀 상세에서는 캐러셀 탭만 활성이다", () => {
+  const html = renderToStaticMarkup(<Sidebar pathname="/carousel/17900000000000000" />);
+
+  const currents = html.match(/aria-current="page"/g) ?? [];
+  expect(currents).toHaveLength(1);
+  expect(html).toMatch(
+    /href="\/carousels"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/carousels"/,
+  );
+});
+
 test("사이드바는 내비게이션 랜드마크로 읽힌다", () => {
   const html = renderToStaticMarkup(<Sidebar pathname="/" />);
 

@@ -30,6 +30,18 @@ test("목록이 비어도 토글 대신 그 종류에 맞는 안내만 남는다
   expect(html).toContain("캐러셀 게시물이 없습니다");
 });
 
+test("행은 그 게시물 종류의 상세로 간다", () => {
+  const reelHtml = renderToStaticMarkup(<ReelList reels={[reel]} filter="REELS" />);
+  expect(reelHtml).toContain('href="/reel/17900000000000000"');
+
+  // 캐러셀 행이 /reel/:id로 가면 사이드바에서 릴스 탭이 켜진다.
+  const carouselHtml = renderToStaticMarkup(
+    <ReelList reels={[{ ...reel, mediaType: "CAROUSEL" }]} filter="CAROUSEL" />,
+  );
+  expect(carouselHtml).toContain('href="/carousel/17900000000000000"');
+  expect(carouselHtml).not.toContain('href="/reel/17900000000000000"');
+});
+
 test("동기화 중에는 필터 문구보다 진행 안내가 앞선다", () => {
   const html = renderToStaticMarkup(<ReelList reels={[]} filter="CAROUSEL" syncing />);
 

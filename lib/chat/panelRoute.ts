@@ -13,12 +13,15 @@ export function shouldShowChatPanel(pathname: string): boolean {
 }
 
 /**
- * 릴스 상세 경로에서 릴스 id를 꺼낸다.
+ * 게시물 상세 경로에서 id를 꺼낸다.
  *
- * 이 값이 있으면 질문에 릴스를 지목하는 말이 없어도 그 릴스를 컨텍스트에 싣는다 —
+ * 이 값이 있으면 질문에 게시물을 지목하는 말이 없어도 그 게시물을 컨텍스트에 싣는다 —
  * 상세 화면을 띄워 놓고 "이거 훅 왜 약해?"라고 묻는 게 가장 흔한 사용법이다.
+ *
+ * 상세는 종류마다 경로가 갈린다(/reel/:id, /carousel/:id — lib/ui/navigation.ts).
+ * 둘 다 받아야 캐러셀 상세에서도 대화가 그 게시물을 안다.
  */
 export function reelIdFromPathname(pathname: string): string | null {
-  const match = /^\/reel\/([^/]+)\/?$/.exec(pathname);
+  const match = /^\/(?:reel|carousel)\/([^/]+)\/?$/.exec(pathname);
   return match ? match[1] : null;
 }

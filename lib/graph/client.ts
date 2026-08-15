@@ -1,4 +1,12 @@
-import { classifyMedia, flattenInsights, type GraphMedia, type GraphInsightsResponse } from "@/lib/graph/map";
+import {
+  classifyMedia,
+  flattenInsights,
+  mapCarouselChildren,
+  type CarouselSlide,
+  type GraphChildrenResponse,
+  type GraphMedia,
+  type GraphInsightsResponse,
+} from "@/lib/graph/map";
 import type { MediaKind } from "@/lib/schemas";
 
 const DEFAULT_BASE = "https://graph.instagram.com";
@@ -119,6 +127,11 @@ export interface GraphClient {
    * 이미지·만료된 게시물은 필드가 없어 null이다.
    */
   getMediaUrl?(mediaId: string): Promise<string | null>;
+  /**
+   * 캐러셀 낱장 목록. media_url과 마찬가지로 서명이 만료되므로 저장해 두지 않고
+   * 상세 화면을 열 때마다 다시 물어본다.
+   */
+  getCarouselChildren?(mediaId: string): Promise<CarouselSlide[]>;
 }
 
 export function createGraphClient(opts: Options): GraphClient {
@@ -313,6 +326,13 @@ export function createGraphClient(opts: Options): GraphClient {
     async getMediaUrl(mediaId) {
       const json = (await request(mediaId, { fields: "media_url" })) as { media_url?: string };
       return json.media_url ?? null;
+    },
+
+    async getCarouselChildren(mediaId) {
+      const json = (await request(mediaId, {
+        fields: "children{media_url,media_type,thumbnail_url}",
+      })) as GraphChildrenResponse;
+      return mapCarouselChildren(json);
     },
 
     async getInsights(mediaId, kind = "REELS") {

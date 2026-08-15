@@ -1,0 +1,107 @@
+"use client";
+import type { Reel, ReelMetricSnapshot } from "@/lib/schemas";
+import type { AnalyzeResult } from "@/lib/analysis/analyze";
+import type { ReelKpiDeltas } from "@/lib/analysis/reelKpiDeltas";
+import { AiGenerationPanel } from "@/components/AiGenerationPanel";
+import { BottleneckBanner } from "@/components/BottleneckBanner";
+import { DiagnosisCards } from "@/components/DiagnosisCards";
+import { DurationInput } from "@/components/DurationInput";
+import { InsightList } from "@/components/InsightList";
+import { MetricBars } from "@/components/MetricBars";
+import { ReelAnalysisPanel } from "@/components/ReelAnalysisPanel";
+import { ReelConversionFunnel } from "@/components/ReelConversionFunnel";
+import { ReelDerivedMetrics } from "@/components/ReelDerivedMetrics";
+import { ReelMetricTrend } from "@/components/ReelMetricTrend";
+import { ReelPerformanceDashboard } from "@/components/ReelPerformanceDashboard";
+import { ReelVideoPlayer } from "@/components/ReelVideoPlayer";
+import { SolutionsPanel } from "@/components/SolutionsPanel";
+import { SrtUploadCard } from "@/components/SrtUploadCard";
+
+interface Props {
+  reel: Reel;
+  analysis: AnalyzeResult;
+  metricHistory: ReelMetricSnapshot[];
+  kpiDeltas?: ReelKpiDeltas;
+  onChange: () => void;
+}
+
+/**
+ * 릴스 상세. 캐러셀은 CarouselDetail이 따로 맡는다 — 영상 잔존을 전제로 한 진단과
+ * 자막·훅 생성이 여기 다 걸려 있어 한 컴포넌트에 두면 종류 분기만 남는다.
+ */
+export function ReelDetail({ reel, analysis, metricHistory, kpiDeltas, onChange }: Props) {
+  return (
+    <>
+      {/* 영상은 왼쪽, 분석은 오른쪽. 자막을 보면서 화면을 되짚을 수 있어야 한다. */}
+      <div className="grid gap-5 lg:grid-cols-[16rem_minmax(0,1fr)]">
+        <ReelVideoPlayer reel={reel} onDownloaded={onChange} />
+        <ReelAnalysisPanel
+          reel={reel}
+          analysis={reel.reelAnalysis ?? null}
+          onAnalyze={() => runReelAction(`/api/reels/${reel.id}/analysis`, onChange)}
+          onTranscribe={() => runReelAction(`/api/reels/${reel.id}/transcript/whisper`, onChange)}
+          onImprove={() => runReelAction(`/api/reels/${reel.id}/improved-story`, onChange)}
+        />
+      </div>
+
+      <ReelPerformanceDashboard reel={reel} deltas={kpiDeltas} />
+
+      {/* 진단 → 처방 → 실행 → 근거/상세 순으로 스토리를 전개한다. */}
+      <BottleneckBanner
+        bottleneck={analysis.diagnosis.bottleneck}
+        delta={analysis.bottleneckDelta}
+        insufficientSample={analysis.diagnosis.insufficientSample}
+        reach={analysis.diagnosis.reach}
+      />
+      <DiagnosisCards
+        strengths={analysis.diagnosis.strengths}
+        weaknesses={analysis.diagnosis.weaknesses}
+        mediaLabel="릴스"
+        insufficientSample={analysis.diagnosis.insufficientSample}
+      />
+      <SolutionsPanel prescriptions={analysis.prescriptions} />
+      <AiGenerationPanel reelId={reel.id} />
+      <InsightList title="이 릴스의 핵심 인사이트" insights={analysis.reelInsights} />
+      <ReelMetricTrend history={metricHistory} />
+      <SrtUploadCard
+        reelId={reel.id}
+        analysis={analysis.transcript}
+        insights={reel.transcriptInsights}
+        onChange={onChange}
+      />
+      <DurationInput
+        reelId={reel.id}
+        durationSec={reel.durationSec}
+        avgWatchTimeSec={reel.avgWatchTimeSec}
+        onChange={onChange}
+      />
+      <MetricBars verdicts={analysis.diagnosis.verdicts} baselineActive={analysis.baselineActive} />
+      <ReelDerivedMetrics reel={reel} />
+      <ReelConversionFunnel reel={reel} />
+      {/* 캡션은 맨 아래에 둬 긴 본문이 분석을 밀어내지 않게 한다. */}
+      {reel.caption && (
+        <p className="whitespace-pre-line rounded-card border border-border-subtle bg-surface-muted/50 p-3 text-sm leading-relaxed text-neutral-700">
+          {reel.caption}
+        </p>
+      )}
+    </>
+  );
+}
+
+/**
+ * 전사·분석처럼 "서버가 릴스를 고쳐 쓰는" 동작을 한 곳에 모은다.
+ *
+ * 실패하면 던져서 패널이 사유를 그대로 띄우게 한다 — 여기서 삼키면 버튼만
+ * 멈춘 것처럼 보이고 무엇을 고쳐야 하는지 알 수 없다.
+ */
+async function runReelAction(path: string, onDone: () => void): Promise<void> {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error ?? `요청이 실패했습니다 (${res.status})`);
+  }
+  onDone();
+}

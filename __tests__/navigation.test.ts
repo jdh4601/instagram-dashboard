@@ -1,4 +1,10 @@
-import { NAV_ITEMS, isNavActive, isNavItemActive, listPathForMedia } from "@/lib/ui/navigation";
+import {
+  NAV_ITEMS,
+  detailPathForMedia,
+  isNavActive,
+  isNavItemActive,
+  listPathForMedia,
+} from "@/lib/ui/navigation";
 
 test("사이드바는 여섯 개 탭을 이 순서로 노출한다", () => {
   expect(NAV_ITEMS.map((item) => item.href)).toEqual([
@@ -62,8 +68,27 @@ test("돌아갈 목록 경로는 실제 탭 주소와 같다", () => {
   expect(hrefs).toContain(listPathForMedia("CAROUSEL"));
 });
 
-test("게시물 상세는 릴스 탭에 묶인다", () => {
-  // 캐러셀도 같은 /reel/:id 상세를 쓴다. 상세에서 켜질 탭은 하나뿐이라 목록 탭 하나에 묶는다.
+test("상세 경로는 종류마다 갈린다", () => {
+  expect(detailPathForMedia("REELS", "179")).toBe("/reel/179");
+  expect(detailPathForMedia("CAROUSEL", "179")).toBe("/carousel/179");
+});
+
+test("릴스 상세는 릴스 탭에, 캐러셀 상세는 캐러셀 탭에 묶인다", () => {
   const reels = NAV_ITEMS.find((item) => item.href === "/reels")!;
+  const carousels = NAV_ITEMS.find((item) => item.href === "/carousels")!;
+
   expect(isNavItemActive("/reel/17900000000000000", reels)).toBe(true);
+  expect(isNavItemActive("/reel/17900000000000000", carousels)).toBe(false);
+
+  // 캐러셀을 눌렀는데 릴스 탭이 켜지던 문제. 상세가 갈렸으니 탭도 갈려야 한다.
+  expect(isNavItemActive("/carousel/17900000000000000", carousels)).toBe(true);
+  expect(isNavItemActive("/carousel/17900000000000000", reels)).toBe(false);
+});
+
+test("상세 경로는 그 종류의 상세 탭 접두사 안에 있다", () => {
+  // 경로와 활성 규칙이 따로 놀면 상세에서 아무 탭도 켜지지 않는다.
+  for (const item of NAV_ITEMS) {
+    if (item.href === "/reels") expect(isNavItemActive(detailPathForMedia("REELS", "1"), item)).toBe(true);
+    if (item.href === "/carousels") expect(isNavItemActive(detailPathForMedia("CAROUSEL", "1"), item)).toBe(true);
+  }
 });
