@@ -26,7 +26,8 @@ const LEVEL_CLASS = [
   "bg-rhythm-4",
 ] as const;
 
-function cellTitle(day: RhythmDay): string {
+/** 그날 무엇을 올렸는지 한 줄로. 릴스만·캐러셀만·둘 다를 여기서 구분한다. */
+export function dayTitle(day: RhythmDay): string {
   const date = `${Number(day.date.slice(5, 7))}월 ${day.day}일`;
   if (day.dominant === null) return `${date} · 업로드 없음`;
   const parts = [
@@ -38,21 +39,41 @@ function cellTitle(day: RhythmDay): string {
 }
 
 function DayCell({ day }: { day: RhythmDay | null }) {
-  if (day === null) return <div className="h-4 w-4" />;
+  // 그 달이 아닌 칸. 자리는 지키되 아무것도 그리지 않는다.
+  if (day === null) return <div className="aspect-square" />;
+
   // 아직 오지 않은 날은 빈 칸(쉰 날)과 구분해 테두리만 남긴다.
   if (day.future) {
-    return <div className="h-4 w-4 rounded-[2px] border border-dashed border-border-subtle" />;
+    return (
+      <div className="aspect-square rounded-md border border-dashed border-border-subtle" />
+    );
   }
-  return (
-    <div title={cellTitle(day)} className={cn("h-4 w-4 rounded-[2px]", LEVEL_CLASS[day.level])} />
-  );
-}
 
-function Summary({ label, value }: { label: string; value: string }) {
+  // 올리지 않은 날은 누를 것이 없다. 잔디 바탕만 깔고 넘어간다.
+  if (day.dominant === null) {
+    return <div className="aspect-square rounded-md bg-rhythm-0" />;
+  }
+
+  const title = dayTitle(day);
   return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-border-subtle pb-1.5 last:border-b-0">
-      <span className="whitespace-nowrap text-xs text-neutral-500">{label}</span>
-      <span className="tabular-nums text-sm font-semibold text-neutral-900">{value}</span>
+    <div className="group relative">
+      <button
+        type="button"
+        aria-label={title}
+        className={cn(
+          "aspect-square w-full rounded-md transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400",
+          LEVEL_CLASS[day.level],
+        )}
+      />
+      {/* 손가락으로도 볼 수 있어야 해서 hover만이 아니라 포커스에도 띄운다.
+          색은 surface/neutral 토큰으로 잡는다 — 고정 색을 쓰면 다크 모드에서
+          글자와 배경이 같이 밝아져 읽히지 않는다. */}
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-lg border border-border-subtle bg-surface px-2 py-1 text-[11px] font-medium text-neutral-900 opacity-0 shadow-card transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+      >
+        {title}
+      </span>
     </div>
   );
 }
@@ -70,7 +91,7 @@ export function UploadRhythmCard({ reels, now }: Props) {
     setTarget(shiftMonth({ year: rhythm.year, month: rhythm.month }, step));
 
   return (
-    <Card className="w-full lg:w-auto">
+    <Card>
       <CardHeader
         title="업로드 리듬"
         icon={<CalendarDays size={16} className="text-brand-500" />}
@@ -98,42 +119,24 @@ export function UploadRhythmCard({ reels, now }: Props) {
           </div>
         }
       />
-      <CardBody className="flex flex-col gap-4 px-4 pb-4 pt-3 sm:flex-row sm:items-stretch sm:gap-6">
-        {/* 칸이 커지면 잔디가 아니라 달력으로 보인다. 칸 크기를 고정해 잔디로 남긴다. */}
-        <div className="w-fit shrink-0" role="img" aria-label={`${rhythm.label} 업로드 리듬 달력`}>
-          <div className="grid grid-cols-7 gap-1 text-center text-[10px] leading-4 text-neutral-400">
+      <CardBody className="space-y-3">
+        {/* 달력이 카드 폭을 그대로 쓴다 — 칸이 커야 어느 날인지 짚고 눌러 볼 수 있다. */}
+        <div aria-label={`${rhythm.label} 업로드 리듬 달력`}>
+          <div className="grid w-full grid-cols-7 gap-1.5 text-center text-[11px] leading-5 text-neutral-400">
             {DAY_LABELS.map((label) => (
-              <span key={label} className="w-4">
-                {label}
-              </span>
+              <span key={label}>{label}</span>
             ))}
           </div>
-          <div className="mt-1 grid grid-cols-7 gap-1">
+          <div className="mt-1.5 grid w-full grid-cols-7 gap-1.5">
             {rhythm.weeks.map((week, weekIndex) =>
               week.map((day, weekday) => <DayCell key={`${weekIndex}-${weekday}`} day={day} />),
             )}
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col justify-between gap-3 border-border-subtle sm:w-44 sm:flex-none sm:border-l sm:pl-5">
-          <div className="flex flex-col gap-2">
-            <Summary label="릴스" value={`${totals.reels}개`} />
-            <Summary label="캐러셀" value={`${totals.carousels}개`} />
-            <Summary label="업로드일" value={`${totals.uploadDays}일`} />
-            <Summary label="최장 공백" value={`${totals.longestGapDays}일`} />
-          </div>
-          {totals.uploadDays === 0 ? (
-            <p className="text-[11px] text-neutral-400">이 달은 업로드 없음</p>
-          ) : (
-            <div className="flex items-center gap-1.5 text-[10px] text-neutral-400">
-              <span>적음</span>
-              {LEVEL_CLASS.map((className) => (
-                <span key={className} className={cn("h-2.5 w-2.5 rounded-[2px]", className)} />
-              ))}
-              <span>많음</span>
-            </div>
-          )}
-        </div>
+        <p className="text-xs text-neutral-500">
+          릴스 {totals.reels}개 · 캐러셀 {totals.carousels}개 · 업로드일 {totals.uploadDays}일
+        </p>
       </CardBody>
     </Card>
   );

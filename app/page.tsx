@@ -219,17 +219,13 @@ export default function Page() {
                 </button>
               </div>
             )}
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
-              <div className="shrink-0 lg:max-w-md">
-                <AccountHeader profile={profile} followerDelta={followerDelta} contentCount={reels.length} />
-              </div>
-              <UploadRhythmCard reels={reels} />
-            </div>
+            <AccountHeader profile={profile} followerDelta={followerDelta} contentCount={reels.length} />
             <AccountOverview overview={overview} />
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
               <AccountFunnelCard funnel={funnel} />
-              <AudienceMixCard mix={audienceMix} reels={reels} />
+              <UploadRhythmCard reels={reels} />
             </div>
+            <AudienceMixCard mix={audienceMix} />
 
             {/* 추이는 가로가 길수록 읽기 쉬우므로 한 행을 다 쓴다. 팔로워 추이는
                 이 카드의 누적 차트가 대신하므로 FollowerGrowthChart는 걷어냈다. */}

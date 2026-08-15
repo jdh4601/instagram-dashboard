@@ -1,42 +1,32 @@
 import { Users } from "lucide-react";
 import type { AudienceMix } from "@/lib/analysis/audienceMix";
-import type { Reel } from "@/lib/schemas";
 import { fmtCount, fmtPct } from "@/lib/ui/format";
 import { Card, CardBody, CardHeader } from "@/components/ui";
-import { EngagementDonut } from "@/components/EngagementDonut";
 
 interface Props {
   mix: AudienceMix | null;
-  reels: Reel[];
 }
 
 /**
- * 도달의 "누구"(팔로워 vs 비팔로워)와 "무엇"(공유·댓글·저장·좋아요)을 한 카드에 둔다.
- * 둘 다 도달 한 덩어리를 쪼개 보는 구성비라 나란히 놓으면 같이 읽힌다.
+ * 도달 한 덩어리를 팔로워와 비팔로워로 쪼개 보여 준다.
+ *
+ * 좋아요·저장·공유 구성비(도넛)도 여기 있었지만 걷어냈다. 비율만으로는 어느
+ * 게시물을 어떻게 고칠지가 나오지 않아 읽고 나서 할 일이 없었다.
  *
  * 데이터 신선도는 동기화 버튼 옆에서 한 번만 말한다. 카드마다 "... 기준"을 붙이면
  * 같은 이야기가 화면 곳곳에서 반복돼 정작 숫자가 묻힌다.
  */
-export function AudienceMixCard({ mix, reels }: Props) {
-  if (mix === null && reels.length === 0) return null;
+export function AudienceMixCard({ mix }: Props) {
+  if (mix === null) return null;
 
   return (
     <Card>
       <CardHeader
-        title="도달 · 인게이지먼트 구성"
+        title="도달 구성 (팔로워 vs 비팔로워)"
         icon={<Users size={16} className="text-brand-600" />}
       />
-      <CardBody className="space-y-4">
-        {mix !== null && <ReachMix mix={mix} />}
-        <section
-          aria-label="인게이지먼트 구성"
-          className={mix === null ? undefined : "border-t border-border-subtle pt-4"}
-        >
-          <SectionLabel title="인게이지먼트 구성" />
-          <div className="mt-2">
-            <EngagementDonut reels={reels} />
-          </div>
-        </section>
+      <CardBody>
+        <ReachMix mix={mix} />
       </CardBody>
     </Card>
   );
@@ -47,7 +37,6 @@ function ReachMix({ mix }: { mix: AudienceMix }) {
 
   return (
     <section aria-label="도달 구성" className="space-y-3">
-      <SectionLabel title="도달 구성 (팔로워 vs 비팔로워)" />
       <div
         className="flex h-3 w-full overflow-hidden rounded-full bg-surface-muted"
         role="img"
@@ -62,10 +51,6 @@ function ReachMix({ mix }: { mix: AudienceMix }) {
       </div>
     </section>
   );
-}
-
-function SectionLabel({ title }: { title: string }) {
-  return <p className="text-xs font-medium text-neutral-500">{title}</p>;
 }
 
 function Stat({
