@@ -1,11 +1,12 @@
 "use client";
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Search, Film, Eye, Calendar, Heart, MessageCircle, Share2, Bookmark, RefreshCw } from "lucide-react";
+import { Search, Film, Eye, Users, Calendar, Heart, MessageCircle, Share2, Bookmark, RefreshCw } from "lucide-react";
 import type { Reel } from "@/lib/schemas";
 import { AGE_TARGET_HOURS, type AgeNormalizedViews } from "@/lib/analysis/ageNormalized";
 import { reelTitle } from "@/lib/ui/reelTitle";
-import { selectReels, SORT_LABELS, type EarlyViewsMap, type ReelSort } from "@/lib/ui/reelSelect";
+import { metricValue } from "@/lib/analysis/metrics";
+import { selectReels, SORT_LABELS, sortsFor, type EarlyViewsMap, type ReelSort } from "@/lib/ui/reelSelect";
 import { fmtCount, fmtPct } from "@/lib/ui/format";
 import { cn } from "@/components/ui";
 import { emptyListMessage, type MediaFilter } from "@/lib/ui/mediaFilter";
@@ -25,6 +26,7 @@ interface Props {
 export function ReelList({ reels, filter, syncing = false, earlyViews }: Props) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<ReelSort>("latest");
+  const sorts = sortsFor(filter);
 
   const visible = useMemo(
     () => selectReels(reels, query, sort, earlyViews),
@@ -78,7 +80,7 @@ export function ReelList({ reels, filter, syncing = false, earlyViews }: Props) 
           aria-label="게시물 정렬"
           className="flex gap-1 rounded-lg border border-border-subtle bg-surface p-0.5"
         >
-          {(Object.keys(SORT_LABELS) as ReelSort[]).map((s) => (
+          {sorts.map((s) => (
             <button
               type="button"
               key={s}
@@ -121,6 +123,14 @@ function ReelRow({
   /** undefined = 표시 안 함, null = 이력이 없어 값을 낼 수 없음 */
   early?: AgeNormalizedViews | null;
 }) {
+  // 캐러셀의 조회수는 노출이라 도달의 3배 안팎으로 부푼다. 그 분모로 만든
+  // 인게이지먼트는 릴스와 견줄 수 없는 숫자라, 목록에서도 캐러셀은 도달과
+  // 도달 기준 저장율로 읽는다 — lib/analysis/metrics.ts의 metricValue 참고.
+  const isCarousel = mediaKindOf(reel) === "CAROUSEL";
+  const headline = isCarousel
+    ? { label: "저장율", value: metricValue(reel, "saveRate") ?? 0 }
+    : { label: "인게이지먼트", value: reel.derived?.engagementRate ?? 0 };
+
   return (
     <Link
       href={detailPathForMedia(mediaKindOf(reel), reel.id)}
@@ -147,8 +157,8 @@ function ReelRow({
             {reel.postedAt.slice(0, 10)}
           </span>
           <span className="inline-flex items-center gap-0.5">
-            <Eye size={11} />
-            {fmtCount(reel.views)}
+            {isCarousel ? <Users size={11} /> : <Eye size={11} />}
+            {isCarousel ? `도달 ${fmtCount(reel.reach)}` : fmtCount(reel.views)}
           </span>
           {early !== undefined && (
             <span className="text-brand-600">
@@ -172,10 +182,8 @@ function ReelRow({
       </div>
 
       <div className="shrink-0 text-right">
-        <div className="text-xs font-semibold text-neutral-900">
-          {fmtPct(reel.derived?.engagementRate ?? 0)}
-        </div>
-        <div className="text-[10px] text-neutral-500">인게이지먼트</div>
+        <div className="text-xs font-semibold text-neutral-900">{fmtPct(headline.value)}</div>
+        <div className="text-[10px] text-neutral-500">{headline.label}</div>
       </div>
     </Link>
   );
