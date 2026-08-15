@@ -5,6 +5,7 @@ import {
   GalleryHorizontalEnd,
   Anchor,
   BookOpen,
+  Megaphone,
   Settings,
 } from "lucide-react";
 import { NAV_ITEMS, isNavItemActive } from "@/lib/ui/navigation";
@@ -14,6 +15,7 @@ const ICONS = {
   "/": LayoutDashboard,
   "/reels": Film,
   "/carousels": GalleryHorizontalEnd,
+  "/ads": Megaphone,
   "/hooks": Anchor,
   "/story-formats": BookOpen,
   "/settings": Settings,

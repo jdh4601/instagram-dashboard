@@ -11,6 +11,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/", label: "대시보드", activePrefixes: ["/"] },
   { href: "/reels", label: "릴스", activePrefixes: ["/reels", "/reel"] },
   { href: "/carousels", label: "캐러셀", activePrefixes: ["/carousels", "/carousel"] },
+  { href: "/ads", label: "광고 효율", activePrefixes: ["/ads"] },
   { href: "/hooks", label: "훅 저장소", activePrefixes: ["/hooks"] },
   { href: "/story-formats", label: "스토리텔링 포맷", activePrefixes: ["/story-formats"] },
   { href: "/settings", label: "설정", activePrefixes: ["/settings"] },

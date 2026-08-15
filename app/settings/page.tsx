@@ -11,6 +11,13 @@ import {
   type CliProviderId,
 } from "@/lib/llm/cliProviders";
 import { describeWallaProbe, type WallaProbeNotice } from "@/lib/ui/wallaProbeMessage";
+import { describeAdsProbe, type AdsProbeNotice } from "@/lib/ui/adsProbeMessage";
+
+const ADS_NOTICE_STYLES: Record<AdsProbeNotice["tone"], string> = {
+  success: "text-band-strong",
+  warning: "text-band-ok",
+  error: "text-band-weak",
+};
 
 const WALLA_NOTICE_STYLES: Record<WallaProbeNotice["tone"], string> = {
   success: "text-green-600",
@@ -56,6 +63,11 @@ interface MaskedSettings {
     configurationError: boolean;
   };
   instagramTokenExpiresAt: string | null;
+  metaAds: {
+    configured: boolean;
+    maskedKey: string | null;
+    adAccountId: string | null;
+  };
   walla: {
     configured: boolean;
     maskedKey: string | null;
@@ -70,6 +82,10 @@ export default function SettingsPage() {
   const [keyInputs, setKeyInputs] = useState<Record<string, string>>({});
   const [modelInputs, setModelInputs] = useState<Record<string, string>>({});
   const [igToken, setIgToken] = useState("");
+  const [adsToken, setAdsToken] = useState("");
+  const [adsAccountId, setAdsAccountId] = useState("");
+  const [adsTesting, setAdsTesting] = useState(false);
+  const [adsNotice, setAdsNotice] = useState<AdsProbeNotice | null>(null);
   const [wallaKey, setWallaKey] = useState("");
   const [wallaFormId, setWallaFormId] = useState("");
   const [wallaTesting, setWallaTesting] = useState(false);
@@ -92,6 +108,7 @@ export default function SettingsPage() {
     // 폼 ID는 비밀이 아니라 마스킹하지 않는다. 저장된 값을 그대로 보여 줘야
     // 어느 폼에 붙었는지 확인하고 고칠 수 있다.
     setWallaFormId(d.walla.formId ?? "");
+    setAdsAccountId(d.metaAds.adAccountId ?? "");
   }
 
   useEffect(() => {
@@ -116,6 +133,7 @@ export default function SettingsPage() {
         providers,
         instagram: { accessToken: igToken },
         walla: { apiKey: wallaKey, formId: wallaFormId },
+        metaAds: { accessToken: adsToken, adAccountId: adsAccountId },
       }),
     });
     if (!res.ok) {
@@ -126,6 +144,7 @@ export default function SettingsPage() {
     setKeyInputs({});
     setIgToken("");
     setWallaKey("");
+    setAdsToken("");
     setStatus("저장됨 ✓");
   }
 
@@ -133,6 +152,28 @@ export default function SettingsPage() {
    * 저장하지 않은 입력값으로도 시험한다 — 키가 맞는지 알아보려고 멀쩡한 키를
    * 덮어쓰게 되면 테스트 버튼의 의미가 없다. 빈 칸은 저장된 값으로 넘어간다.
    */
+  async function testAds() {
+    setAdsTesting(true);
+    setAdsNotice(null);
+    try {
+      const res = await fetch("/api/settings/meta-ads/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accessToken: adsToken, adAccountId: adsAccountId }),
+      });
+      const payload = await res.json();
+      if (!res.ok) {
+        setAdsNotice({ tone: "error", message: payload.error ?? "연결 테스트 실패" });
+        return;
+      }
+      setAdsNotice(describeAdsProbe(payload, payload.lookbackDays));
+    } catch {
+      setAdsNotice({ tone: "error", message: "연결 테스트를 보내지 못했습니다" });
+    } finally {
+      setAdsTesting(false);
+    }
+  }
+
   async function testWalla() {
     setWallaTesting(true);
     setWallaNotice(null);
@@ -365,6 +406,64 @@ export default function SettingsPage() {
             >
               저장된 Instagram 연결 해제
             </button>
+          )}
+        </div>
+
+        <div className="space-y-2 border-t pt-4">
+          <h2 className="text-sm font-semibold">Meta 광고 (Marketing API)</h2>
+          <p className="text-xs text-neutral-600">
+            게시물별 광고 지출·단가는 Instagram Graph가 알려 주지 않습니다. 광고 계정을
+            붙여야 &ldquo;어떤 게시물에 얼마를 태웠고 얼마나 효율이 났는지&rdquo;가 채워집니다.
+            토큰은 <code>developers.facebook.com</code> 그래프 API 탐색기에서{" "}
+            <code>ads_read</code> 권한으로 발급합니다.
+          </p>
+          <p className="text-xs text-neutral-600">
+            인스타그램 앱의 &ldquo;홍보하기&rdquo;로 만든 부스트는 Ad Center에 남아 이 API에
+            올라오지 않습니다. 광고 관리자(Ads Manager)에서 집행한 광고만 잡힙니다.
+          </p>
+          <input
+            type="password"
+            className="border rounded px-2 py-1 w-full text-sm"
+            placeholder={
+              data.metaAds.maskedKey
+                ? `등록됨 (${data.metaAds.maskedKey}) — 변경 시에만 입력`
+                : "Meta 액세스 토큰 붙여넣기"
+            }
+            value={adsToken}
+            onChange={(e) => {
+              setAdsToken(e.target.value);
+              // 값을 고친 뒤에도 이전 결과가 남아 있으면 새 토큰을 확인한 것처럼 읽힌다.
+              setAdsNotice(null);
+            }}
+          />
+          <input
+            type="text"
+            className="border rounded px-2 py-1 w-full text-sm"
+            placeholder="광고 계정 id (act_1234567890)"
+            value={adsAccountId}
+            onChange={(e) => {
+              setAdsAccountId(e.target.value);
+              setAdsNotice(null);
+            }}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" onClick={testAds} disabled={adsTesting}>
+              {adsTesting ? "확인 중…" : "연결 테스트"}
+            </Button>
+            {adsNotice && (
+              <span
+                role="status"
+                aria-live="polite"
+                className={`text-xs ${ADS_NOTICE_STYLES[adsNotice.tone]}`}
+              >
+                {adsNotice.message}
+              </span>
+            )}
+          </div>
+          {data.metaAds.configured && (
+            <p className="text-xs text-neutral-500">
+              연동됨 — 광고 효율 탭에서 게시물별 성과를 봅니다.
+            </p>
           )}
         </div>
 

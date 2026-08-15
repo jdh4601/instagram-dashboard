@@ -23,6 +23,14 @@ export function fmtCount(n: number): string {
   return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(1)}만`;
 }
 
+/**
+ * 원화. 광고 단가는 한 자리 차이가 판단을 뒤집으므로 축약하지 않는다 —
+ * "3.2만원"과 "3.25만원"은 같아 보이지만 CPM 비교에서는 다른 결론이 된다.
+ */
+export function fmtWon(n: number): string {
+  return `${Math.round(n).toLocaleString()}원`;
+}
+
 export function fmtSec(n: number): string {
   return `${n.toFixed(1)}초`;
 }

@@ -6,11 +6,12 @@ import {
   listPathForMedia,
 } from "@/lib/ui/navigation";
 
-test("사이드바는 여섯 개 탭을 이 순서로 노출한다", () => {
+test("사이드바는 일곱 개 탭을 이 순서로 노출한다", () => {
   expect(NAV_ITEMS.map((item) => item.href)).toEqual([
     "/",
     "/reels",
     "/carousels",
+    "/ads",
     "/hooks",
     "/story-formats",
     "/settings",
@@ -19,6 +20,7 @@ test("사이드바는 여섯 개 탭을 이 순서로 노출한다", () => {
     "대시보드",
     "릴스",
     "캐러셀",
+    "광고 효율",
     "훅 저장소",
     "스토리텔링 포맷",
     "설정",
