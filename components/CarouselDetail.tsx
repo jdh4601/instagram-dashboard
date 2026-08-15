@@ -32,9 +32,11 @@ export function CarouselDetail({ reel, analysis, kpiDeltas }: Props) {
         <div className="space-y-5">
           {/* 프로필 지표가 없는 게시물에서는 퍼널이 스스로 빠진다. */}
           <ReelConversionFunnel reel={reel} />
+          {/* 좁은 단이라 조밀하게 — 사진 아래끝과 높이를 맞춘다. */}
           <MetricBars
             verdicts={analysis.diagnosis.verdicts}
             baselineActive={analysis.baselineActive}
+            dense
           />
         </div>
       </div>
