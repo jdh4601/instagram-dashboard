@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit",
     "seed:demo": "node scripts/seed-demo.mjs",
     "doctor": "node scripts/doctor.mjs",
+    "ads:probe": "node scripts/probe-ad-accounts.mjs",
     "data:backup": "node scripts/backup-data.mjs",
     "storage:migrate:sqlite": "node scripts/migrate-to-sqlite.mjs",
     "postinstall": "node scripts/postinstall.mjs"
