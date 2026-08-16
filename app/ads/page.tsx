@@ -9,14 +9,19 @@ import type {
   AdEfficiencyRow,
   AdEfficiencySort,
   AdEfficiencyTotals,
+  AdResultGroup,
 } from "@/lib/analysis/adEfficiency";
 
 interface AdsResponse {
   configured: boolean;
   rows?: AdEfficiencyRow[];
+  groups?: AdResultGroup[];
   totals?: AdEfficiencyTotals | null;
   lookbackDays?: number;
   unmatchedAds?: number;
+  manualCount?: number;
+  apiConfigured?: boolean;
+  apiError?: string | null;
   error?: string;
 }
 
@@ -31,9 +36,9 @@ export default function AdsPage() {
     try {
       const res = await fetch(`/api/ads?sort=${nextSort}`);
       const json: AdsResponse = await res.json();
-      // 502는 본문에 사유가 실려 온다 — 상태 코드만 보고 버리면 원인을 못 보여 준다.
       if (!res.ok && !json.error) throw new Error(`광고 성과를 불러오지 못했습니다 (${res.status})`);
       setData(json);
+      // API 실패는 치명적이지 않다 — 수동 기록은 그대로 보여 주고 경고만 얹는다.
       setError(json.error ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "광고 성과를 불러오지 못했습니다");
@@ -51,8 +56,8 @@ export default function AdsPage() {
       <header>
         <h1 className="text-lg font-semibold text-neutral-900">광고 효율</h1>
         <p className="mt-1 text-sm text-neutral-500">
-          광고를 태운 게시물의 지출·단가와, 산 도달이 오가닉만큼 반응했는지를 견줍니다
-          {data?.lookbackDays ? ` (최근 ${data.lookbackDays}일)` : ""}.
+          광고를 태운 게시물의 지출과 단가를 견줍니다. 결과 유형이 다르면 서로 다른 자라서
+          표를 나눠 놓았습니다.
         </p>
       </header>
 
@@ -133,7 +138,19 @@ function Body({
           채워집니다.
         </p>
       )}
-      <AdEfficiencyTable rows={rows} totals={data.totals ?? null} sort={sort} onSort={onSort} />
+      {data.apiError && (
+        <p className="rounded-lg bg-band-weak-soft px-3 py-2 text-xs text-band-weak">
+          Marketing API를 읽지 못했습니다 ({data.apiError}) — 아래는 수동 기록만입니다.
+        </p>
+      )}
+      <AdEfficiencyTable groups={data.groups ?? []} sort={sort} onSort={onSort} />
+      {(data.manualCount ?? 0) > 0 && (
+        <p className="text-xs leading-relaxed text-neutral-400">
+          수동 기록 {data.manualCount}건이 포함돼 있습니다. 인스타그램 앱 &lsquo;홍보하기&rsquo;
+          부스트는 Ad Center에만 남아 API로 가져올 수 없어 손으로 옮겨 적은 값입니다. Ad Center는
+          광고에 달린 좋아요·저장을 알려주지 않아 참여 단가는 비어 있습니다.
+        </p>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { AdEfficiencyTable } from "@/components/AdEfficiencyTable";
-import { buildAdEfficiency, sumAdEfficiency } from "@/lib/analysis/adEfficiency";
+import { buildAdEfficiency, groupByResultType } from "@/lib/analysis/adEfficiency";
 import type { AdPerformance } from "@/lib/ads/map";
 import type { Reel } from "@/lib/schemas";
 import { NAV_ITEMS, isNavItemActive } from "@/lib/ui/navigation";
@@ -37,9 +37,9 @@ function reel(id: string, over: Partial<Reel> = {}): Reel {
 }
 
 function render(ads: AdPerformance[], reels: Reel[]) {
-  const rows = buildAdEfficiency(ads, reels);
+  const groups = groupByResultType(buildAdEfficiency(ads, reels));
   return renderToStaticMarkup(
-    <AdEfficiencyTable rows={rows} totals={sumAdEfficiency(rows)} sort="spend" onSort={() => {}} />,
+    <AdEfficiencyTable groups={groups} sort="spend" onSort={() => {}} />,
   );
 }
 

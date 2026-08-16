@@ -32,6 +32,15 @@ export interface AdEfficiencyRow {
   /** 광고 도달 100명당 참여 수(%) */
   adEngagementRate: number | null;
 
+  /**
+   * 목표 행동 수와 유형. Ad Center 기록에만 있다.
+   * 유형이 다르면 서로 다른 자라서 한 표에 섞어 순위를 매기면 안 된다.
+   */
+  resultCount: number | null;
+  resultType: string | null;
+  /** 결과 한 건당 비용. 결과가 0이거나 유형을 모르면 null. */
+  costPerResult: number | null;
+
   organicReach: number;
   organicEngagements: number;
   organicEngagementRate: number | null;
@@ -43,7 +52,12 @@ export interface AdEfficiencyRow {
   efficiencyRatio: number | null;
 }
 
-export type AdEfficiencySort = "spend" | "costPerEngagement" | "cpm" | "efficiencyRatio";
+export type AdEfficiencySort =
+  | "spend"
+  | "costPerEngagement"
+  | "costPerResult"
+  | "cpm"
+  | "efficiencyRatio";
 
 function ratePerHundred(numerator: number, denominator: number): number | null {
   if (denominator <= 0) return null;
@@ -61,10 +75,14 @@ export function organicEngagementsOf(reel: Reel): number {
 }
 
 function toRow(ad: AdPerformance, reel: Reel): AdEfficiencyRow {
-  const adEngagements =
-    ad.actions.likes + ad.actions.comments + ad.actions.shares + ad.actions.saves;
+  // 참여를 모르는 기록(Ad Center)은 0으로 채우지 않는다 — "모른다"가 "반응이
+  // 없었다"로 읽히면 광고를 잘못 죽이게 된다.
+  const adEngagements = ad.actions
+    ? ad.actions.likes + ad.actions.comments + ad.actions.shares + ad.actions.saves
+    : null;
   const organicEngagements = organicEngagementsOf(reel);
-  const adEngagementRate = ratePerHundred(adEngagements, ad.reach);
+  const adEngagementRate =
+    adEngagements === null ? null : ratePerHundred(adEngagements, ad.reach);
   const organicEngagementRate = ratePerHundred(organicEngagements, reel.reach);
 
   return {
@@ -81,9 +99,13 @@ function toRow(ad: AdPerformance, reel: Reel): AdEfficiencyRow {
     adImpressions: ad.impressions,
     cpm: divide(ad.spend * 1000, ad.impressions),
     costPerReach: divide(ad.spend, ad.reach),
-    adEngagements,
-    costPerEngagement: divide(ad.spend, adEngagements),
+    adEngagements: adEngagements ?? 0,
+    costPerEngagement: adEngagements === null ? null : divide(ad.spend, adEngagements),
     adEngagementRate,
+
+    resultCount: ad.results?.count ?? null,
+    resultType: ad.results?.type ?? null,
+    costPerResult: ad.results ? divide(ad.spend, ad.results.count) : null,
 
     organicReach: reel.reach,
     organicEngagements,
@@ -101,11 +123,12 @@ function sortValue(row: AdEfficiencyRow, sort: AdEfficiencySort): number | null 
   if (sort === "spend") return row.spend;
   if (sort === "cpm") return row.cpm;
   if (sort === "efficiencyRatio") return row.efficiencyRatio;
+  if (sort === "costPerResult") return row.costPerResult;
   return row.costPerEngagement;
 }
 
 // 비용은 낮을수록 좋고, 지출·효율 배수는 높을수록 위에 온다.
-const ASCENDING: AdEfficiencySort[] = ["costPerEngagement", "cpm"];
+const ASCENDING: AdEfficiencySort[] = ["costPerEngagement", "cpm", "costPerResult"];
 
 /**
  * 광고를 태운 게시물만 골라 효율 표를 만든다.
@@ -143,6 +166,9 @@ export interface AdEfficiencyTotals {
   adEngagements: number;
   cpm: number | null;
   costPerEngagement: number | null;
+  /** 결과 합계와 단가. 유형이 같은 행끼리 묶은 뒤에만 의미가 있다. */
+  resultCount: number;
+  costPerResult: number | null;
   /** 태운 게시물 수 */
   postCount: number;
 }
@@ -153,6 +179,7 @@ export function sumAdEfficiency(rows: AdEfficiencyRow[]): AdEfficiencyTotals {
   const adReach = rows.reduce((sum, row) => sum + row.adReach, 0);
   const adImpressions = rows.reduce((sum, row) => sum + row.adImpressions, 0);
   const adEngagements = rows.reduce((sum, row) => sum + row.adEngagements, 0);
+  const resultCount = rows.reduce((sum, row) => sum + (row.resultCount ?? 0), 0);
   return {
     spend,
     adReach,
@@ -160,6 +187,37 @@ export function sumAdEfficiency(rows: AdEfficiencyRow[]): AdEfficiencyTotals {
     adEngagements,
     cpm: divide(spend * 1000, adImpressions),
     costPerEngagement: divide(spend, adEngagements),
+    resultCount,
+    costPerResult: divide(spend, resultCount),
     postCount: rows.length,
   };
+}
+
+export interface AdResultGroup {
+  /** 결과 유형. 유형을 모르는 행(Marketing API 성과)은 null로 한데 묶인다. */
+  type: string | null;
+  rows: AdEfficiencyRow[];
+  totals: AdEfficiencyTotals;
+}
+
+/**
+ * 결과 유형별로 표를 가른다.
+ *
+ * 프로필 방문 78건과 링크 클릭 40건은 서로 다른 행동이라, 한 표에서 단가로 줄을
+ * 세우면 순위가 거짓말이 된다. 묶음 안에서만 비교하도록 아예 표를 나눈다.
+ * 등장 순서를 지켜 사용자가 정렬한 결과를 뒤집지 않는다.
+ */
+export function groupByResultType(rows: AdEfficiencyRow[]): AdResultGroup[] {
+  const byType = new Map<string | null, AdEfficiencyRow[]>();
+  for (const row of rows) {
+    const key = row.resultType;
+    const bucket = byType.get(key);
+    if (bucket) bucket.push(row);
+    else byType.set(key, [row]);
+  }
+  return [...byType.entries()].map(([type, groupRows]) => ({
+    type,
+    rows: groupRows,
+    totals: sumAdEfficiency(groupRows),
+  }));
 }

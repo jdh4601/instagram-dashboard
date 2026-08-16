@@ -64,7 +64,17 @@ export interface AdPerformance {
   reach: number;
   impressions: number;
   clicks: number;
-  actions: AdActions;
+  /**
+   * 광고에 달린 참여. Marketing API에서 온 성과에만 있다 — Ad Center를 손으로
+   * 옮겨 적은 기록에는 이 값이 없어서 undefined다. 0으로 채우지 않는 이유는
+   * "모른다"와 "반응이 없었다"가 화면에서 뒤바뀌면 안 되기 때문이다.
+   */
+  actions?: AdActions;
+  /**
+   * 목표 행동 수와 그 유형. Ad Center 기록에만 있다 — 부스트 목표에 따라
+   * 프로필 방문이거나 링크 클릭이라, 유형을 함께 들고 다녀야 의미가 정해진다.
+   */
+  results?: { count: number; type: string };
   permalink?: string;
 }
 
@@ -118,9 +128,11 @@ export function buildAdPerformance(
       current.reach += num(insight.reach);
       current.impressions += num(insight.impressions);
       current.clicks += num(insight.clicks);
+      // 이 경로로 만든 성과는 위에서 actions를 항상 채운다(Marketing API는 참여를 준다).
+      const actions = (current.actions ??= emptyActions());
       for (const action of insight.actions ?? []) {
         const key = action.action_type ? ACTION_ALIASES[action.action_type] : undefined;
-        if (key) current.actions[key] += num(action.value);
+        if (key) actions[key] += num(action.value);
       }
     }
     byMedia.set(mediaId, current);

@@ -40,8 +40,8 @@ test("광고를 effective_instagram_media_id로 오가닉 게시물에 잇는다
   expect(rows).toHaveLength(1);
   expect(rows[0].mediaId).toBe("18021852389697322");
   expect(rows[0].spend).toBe(30000);
-  expect(rows[0].actions.saves).toBe(40);
-  expect(rows[0].actions.shares).toBe(14);
+  expect(rows[0].actions!.saves).toBe(40);
+  expect(rows[0].actions!.shares).toBe(14);
   expect(rows[0].permalink).toContain("instagram.com");
 });
 
@@ -62,7 +62,7 @@ test("같은 게시물을 여러 번 태우면 한 줄로 합산한다", () => {
   expect(rows[0].adCount).toBe(2);
   expect(rows[0].spend).toBe(50000);
   expect(rows[0].impressions).toBe(19000);
-  expect(rows[0].actions.saves).toBe(80);
+  expect(rows[0].actions!.saves).toBe(80);
 });
 
 test("성과가 아직 없는 광고도 지출 0으로 남긴다", () => {
@@ -91,9 +91,9 @@ test("모르는 행동 유형은 참여에 섞지 않는다", () => {
     ],
   );
 
-  expect(rows[0].actions.saves).toBe(5);
-  expect(rows[0].actions.totalEngagement).toBe(0);
-  expect(rows[0].actions.likes).toBe(0);
+  expect(rows[0].actions!.saves).toBe(5);
+  expect(rows[0].actions!.totalEngagement).toBe(0);
+  expect(rows[0].actions!.likes).toBe(0);
 });
 
 test("지출이 큰 게시물이 먼저 온다", () => {
