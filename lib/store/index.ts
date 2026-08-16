@@ -4,6 +4,7 @@ import { createJsonProfileRepository, type ProfileRepository } from "@/lib/store
 import { createJsonReelHistoryRepository, type ReelHistoryRepository } from "@/lib/store/reelHistoryRepository";
 import { createJsonApplicationRepository, type ApplicationRepository } from "@/lib/store/applicationRepository";
 import { createJsonHookRepository, type HookRepository } from "@/lib/store/hookRepository";
+import { createJsonAdSpendRepository, type AdSpendRepository } from "@/lib/store/adSpendRepository";
 import { resolveRuntimeConfig } from "@/lib/runtime/config";
 import { createSqliteRepositories } from "@/lib/store/sqliteRepositories";
 import { createPostgresRepositories } from "@/lib/store/postgresRepositories";
@@ -56,4 +57,13 @@ export function getApplicationRepository(): ApplicationRepository {
 
 export function getHookRepository(): HookRepository {
   return getWorkspace().hooks;
+}
+
+/**
+ * 수동으로 옮겨 적은 광고 지출. 저장소 어댑터(sqlite·postgres)를 타지 않고 언제나
+ * JSON 파일이다 — 손으로 관리하는 수십 줄짜리 기록이라 스키마를 세 벌 늘릴 값어치가
+ * 없고, 사람이 직접 열어 고칠 수 있는 편이 낫다.
+ */
+export function getAdSpendRepository(): AdSpendRepository {
+  return createJsonAdSpendRepository(resolveRuntimeConfig().dataDir);
 }

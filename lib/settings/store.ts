@@ -37,6 +37,14 @@ const InstagramSchema = z.object({ accessToken: z.string().optional() });
 
 // 지원 신청을 받는 외부 폼(Walla). 클릭 다음 구간은 Graph가 주지 않아
 // 이 폼의 응답 API를 끌어와야만 채워진다.
+// Meta Marketing API 자격증명. 게시물별 광고 성과는 Instagram Graph가 주지 않아
+// 이 연동 없이는 광고 효율 표가 통째로 비어 있다.
+const MetaAdsSchema = z.object({
+  accessToken: z.string().optional(),
+  /** act_ 접두어를 포함한 광고 계정 id */
+  adAccountId: z.string().optional(),
+});
+
 const WallaSchema = z.object({
   apiKey: z.string().optional(),
   formId: z.string().optional(),
@@ -53,6 +61,7 @@ const StoredSettingsSchema = z.object({
   instagramTokenExpiresAt: z.string().optional(),
   lastSyncedAt: z.string().optional(),
   walla: WallaSchema.optional(),
+  metaAds: MetaAdsSchema.optional(),
 });
 
 // 정규화된 런타임 설정: 자막 분석과 생성에 사용할 텍스트 제공자.
@@ -76,6 +85,8 @@ interface Settings {
   lastSyncedAt?: string;
   /** 지원 신청 폼(Walla) 자격증명. 미설정이면 신청 동기화를 건너뛴다. */
   walla?: z.infer<typeof WallaSchema>;
+  /** Meta 광고 자격증명. 미설정이면 광고 동기화를 건너뛴다. */
+  metaAds?: z.infer<typeof MetaAdsSchema>;
 }
 
 // 클라이언트가 보내는 부분 업데이트 (apiKey 비우면 기존 유지)
@@ -93,6 +104,7 @@ export const SettingsInputSchema = z.object({
     .optional(),
   instagram: InstagramSchema.optional(),
   walla: WallaSchema.optional(),
+  metaAds: MetaAdsSchema.optional(),
 });
 type SettingsInput = z.infer<typeof SettingsInputSchema>;
 
@@ -118,6 +130,12 @@ interface MaskedSettings {
     maskedKey: string | null;
     /** 폼 ID는 비밀이 아니다. 어느 폼에 붙었는지 화면에서 확인할 수 있어야 한다. */
     formId: string | null;
+  };
+  metaAds: {
+    configured: boolean;
+    maskedKey: string | null;
+    /** 광고 계정 id는 비밀이 아니다. 어느 계정에 붙었는지 보여야 한다. */
+    adAccountId: string | null;
   };
 }
 
@@ -145,6 +163,7 @@ function normalize(raw: z.infer<typeof StoredSettingsSchema>): Settings {
     instagramTokenExpiresAt: raw.instagramTokenExpiresAt,
     lastSyncedAt: raw.lastSyncedAt,
     walla: raw.walla,
+    metaAds: raw.metaAds,
   };
 }
 
@@ -206,7 +225,17 @@ export function createSettingsStore(dataDir: string): SettingsStore {
         instagramTokenExpiresAt: cur.instagramTokenExpiresAt,
         lastSyncedAt: cur.lastSyncedAt,
         walla: cur.walla,
+        metaAds: cur.metaAds,
       };
+      if (incoming.metaAds) {
+        const incToken = incoming.metaAds.accessToken?.trim();
+        const incAccount = incoming.metaAds.adAccountId?.trim();
+        next.metaAds = {
+          // walla와 같은 규약 — 빈 값은 "안 고침"이라 저장된 값으로 넘어간다.
+          accessToken: incToken ? incToken : cur.metaAds?.accessToken,
+          adAccountId: incAccount ? incAccount : cur.metaAds?.adAccountId,
+        };
+      }
       if (incoming.walla) {
         const incKey = incoming.walla.apiKey?.trim();
         const incFormId = incoming.walla.formId?.trim();
@@ -311,6 +340,11 @@ export function createSettingsStore(dataDir: string): SettingsStore {
         configured: Boolean(s.walla?.apiKey && s.walla?.formId),
         maskedKey: s.walla?.apiKey ? maskApiKey(s.walla.apiKey) : null,
         formId: s.walla?.formId ?? null,
+      },
+      metaAds: {
+        configured: Boolean(s.metaAds?.accessToken && s.metaAds?.adAccountId),
+        maskedKey: s.metaAds?.accessToken ? maskApiKey(s.metaAds.accessToken) : null,
+        adAccountId: s.metaAds?.adAccountId ?? null,
       },
     };
   }
