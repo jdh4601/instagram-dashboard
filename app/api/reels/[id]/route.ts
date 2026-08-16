@@ -1,12 +1,34 @@
 import { NextResponse } from "next/server";
-import { getRepository, getReelHistoryRepository } from "@/lib/store";
+import { getRepository, getReelHistoryRepository, getAdSpendRepository } from "@/lib/store";
 import { analyzeReel } from "@/lib/analysis/analyze";
 import { reelKpiDeltas } from "@/lib/analysis/reelKpiDeltas";
 import { mediaKindOf } from "@/lib/media/kind";
 import { computeDerivedRates } from "@/lib/analysis/metrics";
 import { assertJsonRequest } from "@/lib/api/guard";
+import { adSpendToPerformance } from "@/lib/ads/adSpend";
+import { buildAdEfficiency, type AdEfficiencyRow } from "@/lib/analysis/adEfficiency";
+import type { Reel } from "@/lib/schemas";
 
-// 게시물 상세: reel + 분석 결과 + 지표 이력
+/**
+ * 이 게시물에 태운 광고의 성과. 광고를 태우지 않았으면 null이다.
+ *
+ * 0이 아니라 null인 이유는 "안 태웠다"와 "태웠는데 아무도 못 봤다"가 화면에서
+ * 뒤바뀌면 안 되기 때문이다.
+ *
+ * 지금은 수동 기록(Ad Center)만 읽는다. Marketing API 성과는 동기화가 받아 저장하는
+ * 쪽으로 붙일 예정이라, 그때도 이 자리에서 같은 모양으로 합쳐진다.
+ */
+async function adPerformanceOf(reel: Reel): Promise<AdEfficiencyRow | null> {
+  const entries = (await getAdSpendRepository().list()).filter(
+    (entry) => entry.mediaId === reel.id,
+  );
+  if (entries.length === 0) return null;
+  // 결과 유형이 다르면 adSpendToPerformance가 줄을 나눈다. 상세는 한 줄만 보여
+  // 주므로 지출이 가장 큰 줄(정렬 첫 줄)을 택한다.
+  return buildAdEfficiency(adSpendToPerformance(entries), [reel])[0] ?? null;
+}
+
+// 게시물 상세: reel + 분석 결과 + 지표 이력 + 광고 성과
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const repo = getRepository();
@@ -21,8 +43,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const analysis = analyzeReel(reel, history);
   const metricHistory = await getReelHistoryRepository().list(id);
   const kpiDeltas = reelKpiDeltas(reel, history);
+  const ad = await adPerformanceOf(reel);
 
-  return NextResponse.json({ reel, analysis, metricHistory, kpiDeltas });
+  return NextResponse.json({ reel, analysis, metricHistory, kpiDeltas, ad });
 }
 
 // 릴스 한 편이 넘길 수 없는 길이. 오타(150000)를 걸러낸다.

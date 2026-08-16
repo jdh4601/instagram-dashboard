@@ -2,14 +2,16 @@
 vi.mock("@/lib/store", () => ({
   getRepository: vi.fn(),
   getReelHistoryRepository: vi.fn(),
+  getAdSpendRepository: vi.fn(),
 }));
 
 import { GET } from "@/app/api/reels/[id]/route";
-import { getRepository, getReelHistoryRepository } from "@/lib/store";
-import type { Reel } from "@/lib/schemas";
+import { getRepository, getReelHistoryRepository, getAdSpendRepository } from "@/lib/store";
+import type { AdSpend, Reel } from "@/lib/schemas";
 
 const mockGetRepository = getRepository as unknown as Mock;
 const mockGetHistoryRepository = getReelHistoryRepository as unknown as Mock;
+const mockGetAdSpendRepository = getAdSpendRepository as unknown as Mock;
 
 const base = {
   durationSec: 0,
@@ -35,10 +37,15 @@ const fakeRepo = {
 };
 const fakeHistoryRepo = { list: vi.fn(async () => []) };
 
+function adSpendRepo(entries: AdSpend[]) {
+  return { list: vi.fn(async () => entries) };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetRepository.mockReturnValue(fakeRepo);
   mockGetHistoryRepository.mockReturnValue(fakeHistoryRepo);
+  mockGetAdSpendRepository.mockReturnValue(adSpendRepo([]));
 });
 
 function ctx(id: string): { params: Promise<{ id: string }> } {
@@ -68,6 +75,73 @@ test("캐러셀 진단에는 훅 잔존·평균 시청 비율 판정이 들어�
 test("없는 id는 404", async () => {
   const { status } = await detail("없는-id");
   expect(status).toBe(404);
+});
+
+// --- 광고 도달 ------------------------------------------------------------
+
+const boost = (mediaId: string, overrides: Partial<AdSpend> = {}): AdSpend => ({
+  mediaId,
+  boostedAt: "2026-06-10",
+  spend: 20000,
+  views: 2500,
+  reach: 2000,
+  resultCount: 100,
+  resultType: "LINK_CLICK",
+  source: "AD_CENTER",
+  ...overrides,
+});
+
+test("광고를 태운 게시물은 상세에 광고 도달과 지출이 실린다", async () => {
+  mockGetAdSpendRepository.mockReturnValue(adSpendRepo([boost("릴스-1")]));
+
+  const { body } = await detail("릴스-1");
+
+  expect(body.ad.adReach).toBe(2000);
+  expect(body.ad.spend).toBe(20000);
+  // 게시물 레벨 reach는 오가닉만 세므로 광고 도달과 겹치지 않는다.
+  expect(body.ad.organicReach).toBe(90);
+});
+
+test("광고를 태우지 않은 게시물의 ad는 null이다", async () => {
+  // 0이 아니라 null이어야 한다 — "광고를 안 태웠다"와 "태웠는데 아무도 못 봤다"가
+  // 화면에서 뒤바뀌면 안 된다.
+  mockGetAdSpendRepository.mockReturnValue(adSpendRepo([boost("릴스-2")]));
+
+  const { body } = await detail("릴스-1");
+
+  expect(body.ad).toBeNull();
+});
+
+test("다른 게시물의 광고 기록이 섞여 들어가지 않는다", async () => {
+  mockGetAdSpendRepository.mockReturnValue(
+    adSpendRepo([boost("릴스-1", { reach: 500, spend: 1000 }), boost("릴스-2"), boost("캐러셀-1")]),
+  );
+
+  const { body } = await detail("릴스-1");
+
+  expect(body.ad.adReach).toBe(500);
+  expect(body.ad.spend).toBe(1000);
+});
+
+test("한 게시물을 여러 번 태우면 지출과 도달이 합쳐진다", async () => {
+  mockGetAdSpendRepository.mockReturnValue(
+    adSpendRepo([
+      boost("릴스-1", { boostedAt: "2026-06-10", spend: 1000, reach: 300 }),
+      boost("릴스-1", { boostedAt: "2026-06-20", spend: 2000, reach: 700 }),
+    ]),
+  );
+
+  const { body } = await detail("릴스-1");
+
+  expect(body.ad.spend).toBe(3000);
+  expect(body.ad.adReach).toBe(1000);
+  expect(body.ad.adCount).toBe(2);
+});
+
+test("광고 저장소가 비어 있어도 상세는 정상으로 뜬다", async () => {
+  const { status, body } = await detail("릴스-1");
+  expect(status).toBe(200);
+  expect(body.ad).toBeNull();
 });
 
 // 개인화 베이스라인은 BASELINE_MIN_REELS(5) 이상일 때만 켜진다. 캐러셀 6건(대상 포함)과

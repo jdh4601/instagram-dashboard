@@ -13,12 +13,16 @@ import { MEDIA_FILTER_LABELS } from "@/lib/ui/mediaFilter";
 import { Skeleton, EmptyState } from "@/components/ui";
 import { CarouselDetail } from "@/components/CarouselDetail";
 import { ReelDetail } from "@/components/ReelDetail";
+import { MediaAdReachCard } from "@/components/MediaAdReachCard";
+import type { AdEfficiencyRow } from "@/lib/analysis/adEfficiency";
 
 interface DetailResponse {
   reel: Reel;
   analysis: AnalyzeResult;
   metricHistory: ReelMetricSnapshot[];
   kpiDeltas?: ReelKpiDeltas;
+  /** 이 게시물에 태운 광고. 태우지 않았으면 null이다. */
+  ad: AdEfficiencyRow | null;
 }
 
 interface Props {
@@ -86,6 +90,9 @@ export function MediaDetailScreen({ id, kind }: Props) {
       {data && (
         <>
           <PostHeader reel={data.reel} />
+          {/* 광고를 태운 게시물만. 아래 지표는 전부 오가닉이라, 광고 몫을 먼저
+              갈라 놓지 않으면 도달을 실제보다 적게 읽게 된다. */}
+          <MediaAdReachCard ad={data.ad} />
           {actualKind === "CAROUSEL" ? (
             <CarouselDetail key={id} reel={data.reel} analysis={data.analysis} kpiDeltas={data.kpiDeltas} />
           ) : (
