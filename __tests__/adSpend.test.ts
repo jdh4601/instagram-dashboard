@@ -1,5 +1,5 @@
 import { adSpendToPerformance } from "@/lib/ads/adSpend";
-import { buildAdEfficiency, groupByResultType } from "@/lib/analysis/adEfficiency";
+import { buildAdEfficiency, filterAdEfficiency } from "@/lib/analysis/adEfficiency";
 import type { AdSpend, Reel } from "@/lib/schemas";
 
 function spend(over: Partial<AdSpend> = {}): AdSpend {
@@ -77,22 +77,21 @@ test("결과 단가와 CPM을 계산한다", () => {
   expect(row.organicEngagementRate).toBeCloseTo(7.15, 2);
 });
 
-test("결과 유형이 다른 행을 한 표에 섞지 않고 묶는다", () => {
+test("결과 유형으로 걸러야 단가를 같은 자로 견줄 수 있다", () => {
   const perf = adSpendToPerformance([
     spend({ mediaId: "a", resultType: "PROFILE_VISIT", spend: 4212, resultCount: 78 }),
     spend({ mediaId: "b", resultType: "LINK_CLICK", spend: 21130, resultCount: 170 }),
     spend({ mediaId: "c", resultType: "LINK_CLICK", spend: 4454, resultCount: 13 }),
   ]);
-  const rows = buildAdEfficiency(perf, [reel("a"), reel("b"), reel("c")]);
-  const groups = groupByResultType(rows);
+  const rows = buildAdEfficiency(perf, [reel("a"), reel("b"), reel("c")], "costPerResult");
 
-  // 묶음 순서는 정렬 결과를 따른다 — 기본 정렬(지출 내림차순)에서는 21,130원짜리
-  // 링크 클릭 묶음이 먼저다. 사용자가 정렬한 결과를 묶기가 뒤집으면 안 된다.
-  expect(groups.map((g) => g.type)).toEqual(["LINK_CLICK", "PROFILE_VISIT"]);
-  expect(groups[0].rows).toHaveLength(2);
-  expect(groups[1].rows).toHaveLength(1);
-  expect(groups[0].rows.map((r) => r.mediaId)).toEqual(["b", "c"]);
-  expect(groups[0].totals.costPerResult).toBeCloseTo(139.8, 1); // 25584/183
+  // 거르지 않으면 프로필 방문(54원)이 링크 클릭(124원) 위에 온다 — 더 싼 행동을
+  // 산 것뿐인데 더 효율적으로 읽힌다.
+  expect(rows[0].mediaId).toBe("a");
+
+  const clicks = filterAdEfficiency(rows, { resultType: "LINK_CLICK" });
+  expect(clicks.map((r) => r.mediaId)).toEqual(["b", "c"]);
+  expect(clicks[0].costPerResult).toBeCloseTo(124.3, 1);
 });
 
 test("결과가 0이면 단가를 만들어내지 않는다", () => {

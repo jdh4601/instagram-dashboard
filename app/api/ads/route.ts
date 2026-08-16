@@ -7,16 +7,17 @@ import { AD_LOOKBACK_DAYS, adLookbackRange } from "@/lib/ads/window";
 import type { AdPerformance } from "@/lib/ads/map";
 import {
   buildAdEfficiency,
-  groupByResultType,
   sumAdEfficiency,
   type AdEfficiencySort,
 } from "@/lib/analysis/adEfficiency";
 
 const SORTS: AdEfficiencySort[] = [
   "spend",
-  "costPerEngagement",
-  "costPerResult",
+  "adReach",
   "cpm",
+  "costPerResult",
+  "resultRate",
+  "costPerEngagement",
   "efficiencyRatio",
 ];
 
@@ -68,7 +69,6 @@ export async function GET(req: Request) {
     {
       configured: connection !== null || manual.length > 0,
       rows,
-      groups: groupByResultType(rows),
       totals: sumAdEfficiency(rows),
       lookbackDays: AD_LOOKBACK_DAYS,
       /** 광고는 있는데 저장된 게시물에 못 붙은 수. 0이 아니면 동기화를 먼저 돌려야 한다. */

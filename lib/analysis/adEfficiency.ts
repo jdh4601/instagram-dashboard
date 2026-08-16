@@ -40,6 +40,11 @@ export interface AdEfficiencyRow {
   resultType: string | null;
   /** 결과 한 건당 비용. 결과가 0이거나 유형을 모르면 null. */
   costPerResult: number | null;
+  /**
+   * 광고 도달 100명당 결과 수(%). 돈을 빼고 본 반응 효율이라, 단가가 비싼 소재가
+   * 실제로도 안 먹힌 건지 그냥 비싸게 산 건지 가른다.
+   */
+  resultRate: number | null;
 
   organicReach: number;
   organicEngagements: number;
@@ -54,9 +59,11 @@ export interface AdEfficiencyRow {
 
 export type AdEfficiencySort =
   | "spend"
-  | "costPerEngagement"
-  | "costPerResult"
+  | "adReach"
   | "cpm"
+  | "costPerResult"
+  | "resultRate"
+  | "costPerEngagement"
   | "efficiencyRatio";
 
 function ratePerHundred(numerator: number, denominator: number): number | null {
@@ -106,6 +113,7 @@ function toRow(ad: AdPerformance, reel: Reel): AdEfficiencyRow {
     resultCount: ad.results?.count ?? null,
     resultType: ad.results?.type ?? null,
     costPerResult: ad.results ? divide(ad.spend, ad.results.count) : null,
+    resultRate: ad.results ? ratePerHundred(ad.results.count, ad.reach) : null,
 
     organicReach: reel.reach,
     organicEngagements,
@@ -124,10 +132,12 @@ function sortValue(row: AdEfficiencyRow, sort: AdEfficiencySort): number | null 
   if (sort === "cpm") return row.cpm;
   if (sort === "efficiencyRatio") return row.efficiencyRatio;
   if (sort === "costPerResult") return row.costPerResult;
+  if (sort === "resultRate") return row.resultRate;
+  if (sort === "adReach") return row.adReach;
   return row.costPerEngagement;
 }
 
-// 비용은 낮을수록 좋고, 지출·효율 배수는 높을수록 위에 온다.
+// 비용은 낮을수록 좋고, 지출·도달·반응률은 높을수록 위에 온다.
 const ASCENDING: AdEfficiencySort[] = ["costPerEngagement", "cpm", "costPerResult"];
 
 /**
@@ -179,7 +189,9 @@ export function sumAdEfficiency(rows: AdEfficiencyRow[]): AdEfficiencyTotals {
   const adReach = rows.reduce((sum, row) => sum + row.adReach, 0);
   const adImpressions = rows.reduce((sum, row) => sum + row.adImpressions, 0);
   const adEngagements = rows.reduce((sum, row) => sum + row.adEngagements, 0);
-  const resultCount = rows.reduce((sum, row) => sum + (row.resultCount ?? 0), 0);
+  // 행이 "결과" 칸에 참여 수를 대신 보여 주는 것과 같은 규칙으로 센다. 여기서만
+  // ?? 0을 쓰면 참여로 재는 광고의 합계가 통째로 0이 되어 표 안에서 어긋난다.
+  const resultCount = rows.reduce((sum, row) => sum + (row.resultCount ?? row.adEngagements), 0);
   return {
     spend,
     adReach,
@@ -193,31 +205,32 @@ export function sumAdEfficiency(rows: AdEfficiencyRow[]): AdEfficiencyTotals {
   };
 }
 
-export interface AdResultGroup {
-  /** 결과 유형. 유형을 모르는 행(Marketing API 성과)은 null로 한데 묶인다. */
-  type: string | null;
-  rows: AdEfficiencyRow[];
-  totals: AdEfficiencyTotals;
+export interface AdEfficiencyFilter {
+  /** 릴스만·캐러셀만. 비우면 둘 다. */
+  mediaType?: MediaKind;
+  /** 결과 유형. 비우면 전부. */
+  resultType?: string;
+}
+
+/** 표를 나누는 대신 거른다 — 쪼갠 표 네 개보다 한 표에 필터가 읽기 쉽다. */
+export function filterAdEfficiency(
+  rows: AdEfficiencyRow[],
+  filter: AdEfficiencyFilter,
+): AdEfficiencyRow[] {
+  return rows.filter((row) => {
+    if (filter.mediaType && row.mediaType !== filter.mediaType) return false;
+    if (filter.resultType && row.resultType !== filter.resultType) return false;
+    return true;
+  });
 }
 
 /**
- * 결과 유형별로 표를 가른다.
+ * 지금 보고 있는 목록에 결과 유형이 두 가지 이상 섞여 있는가.
  *
- * 프로필 방문 78건과 링크 클릭 40건은 서로 다른 행동이라, 한 표에서 단가로 줄을
- * 세우면 순위가 거짓말이 된다. 묶음 안에서만 비교하도록 아예 표를 나눈다.
- * 등장 순서를 지켜 사용자가 정렬한 결과를 뒤집지 않는다.
+ * 프로필 방문 ₩54와 링크 클릭 ₩124를 한 줄에 세우면 "프로필 방문이 2배 효율적"으로
+ * 읽히지만, 사실은 더 싼 행동을 산 것뿐이다. 단가로 정렬할 때 이 사실을 밝혀야 한다.
  */
-export function groupByResultType(rows: AdEfficiencyRow[]): AdResultGroup[] {
-  const byType = new Map<string | null, AdEfficiencyRow[]>();
-  for (const row of rows) {
-    const key = row.resultType;
-    const bucket = byType.get(key);
-    if (bucket) bucket.push(row);
-    else byType.set(key, [row]);
-  }
-  return [...byType.entries()].map(([type, groupRows]) => ({
-    type,
-    rows: groupRows,
-    totals: sumAdEfficiency(groupRows),
-  }));
+export function hasMixedResultTypes(rows: AdEfficiencyRow[]): boolean {
+  const types = new Set(rows.map((row) => row.resultType));
+  return types.size > 1;
 }

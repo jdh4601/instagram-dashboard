@@ -1,22 +1,22 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Megaphone } from "lucide-react";
 import { AdEfficiencyTable } from "@/components/AdEfficiencyTable";
+import { AdEfficiencyFilters, type AdFilterState } from "@/components/AdEfficiencyFilters";
 import { Card, CardBody, CardHeader, EmptyState } from "@/components/ui";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
-import type {
-  AdEfficiencyRow,
-  AdEfficiencySort,
-  AdEfficiencyTotals,
-  AdResultGroup,
+import {
+  filterAdEfficiency,
+  hasMixedResultTypes,
+  sumAdEfficiency,
+  type AdEfficiencyRow,
+  type AdEfficiencySort,
 } from "@/lib/analysis/adEfficiency";
 
 interface AdsResponse {
   configured: boolean;
   rows?: AdEfficiencyRow[];
-  groups?: AdResultGroup[];
-  totals?: AdEfficiencyTotals | null;
   lookbackDays?: number;
   unmatchedAds?: number;
   manualCount?: number;
@@ -28,6 +28,7 @@ interface AdsResponse {
 export default function AdsPage() {
   const [data, setData] = useState<AdsResponse | null>(null);
   const [sort, setSort] = useState<AdEfficiencySort>("spend");
+  const [filter, setFilter] = useState<AdFilterState>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,8 +57,8 @@ export default function AdsPage() {
       <header>
         <h1 className="text-lg font-semibold text-neutral-900">광고 효율</h1>
         <p className="mt-1 text-sm text-neutral-500">
-          광고를 태운 게시물의 지출과 단가를 견줍니다. 결과 유형이 다르면 서로 다른 자라서
-          표를 나눠 놓았습니다.
+          광고를 태운 게시물의 지출과 단가를 견줍니다
+          {data?.lookbackDays ? ` (최근 ${data.lookbackDays}일)` : ""}.
         </p>
       </header>
 
@@ -76,6 +77,8 @@ export default function AdsPage() {
               error={error}
               sort={sort}
               onSort={setSort}
+              filter={filter}
+              onFilter={setFilter}
             />
           </CardBody>
         </Card>
@@ -89,16 +92,29 @@ function Body({
   error,
   sort,
   onSort,
+  filter,
+  onFilter,
 }: {
   data: AdsResponse | null;
   error: string | null;
   sort: AdEfficiencySort;
   onSort: (sort: AdEfficiencySort) => void;
+  filter: AdFilterState;
+  onFilter: (next: AdFilterState) => void;
 }) {
+  const allRows = useMemo(() => data?.rows ?? [], [data]);
+  const rows = useMemo(() => filterAdEfficiency(allRows, filter), [allRows, filter]);
+  const resultTypes = useMemo(
+    () =>
+      [...new Set(allRows.map((row) => row.resultType))].filter(
+        (type): type is string => type !== null,
+      ),
+    [allRows],
+  );
+
   if (error) {
     return <EmptyState title="광고 성과를 불러오지 못했습니다" hint={error} />;
   }
-
   if (data === null) return null;
 
   if (!data.configured) {
@@ -118,8 +134,7 @@ function Body({
     );
   }
 
-  const rows = data.rows ?? [];
-  if (rows.length === 0) {
+  if (allRows.length === 0) {
     return (
       // 실측으로 확인한 경로다. 자격증명이 멀쩡한데도 표가 비는 유일한 원인이라
       // 사용자가 헤매지 않도록 여기서 짚어 준다.
@@ -130,8 +145,20 @@ function Body({
     );
   }
 
+  const mixed = hasMixedResultTypes(rows);
+
   return (
     <div className="space-y-3">
+      <AdEfficiencyFilters
+        filter={filter}
+        onFilter={onFilter}
+        sort={sort}
+        onSort={onSort}
+        availableResultTypes={resultTypes}
+        shown={rows.length}
+        total={allRows.length}
+      />
+
       {(data.unmatchedAds ?? 0) > 0 && (
         <p className="rounded-lg bg-band-ok-soft px-3 py-2 text-xs text-band-ok">
           광고 {data.unmatchedAds}건은 저장된 게시물과 잇지 못했습니다 — 동기화를 먼저 돌리면
@@ -143,12 +170,33 @@ function Body({
           Marketing API를 읽지 못했습니다 ({data.apiError}) — 아래는 수동 기록만입니다.
         </p>
       )}
-      <AdEfficiencyTable groups={data.groups ?? []} sort={sort} onSort={onSort} />
+      {/* 단가 정렬은 유형이 섞이면 거짓 순위를 만든다. 목표 칩으로 좁히라고 짚어 준다. */}
+      {mixed && sort === "costPerResult" && (
+        <p className="rounded-lg bg-band-ok-soft px-3 py-2 text-xs text-band-ok">
+          목표가 다른 광고가 섞여 있습니다 — 프로필 방문과 링크 클릭은 난이도가 달라 단가를
+          그대로 견주면 안 됩니다. 위 &ldquo;목표&rdquo;에서 하나만 골라 보세요.
+        </p>
+      )}
+
+      {rows.length === 0 ? (
+        <EmptyState title="고른 조건에 맞는 광고가 없습니다" hint="필터를 넓혀 보세요." />
+      ) : (
+        <AdEfficiencyTable
+          rows={rows}
+          totals={sumAdEfficiency(rows)}
+          sort={sort}
+          onSort={onSort}
+          mixedResultTypes={mixed}
+        />
+      )}
+
       {(data.manualCount ?? 0) > 0 && (
         <p className="text-xs leading-relaxed text-neutral-400">
-          수동 기록 {data.manualCount}건이 포함돼 있습니다. 인스타그램 앱 &lsquo;홍보하기&rsquo;
-          부스트는 Ad Center에만 남아 API로 가져올 수 없어 손으로 옮겨 적은 값입니다. Ad Center는
-          광고에 달린 좋아요·저장을 알려주지 않아 참여 단가는 비어 있습니다.
+          <strong className="font-medium text-neutral-500">결과</strong>는 부스트할 때 고른 목표의
+          달성 수입니다 — 목표가 &lsquo;프로필 방문&rsquo;이면 방문 수, &lsquo;웹사이트
+          방문&rsquo;이면 링크 클릭 수라 서로 다른 행동을 셉니다. 수동 기록 {data.manualCount}건은
+          인스타그램 앱 &lsquo;홍보하기&rsquo; 부스트라 Ad Center에서 손으로 옮겨 적었습니다. Ad
+          Center는 광고에 달린 좋아요·저장을 알려주지 않습니다.
         </p>
       )}
     </div>

@@ -1,6 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { AdEfficiencyTable } from "@/components/AdEfficiencyTable";
-import { buildAdEfficiency, groupByResultType } from "@/lib/analysis/adEfficiency";
+import {
+  buildAdEfficiency,
+  hasMixedResultTypes,
+  sumAdEfficiency,
+} from "@/lib/analysis/adEfficiency";
 import type { AdPerformance } from "@/lib/ads/map";
 import type { Reel } from "@/lib/schemas";
 import { NAV_ITEMS, isNavItemActive } from "@/lib/ui/navigation";
@@ -37,9 +41,15 @@ function reel(id: string, over: Partial<Reel> = {}): Reel {
 }
 
 function render(ads: AdPerformance[], reels: Reel[]) {
-  const groups = groupByResultType(buildAdEfficiency(ads, reels));
+  const rows = buildAdEfficiency(ads, reels);
   return renderToStaticMarkup(
-    <AdEfficiencyTable groups={groups} sort="spend" onSort={() => {}} />,
+    <AdEfficiencyTable
+      rows={rows}
+      totals={sumAdEfficiency(rows)}
+      sort="spend"
+      onSort={() => {}}
+      mixedResultTypes={hasMixedResultTypes(rows)}
+    />,
   );
 }
 
@@ -48,9 +58,39 @@ test("표는 지출·CPM·참여 단가와 오가닉 대비 배수를 한 줄에
 
   expect(html).toContain("30,000원");
   expect(html).toContain("2,500원"); // CPM
-  expect(html).toContain("165원"); // 참여 단가 30000/182
-  expect(html).toContain("0.32배"); // 광고 2.275% ÷ 오가닉 7.15%
+  expect(html).toContain("165원"); // 결과 단가 30000/182
+  expect(html).toContain("2.27%"); // 결과율 182/8000
+  expect(html).toContain("7.15%"); // 오가닉 반응률 — 눈으로 견주라고 나란히 둔다
   expect(html).toContain("첫 줄 캡션");
+});
+
+// 행은 결과 칸에 참여 수를 대신 보여 주는데 합계만 0이 되면 표 안에서 어긋난다.
+test("참여로 재는 광고도 합계 결과 수가 맞는다", () => {
+  const html = render([perf("111")], [reel("111")]);
+
+  expect(html).toContain("합계 · 1건");
+  expect(html).not.toMatch(/합계[\s\S]{0,400}>0</);
+});
+
+test("표지 사진과 형식 배지를 함께 보여준다", () => {
+  const html = render(
+    [perf("111"), perf("222")],
+    [
+      reel("111", { thumbnailUrl: "https://cdn.example/a.jpg" }),
+      reel("222", { mediaType: "REELS", thumbnailUrl: "https://cdn.example/b.jpg" }),
+    ],
+  );
+
+  expect(html).toContain('src="https://cdn.example/a.jpg"');
+  expect(html).toContain('loading="lazy"');
+  expect(html).toContain("캐러셀");
+  expect(html).toContain("릴스");
+});
+
+test("표지 사진이 없으면 깨진 이미지 대신 자리를 둔다", () => {
+  const html = render([perf("111")], [reel("111", { thumbnailUrl: undefined })]);
+
+  expect(html).toContain("lucide-image-off");
 });
 
 test("캐러셀 행은 캐러셀 상세로, 릴스 행은 릴스 상세로 간다", () => {

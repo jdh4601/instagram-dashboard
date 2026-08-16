@@ -1,18 +1,21 @@
 import Link from "next/link";
+import { Film, GalleryHorizontalEnd, ImageOff } from "lucide-react";
 import type {
   AdEfficiencyRow,
   AdEfficiencySort,
   AdEfficiencyTotals,
-  AdResultGroup,
 } from "@/lib/analysis/adEfficiency";
-import { AD_RESULT_LABELS, type AdResultType } from "@/lib/schemas";
+import { AD_RESULT_LABELS, type AdResultType, type MediaKind } from "@/lib/schemas";
 import { detailPathForMedia } from "@/lib/ui/navigation";
 import { fmtCount, fmtPct, fmtWon } from "@/lib/ui/format";
 
 interface Props {
-  groups: AdResultGroup[];
+  rows: AdEfficiencyRow[];
+  totals: AdEfficiencyTotals;
   sort: AdEfficiencySort;
   onSort: (sort: AdEfficiencySort) => void;
+  /** 결과 유형이 섞여 있으면 단가 열에 경고를 붙인다. */
+  mixedResultTypes: boolean;
 }
 
 /** 계산할 수 없는 칸. 0으로 채우면 "0원에 샀다"로 읽혀 판단을 망친다. */
@@ -26,95 +29,66 @@ function rate(value: number | null): string {
   return value === null ? NONE : fmtPct(value);
 }
 
-/** 결과 유형을 사람이 읽는 말로. 모르는 유형(Marketing API 성과)은 참여로 잰다. */
-function labelOf(type: string | null): string {
-  if (type === null) return "참여 (좋아요·저장·댓글·공유)";
+function resultLabel(type: string | null): string {
+  if (type === null) return "참여";
   return AD_RESULT_LABELS[type as AdResultType] ?? type;
 }
 
-export function AdEfficiencyTable({ groups, sort, onSort }: Props) {
+export function AdEfficiencyTable({ rows, totals, sort, onSort, mixedResultTypes }: Props) {
   return (
-    <div className="space-y-6">
-      {groups.map((group) => (
-        <ResultGroup key={group.type ?? "engagement"} group={group} sort={sort} onSort={onSort} />
-      ))}
+    // 열이 많아 좁은 화면에서는 표만 가로로 흐른다. 페이지 본문은 넘치지 않는다.
+    <div className="overflow-x-auto rounded-card border border-border-subtle">
+      <table className="w-full min-w-[58rem] text-sm">
+        <thead>
+          <tr className="border-b border-border-subtle bg-surface-muted text-left">
+            <Th>게시물</Th>
+            <Th sortKey="spend" sort={sort} onSort={onSort}>
+              지출
+            </Th>
+            <Th sortKey="adReach" sort={sort} onSort={onSort}>
+              광고 도달
+            </Th>
+            <Th sortKey="cpm" sort={sort} onSort={onSort} hint="노출 1,000회당">
+              CPM
+            </Th>
+            <Th hint="부스트 목표 달성 수">결과</Th>
+            <Th
+              sortKey="costPerResult"
+              sort={sort}
+              onSort={onSort}
+              hint={mixedResultTypes ? "⚠ 유형이 섞임" : "1건당 비용"}
+            >
+              결과 단가
+            </Th>
+            <Th sortKey="resultRate" sort={sort} onSort={onSort} hint="광고 도달 100명당">
+              결과율
+            </Th>
+            <Th hint="오가닉 도달 대비">오가닉 반응률</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <Row key={`${row.mediaId}-${row.resultType ?? "e"}`} row={row} />
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="border-t-2 border-border-subtle bg-surface-muted font-semibold">
+            <td className="px-3 py-2 text-neutral-500">합계 · {totals.postCount}건</td>
+            <td className="px-3 py-2 tabular-nums text-neutral-900">{fmtWon(totals.spend)}</td>
+            <td className="px-3 py-2 tabular-nums text-neutral-700">{fmtCount(totals.adReach)}</td>
+            <td className="px-3 py-2 tabular-nums text-neutral-700">{money(totals.cpm)}</td>
+            <td className="px-3 py-2 tabular-nums text-neutral-700">
+              {totals.resultCount.toLocaleString()}
+            </td>
+            {/* 유형이 섞인 합계 단가는 서로 다른 행동을 한 분모에 넣은 값이라 내지 않는다. */}
+            <td className="px-3 py-2 tabular-nums text-neutral-900">
+              {mixedResultTypes ? NONE : money(totals.costPerResult)}
+            </td>
+            <td className="px-3 py-2" colSpan={2} />
+          </tr>
+        </tfoot>
+      </table>
     </div>
-  );
-}
-
-/**
- * 결과 유형 하나의 표.
- *
- * 유형마다 표를 나누는 이유: 프로필 방문 78건과 링크 클릭 40건은 서로 다른 행동이라
- * 한 표에서 단가로 줄을 세우면 순위가 거짓말이 된다.
- */
-function ResultGroup({
-  group,
-  sort,
-  onSort,
-}: {
-  group: AdResultGroup;
-  sort: AdEfficiencySort;
-  onSort: (sort: AdEfficiencySort) => void;
-}) {
-  // 결과 유형이 있는 묶음은 결과 단가로, 없는 묶음(Marketing API)은 참여 단가로 잰다.
-  const byEngagement = group.type === null;
-  const costKey: AdEfficiencySort = byEngagement ? "costPerEngagement" : "costPerResult";
-  const costLabel = byEngagement ? "참여 단가" : "결과 단가";
-
-  return (
-    <section aria-label={`${labelOf(group.type)} 광고`}>
-      <header className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-sm font-semibold text-neutral-800">{labelOf(group.type)}</h3>
-        <p className="text-xs tabular-nums text-neutral-500">
-          {group.totals.postCount}건 · 지출 {fmtWon(group.totals.spend)} ·{" "}
-          {costLabel}{" "}
-          {money(group.type === null ? group.totals.costPerEngagement : group.totals.costPerResult)}
-        </p>
-      </header>
-
-      {/* 열이 많아 좁은 화면에서는 표만 가로로 흐른다. 페이지 본문은 넘치지 않는다. */}
-      <div className="overflow-x-auto rounded-card border border-border-subtle">
-        <table className="w-full min-w-[52rem] text-sm">
-          <thead>
-            <tr className="border-b border-border-subtle bg-surface-muted text-left">
-              <Th>게시물</Th>
-              <Th sortKey="spend" sort={sort} onSort={onSort}>
-                지출
-              </Th>
-              <Th>광고 도달</Th>
-              <Th sortKey="cpm" sort={sort} onSort={onSort} hint="노출 1,000회당">
-                CPM
-              </Th>
-              <Th>결과</Th>
-              <Th sortKey={costKey} sort={sort} onSort={onSort} hint="1건당 비용">
-                {costLabel}
-              </Th>
-              {/* 광고 반응률과 대비는 광고에 달린 참여를 알아야 나온다. Ad Center
-                  기록에는 그 값이 없어 열 자체를 만들지 않는다 — 늘 비어 있는 열은
-                  "성과가 없다"로 오독된다. */}
-              {byEngagement && <Th hint="광고 도달 대비">광고 반응률</Th>}
-              <Th hint="오가닉 도달 대비">오가닉 반응률</Th>
-              {byEngagement && (
-                <Th sortKey="efficiencyRatio" sort={sort} onSort={onSort} hint="광고÷오가닉">
-                  대비
-                </Th>
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {group.rows.map((row) => (
-              <Row
-                key={`${row.mediaId}-${row.resultType ?? "e"}`}
-                row={row}
-                byEngagement={byEngagement}
-              />
-            ))}
-          </tbody>
-          <Foot totals={group.totals} byEngagement={byEngagement} />
-        </table>
-      </div>
-    </section>
   );
 }
 
@@ -131,19 +105,20 @@ function Th({
   onSort?: (sort: AdEfficiencySort) => void;
   hint?: string;
 }) {
+  const active = sortKey !== undefined && sort === sortKey;
   return (
-    <th className="px-3 py-2 font-medium text-neutral-500">
+    <th className="whitespace-nowrap px-3 py-2 font-medium text-neutral-500">
       {sortKey && onSort ? (
         <button
           type="button"
           onClick={() => onSort(sortKey)}
-          aria-pressed={sort === sortKey}
+          aria-pressed={active}
           className={`rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 ${
-            sort === sortKey ? "text-brand-600" : "hover:text-neutral-800"
+            active ? "text-brand-600" : "hover:text-neutral-800"
           }`}
         >
           {children}
-          {sort === sortKey ? " ▾" : ""}
+          {active ? " ▾" : ""}
         </button>
       ) : (
         <span>{children}</span>
@@ -153,74 +128,84 @@ function Th({
   );
 }
 
-function Row({ row, byEngagement }: { row: AdEfficiencyRow; byEngagement: boolean }) {
-  const resultValue = row.resultCount ?? row.adEngagements;
-  const cost = byEngagement ? row.costPerEngagement : row.costPerResult;
-
+function Row({ row }: { row: AdEfficiencyRow }) {
   return (
-    <tr className="border-b border-border-subtle last:border-0">
+    <tr className="border-b border-border-subtle last:border-0 hover:bg-surface-muted/50">
       <td className="px-3 py-2">
         <Link
           href={detailPathForMedia(row.mediaType, row.mediaId)}
-          className="block max-w-64 truncate rounded-sm font-medium text-neutral-900 hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+          className="group flex items-center gap-2.5 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
         >
-          {row.caption?.trim() || "(캡션 없음)"}
+          <Thumbnail url={row.thumbnailUrl} kind={row.mediaType} />
+          <span className="min-w-0">
+            <span className="block max-w-56 truncate font-medium text-neutral-900 group-hover:text-brand-600">
+              {row.caption?.trim() || "(캡션 없음)"}
+            </span>
+            <span className="mt-0.5 flex items-center gap-1.5 text-xs text-neutral-400">
+              <KindBadge kind={row.mediaType} />
+              {row.postedAt.slice(0, 10)}
+              {row.adCount > 1 ? ` · 광고 ${row.adCount}건` : ""}
+            </span>
+          </span>
         </Link>
-        <span className="text-xs text-neutral-400">
-          {row.postedAt.slice(0, 10)}
-          {row.adCount > 1 ? ` · 광고 ${row.adCount}건` : ""}
-        </span>
       </td>
       <td className="px-3 py-2 font-semibold tabular-nums text-neutral-900">
         {fmtWon(row.spend)}
       </td>
       <td className="px-3 py-2 tabular-nums text-neutral-700">{fmtCount(row.adReach)}</td>
       <td className="px-3 py-2 tabular-nums text-neutral-700">{money(row.cpm)}</td>
-      <td className="px-3 py-2 tabular-nums text-neutral-700">{resultValue.toLocaleString()}</td>
-      <td className="px-3 py-2 font-semibold tabular-nums text-neutral-900">{money(cost)}</td>
-      {byEngagement && (
-        <td className="px-3 py-2 tabular-nums text-neutral-700">{rate(row.adEngagementRate)}</td>
-      )}
-      <td className="px-3 py-2 tabular-nums text-neutral-500">
-        {rate(row.organicEngagementRate)}
+      <td className="px-3 py-2">
+        <span className="tabular-nums text-neutral-700">
+          {(row.resultCount ?? row.adEngagements).toLocaleString()}
+        </span>
+        {/* 유형을 값 옆에 붙여 둔다 — 어떤 행동을 센 수인지 모르면 단가를 읽을 수 없다. */}
+        <span className="mt-0.5 block text-[11px] text-neutral-400">
+          {resultLabel(row.resultType)}
+        </span>
       </td>
-      {byEngagement && (
-        <td className="px-3 py-2">
-          <Ratio value={row.efficiencyRatio} />
-        </td>
-      )}
+      <td className="px-3 py-2 font-semibold tabular-nums text-neutral-900">
+        {money(row.resultType === null ? row.costPerEngagement : row.costPerResult)}
+      </td>
+      <td className="px-3 py-2 tabular-nums text-neutral-700">
+        {rate(row.resultRate ?? row.adEngagementRate)}
+      </td>
+      <td className="px-3 py-2 tabular-nums text-neutral-500">{rate(row.organicEngagementRate)}</td>
     </tr>
   );
 }
 
-/** 1을 넘으면 산 도달이 오가닉보다 더 반응했다는 뜻이라 눈에 띄게 둔다. */
-function Ratio({ value }: { value: number | null }) {
-  if (value === null) return <span className="text-neutral-400">{NONE}</span>;
+/**
+ * 표지 사진. 인스타 CDN 주소라 next/image로 감싸지 않는다 — 도메인 허용 목록을
+ * 사람이 손으로 관리하게 되고, 서명이 만료되면 어차피 깨진다.
+ */
+function Thumbnail({ url, kind }: { url?: string; kind: MediaKind }) {
+  const shape = kind === "REELS" ? "aspect-[9/16] w-8" : "aspect-square w-11";
+  if (!url) {
+    return (
+      <span
+        className={`flex ${shape} shrink-0 items-center justify-center rounded-md bg-surface-muted text-neutral-300`}
+      >
+        <ImageOff size={14} aria-hidden />
+      </span>
+    );
+  }
   return (
-    <span
-      className={`tabular-nums font-semibold ${value >= 1 ? "text-band-strong" : "text-neutral-600"}`}
-    >
-      {value.toFixed(2)}배
-    </span>
+    <img
+      src={url}
+      alt=""
+      loading="lazy"
+      className={`${shape} shrink-0 rounded-md object-cover`}
+    />
   );
 }
 
-function Foot({ totals, byEngagement }: { totals: AdEfficiencyTotals; byEngagement: boolean }) {
+function KindBadge({ kind }: { kind: MediaKind }) {
+  const reels = kind === "REELS";
+  const Icon = reels ? Film : GalleryHorizontalEnd;
   return (
-    <tfoot>
-      <tr className="border-t-2 border-border-subtle bg-surface-muted font-semibold">
-        <td className="px-3 py-2 text-neutral-500">합계 · {totals.postCount}건</td>
-        <td className="px-3 py-2 tabular-nums text-neutral-900">{fmtWon(totals.spend)}</td>
-        <td className="px-3 py-2 tabular-nums text-neutral-700">{fmtCount(totals.adReach)}</td>
-        <td className="px-3 py-2 tabular-nums text-neutral-700">{money(totals.cpm)}</td>
-        <td className="px-3 py-2 tabular-nums text-neutral-700">
-          {(byEngagement ? totals.adEngagements : totals.resultCount).toLocaleString()}
-        </td>
-        <td className="px-3 py-2 tabular-nums text-neutral-900">
-          {money(byEngagement ? totals.costPerEngagement : totals.costPerResult)}
-        </td>
-        <td className="px-3 py-2" colSpan={byEngagement ? 3 : 1} />
-      </tr>
-    </tfoot>
+    <span className="inline-flex items-center gap-1 rounded bg-surface-muted px-1.5 py-0.5 text-[11px] font-medium text-neutral-500">
+      <Icon size={11} aria-hidden />
+      {reels ? "릴스" : "캐러셀"}
+    </span>
   );
 }
