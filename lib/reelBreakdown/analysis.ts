@@ -44,7 +44,10 @@ const SYSTEM_PROMPT = `너는 숏폼 영상을 사실 기반으로 해체하는 
 규칙:
 - 첫 비트는 0초에서 시작하고 마지막 비트는 영상 끝까지 덮어라.
 - start/end는 자막·컷 시각에 맞춘 초 단위 숫자이며, 겹치거나 역전되면 안 된다.
-- original은 해당 구간 자막을 빠뜨리지 말고 원래 언어 그대로 합친다.
+- original은 해당 구간 자막 줄을 글자 그대로 이어 붙인다. 요약·의역·문법 교정·문장
+  다듬기를 하지 않는다. 저장 직전에 자막 원문과 대조해 덮어쓰므로, 고쳐 쓰면 번역만
+  어긋난다.
+- translation은 그 구간 자막이 실제로 말한 내용만 옮긴다. 자막에 없는 말은 넣지 않는다.
 - 음성이 이미 한국어면 translation에도 자연스러운 한국어 대사를 쓴다.
 - 프레임 사이의 장면을 추측하지 않는다. 보이지 않는 것은 지어내지 않는다.
 - 반드시 JSON 객체만 답하고 코드펜스나 설명은 붙이지 않는다.`;
@@ -120,6 +123,71 @@ export function parseBreakdownAnalysis(text: string, durationSec: number): RawBr
   };
 }
 
+/** 대사가 없는 구간임을 화면과 저장 데이터에서 같은 문구로 드러낸다. */
+export const NO_DIALOGUE = "(대사 없음)";
+
+interface BeatText {
+  start: number;
+  end: number;
+  original: string;
+  translation: string;
+}
+
+function overlapSeconds(beat: BeatText, line: TranscriptLine): number {
+  return Math.min(beat.end, line.endSec) - Math.max(beat.start, line.startSec);
+}
+
+function distanceSeconds(beat: BeatText, line: TranscriptLine): number {
+  const middle = (line.startSec + line.endSec) / 2;
+  if (middle < beat.start) return beat.start - middle;
+  if (middle > beat.end) return middle - beat.end;
+  return 0;
+}
+
+/**
+ * 비트의 original을 모델 문장이 아니라 전사 자막 그대로로 되돌린다.
+ *
+ * 모델은 자막을 "합치는" 과정에서 문장을 다듬거나 빠뜨린다. 화면의 원문은 사용자가
+ * 대본을 베껴 쓰는 자리라 실제 발화와 한 글자라도 달라지면 안 된다. 구조를 나누는 일은
+ * 모델에, 무슨 말을 했는지는 자막에 맡긴다.
+ *
+ * 자막 줄은 가장 많이 겹치는 비트 한 곳에만 들어간다 — 경계에 걸친 문장이 두 구간에
+ * 중복으로 찍히면 대본이 늘어난다. 어느 비트와도 겹치지 않는 줄(비트 사이 빈틈)은
+ * 버리지 않고 가장 가까운 비트에 붙인다.
+ */
+export function alignBeatOriginals<T extends BeatText>(beats: T[], lines: TranscriptLine[]): T[] {
+  const buckets: TranscriptLine[][] = beats.map(() => []);
+  for (const line of lines) {
+    let best = -1;
+    let bestOverlap = 0;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    beats.forEach((beat, index) => {
+      const overlap = overlapSeconds(beat, line);
+      if (overlap > bestOverlap) {
+        best = index;
+        bestOverlap = overlap;
+        return;
+      }
+      if (bestOverlap > 0) return;
+      const distance = distanceSeconds(beat, line);
+      if (distance < bestDistance) {
+        best = index;
+        bestDistance = distance;
+      }
+    });
+    if (best >= 0) buckets[best].push(line);
+  }
+
+  return beats.map((beat, index) => {
+    const text = buckets[index]
+      .map((line) => line.text.trim())
+      .filter((line) => line.length > 0)
+      .join(" ");
+    if (text.length > 0) return { ...beat, original: text };
+    return { ...beat, original: NO_DIALOGUE, translation: NO_DIALOGUE };
+  });
+}
+
 export async function generateBreakdownAnalysis(args: {
   hook: Hook;
   transcript: TranscriptLine[];
@@ -130,5 +198,6 @@ export async function generateBreakdownAnalysis(args: {
 }): Promise<RawBreakdown> {
   const prompt = buildBreakdownPrompt(args.hook, args.transcript, args.durationSec, args.cuts);
   const response = await args.model.generate({ ...prompt, images: args.images });
-  return parseBreakdownAnalysis(response, args.durationSec);
+  const parsed = parseBreakdownAnalysis(response, args.durationSec);
+  return { ...parsed, beats: alignBeatOriginals(parsed.beats, args.transcript) };
 }

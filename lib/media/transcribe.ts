@@ -21,6 +21,10 @@ const WhisperSegmentSchema = z.object({
   start: z.number().nonnegative(),
   end: z.number().nonnegative(),
   text: z.string(),
+  /** 이 구간이 무음일 확률. 배경음악만 있는 릴스 구간에서 1에 가까워진다. */
+  no_speech_prob: z.number().optional(),
+  /** 토큰 평균 로그확률. 모델이 스스로 확신하지 못한 구간일수록 낮다. */
+  avg_logprob: z.number().optional(),
 });
 
 const WhisperResponseSchema = z.object({
@@ -30,6 +34,23 @@ const WhisperResponseSchema = z.object({
 /** 초 단위를 0.1초로 반올림. SRT 업로드 경로와 정밀도를 맞춘다. */
 const round1 = (value: number): number => Math.round(value * 10) / 10;
 
+/**
+ * 환청(hallucination) 구간을 버리는 기준.
+ *
+ * 릴스는 말이 없고 음악만 흐르는 구간이 흔한데, whisper는 그런 구간에도 "시청해주셔서
+ * 감사합니다" 같은 학습 데이터 상투구를 채워 넣는다. 무음 확률이 높으면서 확신도까지
+ * 낮을 때만 버린다 — 둘 중 하나만으로는 웅얼거리는 진짜 대사까지 날아간다.
+ */
+const HALLUCINATION_NO_SPEECH_PROB = 0.8;
+const HALLUCINATION_AVG_LOGPROB = -1;
+
+function isHallucinated(segment: z.infer<typeof WhisperSegmentSchema>): boolean {
+  return (
+    (segment.no_speech_prob ?? 0) >= HALLUCINATION_NO_SPEECH_PROB &&
+    (segment.avg_logprob ?? 0) <= HALLUCINATION_AVG_LOGPROB
+  );
+}
+
 export function parseWhisperResponse(raw: unknown): TranscriptLine[] {
   const parsed = WhisperResponseSchema.parse(raw);
   if (!parsed.segments) {
@@ -38,6 +59,7 @@ export function parseWhisperResponse(raw: unknown): TranscriptLine[] {
     );
   }
   const lines = parsed.segments
+    .filter((segment) => !isHallucinated(segment))
     .map((segment) => ({
       startSec: round1(segment.start),
       endSec: round1(segment.end),
@@ -96,6 +118,9 @@ async function transcribeMediaFile(
     file,
     model: opts.model ?? DEFAULT_TRANSCRIPTION_MODEL,
     response_format: "verbose_json",
+    // 기본값(0.2 이상에서 시작하는 fallback)은 같은 영상을 두 번 돌릴 때 자막이
+    // 달라지고, 안 들리는 구간을 그럴듯한 문장으로 메우는 쪽으로 기운다.
+    temperature: 0,
   });
   return parseWhisperResponse(response);
 }

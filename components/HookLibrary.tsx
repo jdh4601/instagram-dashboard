@@ -120,31 +120,6 @@ function HookRow({
           </a>
         )}
 
-        {hook.sourceUrl &&
-          (hook.breakdown && !breakdownJob?.running ? (
-            <Link
-              href={`/hooks/${hook.id}/breakdown`}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-neutral-900 px-3 text-xs font-semibold text-white hover:bg-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
-            >
-              <Scissors size={14} aria-hidden />
-              해체 결과
-            </Link>
-          ) : (
-            <button
-              type="button"
-              onClick={() => onBreakdown(hook)}
-              disabled={breakdownJob?.running}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-brand-50 px-3 text-xs font-semibold text-brand-700 hover:bg-brand-100 disabled:cursor-wait disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
-            >
-              {breakdownJob?.running ? (
-                <LoaderCircle size={14} className="animate-spin" aria-hidden />
-              ) : (
-                <Scissors size={14} aria-hidden />
-              )}
-              {breakdownJob?.running ? `${breakdownJob.percent}%` : "해체하기"}
-            </button>
-          ))}
-
         <button
           type="button"
           onClick={() => onEdit(hook)}
@@ -175,6 +150,33 @@ function HookRow({
         >
           <Heart size={18} fill={hook.isFavorite ? "currentColor" : "none"} />
         </button>
+
+        {/* 해체는 이 줄에서 가장 큰 동작이라 오른쪽 끝에 둔다. 결과 보기는 흰 배경이면
+            다크 테마에서 글씨가 묻혀, 두 테마 모두에서 대비가 남는 초록 계열로 쓴다. */}
+        {hook.sourceUrl &&
+          (hook.breakdown && !breakdownJob?.running ? (
+            <Link
+              href={`/hooks/${hook.id}/breakdown`}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-band-strong-border bg-band-strong-soft px-3 text-xs font-semibold text-band-strong hover:bg-band-strong hover:text-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-band-strong"
+            >
+              <Scissors size={14} aria-hidden />
+              해체 결과
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onBreakdown(hook)}
+              disabled={breakdownJob?.running}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-brand-50 px-3 text-xs font-semibold text-brand-700 hover:bg-brand-100 disabled:cursor-wait disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+            >
+              {breakdownJob?.running ? (
+                <LoaderCircle size={14} className="animate-spin" aria-hidden />
+              ) : (
+                <Scissors size={14} aria-hidden />
+              )}
+              {breakdownJob?.running ? `${breakdownJob.percent}%` : "해체하기"}
+            </button>
+          ))}
       </div>
     </li>
   );

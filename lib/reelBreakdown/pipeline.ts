@@ -290,12 +290,16 @@ export async function runReelBreakdown(args: {
       "-i",
       source,
       "-vn",
+      // 릴스는 음악이 대사만큼 크게 깔린다. 저역(비트·베이스)을 자르고 라우드니스를
+      // 고르게 맞춰야 whisper가 작게 말한 구간을 통째로 지어내지 않는다.
+      "-af",
+      "highpass=f=90,loudnorm=I=-16:TP=-1.5:LRA=11,aresample=16000",
       "-ac",
       "1",
       "-ar",
       "16000",
       "-b:a",
-      "64k",
+      "96k",
       audio,
     ]);
     const transcript = await transcribeAudioFile(audio, args.transcription);

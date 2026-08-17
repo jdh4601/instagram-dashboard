@@ -184,3 +184,39 @@ test("완료된 훅은 해체 결과 화면으로 연결한다", () => {
   expect(html).toContain("해체 결과");
   expect(html).toContain('/hooks/h1/breakdown');
 });
+
+test("해체 버튼은 행에서 가장 오른쪽에 온다", () => {
+  const html = render([hook("h1", { sourceUrl: "https://instagram.com/reel/abc" })]);
+
+  // 즐겨찾기(하트) 다음에 와야 줄 끝에 붙는다.
+  expect(html.indexOf("해체하기")).toBeGreaterThan(html.indexOf('aria-label="즐겨찾기"'));
+});
+
+test("해체 결과 버튼은 다크 테마에서도 글씨가 보이는 초록으로 칠한다", () => {
+  const html = render([
+    hook("h1", {
+      sourceUrl: "https://instagram.com/reel/abc",
+      breakdown: {
+        reelUrl: "https://www.instagram.com/reel/abc/",
+        assetKey: "asset-1",
+        durationSec: 10,
+        cuts: [2],
+        hookType: "demo",
+        beats: Array.from({ length: 5 }, (_, index) => ({
+          start: index * 2,
+          end: (index + 1) * 2,
+          label: index === 0 ? "훅" : `구간 ${index + 1}`,
+          scene: "화자가 화면을 가리킨다",
+          original: "Original",
+          translation: "번역",
+          clipFile: `${index + 1}`.padStart(2, "0") + ".mp4",
+          posterFile: `${index + 1}`.padStart(4, "0") + ".jpg",
+        })),
+        generatedAt: "2026-08-15T00:00:00.000Z",
+      },
+    }),
+  ]);
+
+  expect(html).toContain("text-band-strong");
+  expect(html).not.toContain("bg-neutral-900 px-3 text-xs font-semibold text-white");
+});

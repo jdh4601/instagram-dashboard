@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   parseWhisperResponse,
+  transcribeAudioFile,
   transcribeVideoFile,
   DEFAULT_TRANSCRIPTION_MODEL,
 } from "@/lib/media/transcribe";
@@ -62,4 +63,39 @@ test("캐시된 mp4를 전사 API에 보내 자막을 만든다", async () => {
   expect(args.model).toBe(DEFAULT_TRANSCRIPTION_MODEL);
   // 타임스탬프 없이는 훅·비트 분석의 시점을 잡을 수 없다.
   expect(args.response_format).toBe("verbose_json");
+});
+
+test("무음 구간에서 나온 환청 세그먼트는 자막에 넣지 않는다", () => {
+  // 배경음악만 흐르는 구간에서 whisper가 만들어 내는 문장은 no_speech_prob이 높고
+  // avg_logprob이 낮다. 이걸 그대로 두면 훅 구간 대사가 통째로 가짜가 된다.
+  const lines = parseWhisperResponse({
+    segments: [
+      { start: 0, end: 2, text: "시청해주셔서 감사합니다", no_speech_prob: 0.94, avg_logprob: -1.4 },
+      { start: 2, end: 4, text: "진짜 대사", no_speech_prob: 0.02, avg_logprob: -0.3 },
+    ],
+  });
+
+  expect(lines).toEqual([{ startSec: 2, endSec: 4, text: "진짜 대사" }]);
+});
+
+test("확신도가 낮아도 말이 있는 구간이면 남긴다", () => {
+  const lines = parseWhisperResponse({
+    segments: [{ start: 0, end: 2, text: "잘 안 들리는 대사", no_speech_prob: 0.1, avg_logprob: -1.6 }],
+  });
+
+  expect(lines).toHaveLength(1);
+});
+
+test("전사는 온도를 0으로 고정해 같은 영상에서 같은 자막을 만든다", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "whisper-"));
+  const path = join(dir, "r2.mp3");
+  await writeFile(path, "fake mp3 bytes");
+  const create = vi.fn(async (_args: unknown) => ({
+    segments: [{ start: 0, end: 1, text: "한 마디" }],
+  }));
+
+  await transcribeAudioFile(path, { client: { audio: { transcriptions: { create } } } });
+
+  const args = create.mock.calls[0][0] as { temperature: number };
+  expect(args.temperature).toBe(0);
 });

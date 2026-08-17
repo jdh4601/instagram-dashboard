@@ -1,4 +1,8 @@
-import { buildBreakdownPrompt, parseBreakdownAnalysis } from "@/lib/reelBreakdown/analysis";
+import {
+  alignBeatOriginals,
+  buildBreakdownPrompt,
+  parseBreakdownAnalysis,
+} from "@/lib/reelBreakdown/analysis";
 import {
   __private__,
   normalizeInstagramReelUrl,
@@ -100,4 +104,58 @@ test("asset 경로는 정해진 프레임·클립 이름만 허용한다", () =>
   expect(() => reelBreakdownAssetPath("/tmp/data", "safe-key", "../../secret")).toThrow(
     /허용되지 않은/,
   );
+});
+
+test("비트의 원문은 모델이 다시 쓴 문장이 아니라 자막 그대로를 쓴다", () => {
+  const beats = [
+    { start: 0, end: 3, original: "모델이 다듬은 문장", translation: "번역 A" },
+    { start: 3, end: 6, original: "또 다듬은 문장", translation: "번역 B" },
+  ];
+  const lines = [
+    { startSec: 0, endSec: 1.4, text: "Pre-order?" },
+    { startSec: 1.5, endSec: 2.9, text: "Joining a waitlist?" },
+    { startSec: 3.1, endSec: 5.8, text: "Give attention a clear next step." },
+  ];
+
+  const aligned = alignBeatOriginals(beats, lines);
+
+  expect(aligned[0].original).toBe("Pre-order? Joining a waitlist?");
+  expect(aligned[1].original).toBe("Give attention a clear next step.");
+  // 번역은 모델이 쓴 그대로 둔다.
+  expect(aligned[0].translation).toBe("번역 A");
+});
+
+test("구간 경계에 걸친 자막 줄은 더 많이 겹치는 쪽 한 곳에만 넣는다", () => {
+  const beats = [
+    { start: 0, end: 3, original: "x", translation: "번역 A" },
+    { start: 3, end: 8, original: "y", translation: "번역 B" },
+  ];
+  const lines = [{ startSec: 2.5, endSec: 7, text: "경계를 넘는 한 문장" }];
+
+  const aligned = alignBeatOriginals(beats, lines);
+
+  expect(aligned[0].original).toBe("(대사 없음)");
+  expect(aligned[1].original).toBe("경계를 넘는 한 문장");
+});
+
+test("어느 구간에도 겹치지 않는 자막 줄은 버리지 않고 가장 가까운 구간에 붙인다", () => {
+  const beats = [
+    { start: 0, end: 2, original: "x", translation: "번역 A" },
+    { start: 3, end: 6, original: "y", translation: "번역 B" },
+  ];
+  const lines = [{ startSec: 2.2, endSec: 2.6, text: "빈틈에 떨어진 대사" }];
+
+  const aligned = alignBeatOriginals(beats, lines);
+
+  expect(aligned[0].original).toBe("빈틈에 떨어진 대사");
+  expect(aligned[1].original).toBe("(대사 없음)");
+});
+
+test("대사가 없는 구간은 번역까지 비워 지어낸 대사가 남지 않게 한다", () => {
+  const beats = [{ start: 0, end: 2, original: "지어낸 대사", translation: "지어낸 번역" }];
+
+  const aligned = alignBeatOriginals(beats, []);
+
+  expect(aligned[0].original).toBe("(대사 없음)");
+  expect(aligned[0].translation).toBe("(대사 없음)");
 });
