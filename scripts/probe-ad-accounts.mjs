@@ -124,6 +124,33 @@ if (storedIds.size === 0) {
 const range = { since: isoDaysAgo(lookbackDays), until: isoDaysAgo(0) };
 console.log(`저장된 게시물 ${storedIds.size}건 / 조회 기간 ${range.since} ~ ${range.until}\n`);
 
+// --- 토큰에 실제로 박힌 권한 ------------------------------------------------
+
+// Graph API Explorer는 Permissions 목록에 이름을 추가해도 'Generate Access Token'을
+// 다시 누르기 전까지 토큰에 부여하지 않는다. 화면에는 ads_read가 보이는데 토큰에는
+// 없는 상태가 만들어져, 여기서 먼저 짚지 않으면 원인을 엉뚱한 데서 찾게 된다.
+try {
+  const granted = new Set(
+    (await collect("me/permissions"))
+      .filter((row) => row.status === "granted")
+      .map((row) => row.permission),
+  );
+  if (!granted.has("ads_read")) {
+    console.error("이 토큰에는 ads_read 권한이 없습니다.");
+    console.error(`  토큰이 가진 권한: ${[...granted].sort().join(", ") || "(없음)"}`);
+    console.error(
+      "\n→ Graph API Explorer에서 Permissions에 ads_read를 추가한 뒤,\n" +
+        "  반드시 'Generate Access Token'을 다시 눌러 새 토큰을 받으세요.\n" +
+        "  목록에 추가만 해서는 토큰에 부여되지 않습니다.",
+    );
+    process.exit(1);
+  }
+  console.log(`토큰 권한 확인 — ads_read ✅ (전체: ${[...granted].sort().join(", ")})\n`);
+} catch (err) {
+  // 권한 확인이 막혀도 본 조회는 시도해 본다 — 실패 원인은 아래에서 다시 잡힌다.
+  console.warn(`권한 목록을 읽지 못했습니다(계속 진행): ${err.message}\n`);
+}
+
 // --- 광고 계정 목록 --------------------------------------------------------
 
 let accounts;
@@ -136,8 +163,34 @@ try {
   process.exit(1);
 }
 
+// me/adaccounts는 '내가 직접 배정된' 계정만 준다. 비즈니스가 소유한 계정은 여기
+// 안 나오는 일이 있어, 비어 보일 때 비즈니스 쪽도 한 번 더 훑는다.
 if (accounts.length === 0) {
-  console.error("이 토큰으로 볼 수 있는 광고 계정이 없습니다.");
+  console.log("me/adaccounts가 비었습니다. 비즈니스 소유 계정을 확인합니다…");
+  try {
+    const businesses = await collect("me/businesses", { fields: "id,name" });
+    for (const business of businesses) {
+      for (const edge of ["owned_ad_accounts", "client_ad_accounts"]) {
+        try {
+          const owned = await collect(`${business.id}/${edge}`, {
+            fields: "id,name,currency,account_status",
+          });
+          accounts.push(...owned);
+        } catch {
+          // 이 엣지에 권한이 없을 뿐이다. 다른 경로가 남아 있으므로 계속 간다.
+        }
+      }
+    }
+    // 두 경로가 같은 계정을 줄 수 있어 id로 중복을 없앤다.
+    accounts = [...new Map(accounts.map((account) => [account.id, account])).values()];
+    console.log(`비즈니스 ${businesses.length}곳에서 광고 계정 ${accounts.length}개를 찾았습니다.`);
+  } catch (err) {
+    console.log(`비즈니스 목록을 읽지 못했습니다: ${err.message}`);
+  }
+}
+
+if (accounts.length === 0) {
+  console.error("\n이 토큰으로 볼 수 있는 광고 계정이 없습니다.");
   console.error(
     "→ 인스타그램만으로 만든 광고 계정이면 Marketing API에 올라오지 않습니다.\n" +
       "  이 경우 자동 집계 경로가 없어 수동 입력이 유일한 방법입니다.",
