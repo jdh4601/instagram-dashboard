@@ -153,9 +153,15 @@ try {
 
 // --- 광고 계정 목록 --------------------------------------------------------
 
+// 인스타 앱이 만든 광고 계정은 me/adaccounts에 안 뜨면서도 id로는 열리는 일이 있다.
+// 계정을 콕 집어 줄 수 있게 열어 둔다 — 목록에 없다고 접근까지 막힌 건 아니다.
+const explicitAccount = argValue("account");
+
 let accounts;
 try {
-  accounts = await collect("me/adaccounts", { fields: "id,name,currency,account_status" });
+  accounts = explicitAccount
+    ? [{ id: explicitAccount.startsWith("act_") ? explicitAccount : `act_${explicitAccount}` }]
+    : await collect("me/adaccounts", { fields: "id,name,currency,account_status" });
 } catch (err) {
   console.error(`광고 계정 목록을 읽지 못했습니다: ${err.message}`);
   if (err.code === 190) console.error("→ 토큰이 만료되었거나 잘못되었습니다.");
