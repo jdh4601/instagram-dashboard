@@ -12,8 +12,34 @@ import { getWallaConnection } from "@/lib/walla";
 import { syncApplicationsIfConfigured } from "@/lib/walla/sync";
 import { assertJsonRequest } from "@/lib/api/guard";
 import { getSettingsStore } from "@/lib/settings";
+import { fetchAdPerformance } from "@/lib/ads/cache";
 
 const NDJSON = "application/x-ndjson";
+
+interface AdsSyncResult {
+  ads: { configured: boolean; count: number };
+  error: string | null;
+}
+
+/**
+ * 광고 성과를 캐시를 건너뛰고 다시 받는다.
+ *
+ * 동기화 버튼의 뜻은 "지금 상태를 다시 가져와라"이므로 force로 부른다. 성과 자체는
+ * 저장하지 않는다 — 외부 집계라 사본을 두면 광고 관리자와 어긋나는 순간이 생긴다.
+ * 여기서 하는 일은 최신 값을 한 번 당겨 캐시를 데우고, 몇 건이 잡혔는지 알리는 것뿐이다.
+ */
+async function refreshAds(): Promise<AdsSyncResult> {
+  try {
+    const result = await fetchAdPerformance({ force: true });
+    return {
+      ads: { configured: result.configured, count: result.performance.length },
+      error: result.error,
+    };
+  } catch {
+    // 곁다리 연동이 릴스·계정 지표를 끌어내리게 두지 않는다. 신청 폼과 같은 취급이다.
+    return { ads: { configured: false, count: 0 }, error: null };
+  }
+}
 
 async function runSync(onProgress?: (progress: SyncProgress) => void) {
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
@@ -35,14 +61,22 @@ async function runSync(onProgress?: (progress: SyncProgress) => void) {
     getApplicationRepository(),
   );
 
+  // 광고도 마찬가지로 선택 연동이다. 안 붙인 사용자에게는 조용히 0건으로 남는다.
+  const ads = await refreshAds();
+
   // 여기까지 왔다면 저장소에 새 데이터가 실제로 들어갔다. 위에서 예외가 나면
   // 시각을 남기지 않아, 실패한 동기화가 화면을 신선하다고 속이지 못한다.
   await getSettingsStore().markSynced(new Date().toISOString());
 
+  const errors = [...result.errors];
+  if (applications.error) errors.push(applications.error);
+  if (ads.error) errors.push(ads.error);
+
   return {
     ...result,
     applications: applications.applications,
-    errors: applications.error ? [...result.errors, applications.error] : result.errors,
+    ads: ads.ads,
+    errors,
   };
 }
 

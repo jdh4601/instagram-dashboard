@@ -5,13 +5,21 @@ vi.mock("@/lib/store", () => ({
   getAdSpendRepository: vi.fn(),
 }));
 
+// 광고 성과는 Marketing API에서 온다. 상세 테스트는 연동 없음을 기본값으로 둔다.
+vi.mock("@/lib/ads/cache", () => ({
+  fetchAdPerformance: vi.fn(),
+}));
+
 import { GET } from "@/app/api/reels/[id]/route";
 import { getRepository, getReelHistoryRepository, getAdSpendRepository } from "@/lib/store";
+import { fetchAdPerformance } from "@/lib/ads/cache";
+import type { AdPerformance } from "@/lib/ads/map";
 import type { AdSpend, Reel } from "@/lib/schemas";
 
 const mockGetRepository = getRepository as unknown as Mock;
 const mockGetHistoryRepository = getReelHistoryRepository as unknown as Mock;
 const mockGetAdSpendRepository = getAdSpendRepository as unknown as Mock;
+const mockFetchAdPerformance = fetchAdPerformance as unknown as Mock;
 
 const base = {
   durationSec: 0,
@@ -46,6 +54,7 @@ beforeEach(() => {
   mockGetRepository.mockReturnValue(fakeRepo);
   mockGetHistoryRepository.mockReturnValue(fakeHistoryRepo);
   mockGetAdSpendRepository.mockReturnValue(adSpendRepo([]));
+  mockFetchAdPerformance.mockResolvedValue({ performance: [], configured: false, error: null });
 });
 
 function ctx(id: string): { params: Promise<{ id: string }> } {
@@ -140,6 +149,73 @@ test("한 게시물을 여러 번 태우면 지출과 도달이 합쳐진다", a
 
 test("광고 저장소가 비어 있어도 상세는 정상으로 뜬다", async () => {
   const { status, body } = await detail("릴스-1");
+  expect(status).toBe(200);
+  expect(body.ad).toBeNull();
+});
+
+// --- Marketing API에서 온 광고 --------------------------------------------
+
+const apiPerf = (mediaId: string, overrides: Partial<AdPerformance> = {}): AdPerformance => ({
+  mediaId,
+  adCount: 1,
+  spend: 5000,
+  reach: 800,
+  impressions: 1200,
+  clicks: 40,
+  ...overrides,
+});
+
+test("Marketing API가 준 광고 성과가 상세에 실린다 — 수동 기록이 없어도 뜬다", async () => {
+  mockFetchAdPerformance.mockResolvedValue({
+    performance: [apiPerf("릴스-1")],
+    configured: true,
+    error: null,
+  });
+
+  const { body } = await detail("릴스-1");
+
+  expect(body.ad.adReach).toBe(800);
+  expect(body.ad.spend).toBe(5000);
+  expect(body.ad.organicReach).toBe(90);
+});
+
+test("다른 게시물의 API 광고는 섞이지 않는다", async () => {
+  mockFetchAdPerformance.mockResolvedValue({
+    performance: [apiPerf("릴스-2"), apiPerf("캐러셀-1")],
+    configured: true,
+    error: null,
+  });
+
+  const { body } = await detail("릴스-1");
+
+  expect(body.ad).toBeNull();
+});
+
+test("API와 수동 기록이 겹치면 지출이 큰 쪽 한 줄만 보여 준다", async () => {
+  mockFetchAdPerformance.mockResolvedValue({
+    performance: [apiPerf("릴스-1", { spend: 1000, reach: 100 })],
+    configured: true,
+    error: null,
+  });
+  mockGetAdSpendRepository.mockReturnValue(
+    adSpendRepo([boost("릴스-1", { spend: 9000, reach: 900 })]),
+  );
+
+  const { body } = await detail("릴스-1");
+
+  expect(body.ad.spend).toBe(9000);
+});
+
+test("Marketing API가 실패해도 상세는 200으로 뜬다", async () => {
+  // 광고는 곁다리다. 외부 API 장애로 게시물 상세가 통째로 막히면 안 된다.
+  mockFetchAdPerformance.mockResolvedValue({
+    performance: [],
+    configured: true,
+    error: "Marketing API에 연결하지 못했습니다",
+  });
+
+  const { status, body } = await detail("릴스-1");
+
   expect(status).toBe(200);
   expect(body.ad).toBeNull();
 });

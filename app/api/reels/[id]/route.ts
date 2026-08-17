@@ -6,6 +6,7 @@ import { mediaKindOf } from "@/lib/media/kind";
 import { computeDerivedRates } from "@/lib/analysis/metrics";
 import { assertJsonRequest } from "@/lib/api/guard";
 import { adSpendToPerformance } from "@/lib/ads/adSpend";
+import { fetchAdPerformance } from "@/lib/ads/cache";
 import { buildAdEfficiency, type AdEfficiencyRow } from "@/lib/analysis/adEfficiency";
 import type { Reel } from "@/lib/schemas";
 
@@ -15,17 +16,23 @@ import type { Reel } from "@/lib/schemas";
  * 0이 아니라 null인 이유는 "안 태웠다"와 "태웠는데 아무도 못 봤다"가 화면에서
  * 뒤바뀌면 안 되기 때문이다.
  *
- * 지금은 수동 기록(Ad Center)만 읽는다. Marketing API 성과는 동기화가 받아 저장하는
- * 쪽으로 붙일 예정이라, 그때도 이 자리에서 같은 모양으로 합쳐진다.
+ * 출처는 /api/ads와 같은 둘이다 — Marketing API(광고 관리자에서 집행한 광고)와
+ * 수동 기록(Ad Center 부스트). 광고 조회가 실패해도 던지지 않는다. 광고는 곁다리라
+ * 외부 API 장애가 게시물 상세를 통째로 막으면 안 된다.
  */
 async function adPerformanceOf(reel: Reel): Promise<AdEfficiencyRow | null> {
-  const entries = (await getAdSpendRepository().list()).filter(
-    (entry) => entry.mediaId === reel.id,
-  );
-  if (entries.length === 0) return null;
-  // 결과 유형이 다르면 adSpendToPerformance가 줄을 나눈다. 상세는 한 줄만 보여
-  // 주므로 지출이 가장 큰 줄(정렬 첫 줄)을 택한다.
-  return buildAdEfficiency(adSpendToPerformance(entries), [reel])[0] ?? null;
+  const [fetched, manualEntries] = await Promise.all([
+    fetchAdPerformance(),
+    getAdSpendRepository().list(),
+  ]);
+  const manual = adSpendToPerformance(manualEntries.filter((entry) => entry.mediaId === reel.id));
+  const fromApi = fetched.performance.filter((ad) => ad.mediaId === reel.id);
+
+  const performance = [...fromApi, ...manual];
+  if (performance.length === 0) return null;
+  // 결과 유형이 다르면 줄이 나뉜다. 상세는 한 줄만 보여 주므로 지출이 가장 큰
+  // 줄(정렬 첫 줄)을 택한다.
+  return buildAdEfficiency(performance, [reel])[0] ?? null;
 }
 
 // 게시물 상세: reel + 분석 결과 + 지표 이력 + 광고 성과

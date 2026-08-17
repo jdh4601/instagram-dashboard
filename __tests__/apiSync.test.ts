@@ -27,12 +27,18 @@ vi.mock("@/lib/walla/sync", () => ({
 vi.mock("@/lib/settings", () => ({
   getSettingsStore: vi.fn(() => ({ markSynced: mockMarkSynced })),
 }));
+// 광고도 선택 연동이다. 기본은 미연동으로 두고, 필요한 테스트에서만 켠다.
+vi.mock("@/lib/ads/cache", () => ({
+  fetchAdPerformance: vi.fn(),
+}));
 
 import type { MockedFunction } from "vitest";
 import { POST } from "@/app/api/sync/route";
 import { syncFromGraph } from "@/lib/graph/sync";
 import { syncApplicationsIfConfigured } from "@/lib/walla/sync";
+import { fetchAdPerformance } from "@/lib/ads/cache";
 
+const mockFetchAds = fetchAdPerformance as MockedFunction<typeof fetchAdPerformance>;
 const mockSync = syncFromGraph as MockedFunction<typeof syncFromGraph>;
 const mockApplicationSync = syncApplicationsIfConfigured as MockedFunction<
   typeof syncApplicationsIfConfigured
@@ -77,6 +83,8 @@ beforeEach(() => {
     reachedPageLimit: false,
     error: null,
   });
+  mockFetchAds.mockReset();
+  mockFetchAds.mockResolvedValue({ performance: [], configured: false, error: null });
 });
 
 test("POST /api/sync는 일부 릴스 실패를 207과 실패 상세로 반환한다", async () => {
@@ -217,4 +225,79 @@ test("신청 폼이 실패해도 Instagram 동기화 결과는 그대로 반환�
   const body = await res.json();
   expect(body.syncedReels).toBe(2);
   expect(body.errors).toContain("Walla 요청 실패 (401): /forms/form_1/fields");
+});
+
+// --- 광고 동기화 -----------------------------------------------------------
+
+const adPerf = (mediaId: string) => ({
+  mediaId,
+  adCount: 1,
+  spend: 5000,
+  reach: 800,
+  impressions: 1200,
+  clicks: 40,
+});
+
+test("동기화는 캐시를 건너뛰고 광고 성과를 새로 받는다", async () => {
+  // 동기화 버튼의 뜻은 "지금 상태를 다시 가져와라"다. 5분짜리 캐시가 그 뜻을
+  // 가로채면 눌러도 안 바뀌는 버튼이 된다.
+  mockSync.mockResolvedValue(okResult);
+
+  await POST(syncRequest());
+
+  expect(mockFetchAds).toHaveBeenCalledWith({ force: true });
+});
+
+test("동기화 결과에 받아온 광고 건수가 실린다", async () => {
+  mockSync.mockResolvedValue(okResult);
+  mockFetchAds.mockResolvedValue({
+    performance: [adPerf("m1"), adPerf("m2")],
+    configured: true,
+    error: null,
+  });
+
+  const res = await POST(syncRequest());
+
+  expect(res.status).toBe(200);
+  await expect(res.json()).resolves.toMatchObject({ ads: { configured: true, count: 2 } });
+});
+
+test("광고 연동이 없으면 조용히 0건으로 둔다", async () => {
+  // 안 붙인 사용자에게 오류처럼 보이면 안 된다.
+  mockSync.mockResolvedValue(okResult);
+
+  const res = await POST(syncRequest());
+  const body = await res.json();
+
+  expect(body.ads).toEqual({ configured: false, count: 0 });
+  expect(body.errors).toEqual([]);
+});
+
+test("광고 조회가 실패해도 동기화는 성공하고 사유만 errors에 남는다", async () => {
+  // 신청 폼과 같은 취급이다. 곁다리 연동 하나가 릴스·계정 지표를 날리면 안 된다.
+  mockSync.mockResolvedValue(okResult);
+  mockFetchAds.mockResolvedValue({
+    performance: [],
+    configured: true,
+    error: "Marketing API에 연결하지 못했습니다",
+  });
+
+  const res = await POST(syncRequest());
+
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body.syncedReels).toBe(2);
+  expect(body.errors).toContain("Marketing API에 연결하지 못했습니다");
+});
+
+test("광고 조회가 예외를 던져도 동기화 전체를 실패시키지 않는다", async () => {
+  mockSync.mockResolvedValue(okResult);
+  mockFetchAds.mockRejectedValue(new Error("boom"));
+
+  const res = await POST(syncRequest());
+
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body.syncedReels).toBe(2);
+  expect(body.ads).toEqual({ configured: false, count: 0 });
 });
