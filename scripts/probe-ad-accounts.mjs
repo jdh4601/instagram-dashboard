@@ -163,27 +163,38 @@ try {
   process.exit(1);
 }
 
-// me/adaccounts는 '내가 직접 배정된' 계정만 준다. 비즈니스가 소유한 계정은 여기
-// 안 나오는 일이 있어, 비어 보일 때 비즈니스 쪽도 한 번 더 훑는다.
+/**
+ * 비즈니스가 소유한 광고 계정까지 합친다.
+ *
+ * me/adaccounts는 '나에게 직접 배정된' 계정만 준다. 비즈니스 소유 계정은 여기 빠지는
+ * 일이 있어, 직접 배정된 계정이 하나 있어도 그게 빈 껍데기일 수 있다. 그래서 목록이
+ * 비었을 때만이 아니라 부스트를 못 찾았을 때도 이쪽을 훑어야 한다.
+ */
+async function addBusinessAccounts(known) {
+  const byId = new Map(known.map((account) => [account.id, account]));
+  const businesses = await collect("me/businesses", { fields: "id,name" });
+  for (const business of businesses) {
+    for (const edge of ["owned_ad_accounts", "client_ad_accounts"]) {
+      try {
+        const owned = await collect(`${business.id}/${edge}`, {
+          fields: "id,name,currency,account_status",
+        });
+        // 두 엣지가 같은 계정을 줄 수 있어 id로 중복을 없앤다.
+        for (const account of owned) byId.set(account.id, account);
+      } catch {
+        // 이 엣지에 권한이 없을 뿐이다. 다른 경로가 남아 있으므로 계속 간다.
+      }
+    }
+  }
+  return { accounts: [...byId.values()], businessCount: businesses.length };
+}
+
 if (accounts.length === 0) {
   console.log("me/adaccounts가 비었습니다. 비즈니스 소유 계정을 확인합니다…");
   try {
-    const businesses = await collect("me/businesses", { fields: "id,name" });
-    for (const business of businesses) {
-      for (const edge of ["owned_ad_accounts", "client_ad_accounts"]) {
-        try {
-          const owned = await collect(`${business.id}/${edge}`, {
-            fields: "id,name,currency,account_status",
-          });
-          accounts.push(...owned);
-        } catch {
-          // 이 엣지에 권한이 없을 뿐이다. 다른 경로가 남아 있으므로 계속 간다.
-        }
-      }
-    }
-    // 두 경로가 같은 계정을 줄 수 있어 id로 중복을 없앤다.
-    accounts = [...new Map(accounts.map((account) => [account.id, account])).values()];
-    console.log(`비즈니스 ${businesses.length}곳에서 광고 계정 ${accounts.length}개를 찾았습니다.`);
+    const found = await addBusinessAccounts(accounts);
+    accounts = found.accounts;
+    console.log(`비즈니스 ${found.businessCount}곳에서 광고 계정 ${accounts.length}개를 찾았습니다.`);
   } catch (err) {
     console.log(`비즈니스 목록을 읽지 못했습니다: ${err.message}`);
   }
@@ -202,59 +213,84 @@ console.log(`광고 계정 ${accounts.length}개를 찾았습니다.\n`);
 
 // --- 계정별로 게시물 매칭 --------------------------------------------------
 
-const findings = [];
+/** 계정 한 벌을 훑어 우리 게시물에 붙은 광고를 찾는다. */
+async function scanAccounts(candidates) {
+  const found = [];
+  for (const account of candidates) {
+    const label = `${account.id}${account.name ? ` (${account.name})` : ""}`;
+    process.stdout.write(`· ${label} … `);
 
-for (const account of accounts) {
-  const label = `${account.id}${account.name ? ` (${account.name})` : ""}`;
-  process.stdout.write(`· ${label} … `);
+    let ads;
+    try {
+      ads = await collect(`${account.id}/ads`, {
+        fields: "id,effective_status,creative{effective_instagram_media_id}",
+      });
+    } catch (err) {
+      console.log(`읽지 못함 — ${err.message}`);
+      continue;
+    }
 
-  let ads;
-  try {
-    ads = await collect(`${account.id}/ads`, {
-      fields: "id,effective_status,creative{effective_instagram_media_id}",
-    });
-  } catch (err) {
-    console.log(`읽지 못함 — ${err.message}`);
-    continue;
+    // 인스타 게시물에 붙은 광고만 셈한다. 페이스북 전용 소재는 조인할 키가 없다.
+    const linked = ads.filter((ad) => ad.creative?.effective_instagram_media_id);
+    const matched = linked.filter((ad) =>
+      storedIds.has(ad.creative.effective_instagram_media_id),
+    );
+    const matchedMedia = new Set(
+      matched.map((ad) => ad.creative.effective_instagram_media_id),
+    );
+
+    if (matched.length === 0) {
+      console.log(`광고 ${ads.length}건 / 인스타 연결 ${linked.length}건 / 우리 게시물 0건`);
+      continue;
+    }
+
+    let spend = 0;
+    let reach = 0;
+    try {
+      const insights = await collect(`${account.id}/insights`, {
+        level: "ad",
+        fields: "ad_id,spend,reach",
+        time_range: JSON.stringify(range),
+      });
+      const matchedAdIds = new Set(matched.map((ad) => ad.id));
+      for (const row of insights) {
+        if (!matchedAdIds.has(row.ad_id)) continue;
+        spend += Number.parseFloat(row.spend ?? "0") || 0;
+        reach += Number.parseFloat(row.reach ?? "0") || 0;
+      }
+    } catch (err) {
+      console.log(`성과를 읽지 못함 — ${err.message}`);
+    }
+
+    console.log(
+      `광고 ${ads.length}건 / 우리 게시물 ${matchedMedia.size}건 매칭 ✅ ` +
+        `(지출 ${won(spend)} ${account.currency ?? ""} · 도달 ${won(reach)})`,
+    );
+    found.push({ account, matchedMedia, matchedAds: matched.length, spend });
   }
+  return found;
+}
 
-  // 인스타 게시물에 붙은 광고만 셈한다. 페이스북 전용 소재는 조인할 키가 없다.
-  const linked = ads.filter((ad) => ad.creative?.effective_instagram_media_id);
-  const matched = linked.filter((ad) =>
-    storedIds.has(ad.creative.effective_instagram_media_id),
-  );
-  const matchedMedia = new Set(
-    matched.map((ad) => ad.creative.effective_instagram_media_id),
-  );
+let findings = await scanAccounts(accounts);
 
-  if (matched.length === 0) {
-    console.log(`광고 ${ads.length}건 / 인스타 연결 ${linked.length}건 / 우리 게시물 0건`);
-    continue;
-  }
-
-  let spend = 0;
-  let reach = 0;
+// 직접 배정된 계정이 빈 껍데기이고 부스트는 비즈니스 소유 계정에 있는 경우가 있다.
+// 계정을 찾았다는 이유로 여기서 멈추면 그 경로를 통째로 놓친다.
+if (findings.length === 0) {
+  console.log("\n부스트를 찾지 못했습니다. 비즈니스 소유 계정도 확인합니다…");
   try {
-    const insights = await collect(`${account.id}/insights`, {
-      level: "ad",
-      fields: "ad_id,spend,reach",
-      time_range: JSON.stringify(range),
-    });
-    const matchedAdIds = new Set(matched.map((ad) => ad.id));
-    for (const row of insights) {
-      if (!matchedAdIds.has(row.ad_id)) continue;
-      spend += Number.parseFloat(row.spend ?? "0") || 0;
-      reach += Number.parseFloat(row.reach ?? "0") || 0;
+    const scanned = new Set(accounts.map((account) => account.id));
+    const found = await addBusinessAccounts(accounts);
+    const extra = found.accounts.filter((account) => !scanned.has(account.id));
+    if (extra.length === 0) {
+      console.log(`비즈니스 ${found.businessCount}곳에 추가 광고 계정이 없습니다.`);
+    } else {
+      console.log(`추가 광고 계정 ${extra.length}개를 확인합니다.\n`);
+      findings = await scanAccounts(extra);
     }
   } catch (err) {
-    console.log(`성과를 읽지 못함 — ${err.message}`);
+    console.log(`비즈니스 목록을 읽지 못했습니다: ${err.message}`);
+    console.log("  (business_management 권한이 있는 토큰이면 여기까지 확인할 수 있습니다.)");
   }
-
-  console.log(
-    `광고 ${ads.length}건 / 우리 게시물 ${matchedMedia.size}건 매칭 ✅ ` +
-      `(지출 ${won(spend)} ${account.currency ?? ""} · 도달 ${won(reach)})`,
-  );
-  findings.push({ account, matchedMedia, matchedAds: matched.length, spend });
 }
 
 // --- 결론 ------------------------------------------------------------------
