@@ -192,3 +192,48 @@ test("다른 설정을 저장해도 동기화 시각은 유지된다", async () 
 
   expect((await store.get()).lastSyncedAt).toBe("2026-08-11T05:00:00.000Z");
 });
+
+// --- Meta 광고 자격증명 저장 ------------------------------------------------
+
+test("metaAds는 디스크에 남아 다음 프로세스에서도 읽힌다", async () => {
+  // 같은 store 인스턴스로 다시 읽으면 메모리 캐시에 속을 수 있다. 새 store를
+  // 같은 디렉터리에 열어 파일에 실제로 써졌는지 본다.
+  const dir = mkdtempSync(join(tmpdir(), "settings-"));
+  await createSettingsStore(dir).save({
+    metaAds: { accessToken: "EAA_secret_token_1234", adAccountId: "act_1697567264807074" },
+  });
+
+  const reopened = await createSettingsStore(dir).get();
+
+  expect(reopened.metaAds?.accessToken).toBe("EAA_secret_token_1234");
+  expect(reopened.metaAds?.adAccountId).toBe("act_1697567264807074");
+});
+
+test("동기화 시각 기록이 metaAds를 지우지 않는다", async () => {
+  // 실제로 겪은 사고다 — 광고 연동을 붙여도 동기화 한 번에 조용히 끊겼다.
+  const dir = mkdtempSync(join(tmpdir(), "settings-"));
+  const store = createSettingsStore(dir);
+  await store.save({
+    metaAds: { accessToken: "EAA_secret_token_1234", adAccountId: "act_1697567264807074" },
+  });
+
+  await store.markSynced("2026-08-17T08:00:00.000Z");
+  const reopened = await createSettingsStore(dir).get();
+
+  expect(reopened.metaAds?.accessToken).toBe("EAA_secret_token_1234");
+  expect(reopened.lastSyncedAt).toBe("2026-08-17T08:00:00.000Z");
+});
+
+test("다른 설정을 저장해도 metaAds는 남는다", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "settings-"));
+  const store = createSettingsStore(dir);
+  await store.save({
+    metaAds: { accessToken: "EAA_secret_token_1234", adAccountId: "act_1697567264807074" },
+  });
+
+  await store.save({ textProvider: "openai" });
+  const reopened = await createSettingsStore(dir).get();
+
+  expect(reopened.metaAds?.accessToken).toBe("EAA_secret_token_1234");
+  expect(reopened.textProvider).toBe("openai");
+});

@@ -204,6 +204,8 @@ export function createSettingsStore(dataDir: string): SettingsStore {
       instagramTokenExpiresAt: settings.instagramTokenExpiresAt,
       lastSyncedAt: settings.lastSyncedAt,
       walla: settings.walla,
+      // 빠뜨리면 광고 연동이 저장되는 것처럼 보이다가 다음 쓰기에 조용히 사라진다.
+      metaAds: settings.metaAds,
     };
     // 새 임시 파일부터 0600으로 만든 뒤 원자적으로 교체해 키가 넓은 권한으로 노출되는 창을 막는다.
     await writeJsonAtomic(file, stored, { mode: 0o600 });

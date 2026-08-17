@@ -37,7 +37,9 @@ async function refreshAds(): Promise<AdsSyncResult> {
     };
   } catch {
     // 곁다리 연동이 릴스·계정 지표를 끌어내리게 두지 않는다. 신청 폼과 같은 취급이다.
-    return { ads: { configured: false, count: 0 }, error: null };
+    // 다만 사유는 반드시 남긴다 — 조용히 "미연동"으로 두면 붙인 적 없는 상태와
+    // 구분되지 않아, 끊긴 연동을 아무도 눈치채지 못한다.
+    return { ads: { configured: false, count: 0 }, error: "광고 연동을 확인하지 못했습니다" };
   }
 }
 

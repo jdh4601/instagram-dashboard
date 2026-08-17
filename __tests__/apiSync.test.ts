@@ -290,7 +290,9 @@ test("광고 조회가 실패해도 동기화는 성공하고 사유만 errors�
   expect(body.errors).toContain("Marketing API에 연결하지 못했습니다");
 });
 
-test("광고 조회가 예외를 던져도 동기화 전체를 실패시키지 않는다", async () => {
+test("광고 조회가 예외를 던져도 동기화는 성공하되 사유를 남긴다", async () => {
+  // 조용히 "미연동"으로 두면 아예 안 붙인 상태와 구분되지 않아, 끊긴 연동을
+  // 아무도 눈치채지 못한다.
   mockSync.mockResolvedValue(okResult);
   mockFetchAds.mockRejectedValue(new Error("boom"));
 
@@ -300,4 +302,5 @@ test("광고 조회가 예외를 던져도 동기화 전체를 실패시키지 �
   const body = await res.json();
   expect(body.syncedReels).toBe(2);
   expect(body.ads).toEqual({ configured: false, count: 0 });
+  expect(body.errors).toContain("광고 연동을 확인하지 못했습니다");
 });
