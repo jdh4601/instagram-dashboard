@@ -39,7 +39,7 @@ const breakdown: HookBreakdown = {
   assetKey: "asset",
   durationSec: 10,
   cuts: [2],
-  hookType: "warning",
+  hookType: "problem",
   beats: Array.from({ length: 5 }, (_, index) => ({
     start: index * 2,
     end: (index + 1) * 2,

@@ -165,7 +165,7 @@ test("완료된 훅은 해체 결과 화면으로 연결한다", () => {
         assetKey: "asset-1",
         durationSec: 10,
         cuts: [2],
-        hookType: "demo",
+        hookType: "curiosity",
         beats: Array.from({ length: 5 }, (_, index) => ({
           start: index * 2,
           end: (index + 1) * 2,
@@ -201,7 +201,7 @@ test("해체 결과 버튼은 다크 테마에서도 글씨가 보이는 초록�
         assetKey: "asset-1",
         durationSec: 10,
         cuts: [2],
-        hookType: "demo",
+        hookType: "curiosity",
         beats: Array.from({ length: 5 }, (_, index) => ({
           start: index * 2,
           end: (index + 1) * 2,

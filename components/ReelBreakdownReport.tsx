@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, ExternalLink, Film, Scissors } from "lucide-react";
 import type { Hook } from "@/lib/schemas";
 import { HOOK_CATEGORY_LABELS } from "@/lib/schemas";
+import { getStoryFormat } from "@/lib/analysis/storyFormats";
 import { BREAKDOWN_HOOK_BY_KEY, BREAKDOWN_HOOK_TAXONOMY } from "@/lib/reelBreakdown/taxonomy";
 import { cn } from "@/components/ui";
 import { ReelBreakdownRerunButton } from "@/components/ReelBreakdownRerunButton";
@@ -166,6 +167,8 @@ export function ReelBreakdownReport({ hook }: { hook: Hook }) {
         </div>
       </section>
 
+      <StoryFormatSection formatId={breakdown.storyFormatId} />
+
       <section aria-labelledby="beat-title" className="space-y-3">
         <div className="flex items-baseline justify-between gap-3">
           <h2 id="beat-title" className="text-xl font-bold text-neutral-900">장면별 대본 구조</h2>
@@ -200,12 +203,15 @@ export function ReelBreakdownReport({ hook }: { hook: Hook }) {
                     <time className="font-mono text-xs text-neutral-400">
                       {formatBreakdownTime(beat.start)}–{formatBreakdownTime(beat.end)}
                     </time>
+                    {/* 다크 테마에서 neutral-900은 거의 흰색이다. 흰 글씨를 얹으면
+                        중간 구간의 라벨이 통째로 사라져, 배경마다 대비가 유지되는
+                        토큰(surface-muted + neutral-700)으로 칠한다. */}
                     <span
                       className={cn(
-                        "rounded px-2 py-1 text-xs font-bold text-white",
+                        "rounded px-2 py-1 text-xs font-bold",
                         index === 0 || index === breakdown.beats.length - 1
-                          ? "bg-brand-600"
-                          : "bg-neutral-900",
+                          ? "bg-brand-600 text-white"
+                          : "border border-border-subtle bg-surface-muted text-neutral-700",
                       )}
                     >
                       {beat.label}
@@ -230,5 +236,52 @@ export function ReelBreakdownReport({ hook }: { hook: Hook }) {
         </ol>
       </section>
     </main>
+  );
+}
+
+/**
+ * 이 영상이 쓴 스토리텔링 포맷.
+ *
+ * 훅 유형이 첫 3초를 말한다면 이쪽은 전체 전개다. 카탈로그의 표준 비트를 함께 깔아
+ * 아래 "장면별 대본 구조"와 나란히 견줄 수 있게 한다. 이 필드가 생기기 전에 저장된
+ * 해체 결과에는 포맷이 없으므로, 빈칸을 감추지 않고 무엇을 하면 되는지 적어 둔다.
+ */
+function StoryFormatSection({ formatId }: { formatId?: string }) {
+  const format = formatId ? getStoryFormat(formatId) : null;
+
+  return (
+    <section className="rounded-card border border-border-subtle bg-surface p-5 shadow-card">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
+        <h2 className="text-lg font-bold text-neutral-900">스토리텔링 유형</h2>
+        <Link
+          href={format ? `/story-formats/${format.id}` : "/story-formats"}
+          className="text-sm font-semibold text-brand-700 hover:text-brand-500"
+        >
+          포맷 카탈로그에서 보기
+        </Link>
+      </div>
+
+      {format ? (
+        <>
+          <p className="mt-3 text-xl font-bold text-neutral-900">{format.label}</p>
+          <p className="mt-1 text-sm text-neutral-500">{format.description}</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {format.beats.map((beat) => (
+              <span
+                key={beat.id}
+                title={beat.purpose}
+                className="rounded-md border border-border-subtle px-2.5 py-1.5 text-xs text-neutral-500"
+              >
+                {beat.label}
+              </span>
+            ))}
+          </div>
+        </>
+      ) : (
+        <p className="mt-3 text-sm text-neutral-500">
+          이 해체에는 포맷 판정이 없습니다. 다시 해체하기를 누르면 채워집니다.
+        </p>
+      )}
+    </section>
   );
 }

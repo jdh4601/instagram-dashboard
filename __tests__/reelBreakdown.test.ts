@@ -64,8 +64,11 @@ test("프롬프트는 사용자가 붙인 분류와 16개 taxonomy를 함께 준
   );
 
   expect(prompt.userText).toContain("역발상");
-  expect(prompt.userText).toContain("negation: 부정 선언형");
-  expect(prompt.userText).toContain("confession: 자기고백형");
+  // 훅 분류는 보관함과 같은 5종, 전개는 카탈로그 10종 중에서 고르게 한다.
+  expect(prompt.userText).toContain("contrarian: 역발상");
+  expect(prompt.userText).toContain("authority: 권위·근거");
+  expect(prompt.userText).not.toContain("부정 선언형");
+  expect(prompt.userText).toContain("heros-journey: 히어로즈 저니 (1인칭 문제 해결)");
 });
 
 function response(overrides: Record<string, unknown> = {}): string {
@@ -86,8 +89,19 @@ function response(overrides: Record<string, unknown> = {}): string {
 test("예산 안에 들어오는 완결된 JSON은 그대로 파싱한다", () => {
   const parsed = parseBreakdownAnalysis(`설명\n${response()}\n끝`, 10);
 
-  expect(parsed.hookType).toBe("negation");
+  // 모델이 옛 16종 키로 답해도 보관함과 같은 5종으로 받아 둔다.
+  expect(parsed.hookType).toBe("contrarian");
   expect(parsed.beats).toHaveLength(5);
+});
+
+test("스토리텔링 포맷은 카탈로그 안의 값만 남기고 나머지는 비운다", () => {
+  const picked = parseBreakdownAnalysis(response({ storyFormatId: "heros-journey" }), 10);
+  expect(picked.storyFormatId).toBe("heros-journey");
+
+  // 포맷 하나 때문에 다운로드·전사까지 끝낸 해체를 버리지는 않는다.
+  const unknown = parseBreakdownAnalysis(response({ storyFormatId: "지어낸-포맷" }), 10);
+  expect(unknown.storyFormatId).toBeUndefined();
+  expect(unknown.beats).toHaveLength(5);
 });
 
 test("겹치거나 영상 끝을 덮지 않는 비트를 거절한다", () => {

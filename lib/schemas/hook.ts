@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { STORY_FORMAT_IDS } from "@/lib/analysis/storyFormats";
 
 /**
  * 훅 보관함 도메인.
@@ -38,32 +39,40 @@ const httpUrl = z
   });
 
 /**
- * reel-breakdown 스킬이 쓰는 더 세밀한 훅 분류.
+ * 예전에 저장된 해체 결과의 16종 도입 분류 → 보관함 5종.
  *
- * 보관함의 5개 category는 사용자가 직접 붙인 실무용 분류이고, 이 16개 값은 영상을
- * 해체하면서 관찰한 도입 방식이다. 둘을 합치거나 덮어쓰지 않아야 기존 카탈로그가
- * 흔들리지 않고, 같은 릴스를 두 관점으로 비교할 수 있다.
+ * 해체가 붙이던 세밀한 분류(부정 선언형·숫자 충격형 …)는 고를 때 너무 많아 오히려
+ * 무엇으로 분류됐는지 읽히지 않았다. 지금은 해체도 보관함과 같은 5종만 쓴다.
+ * 저장소는 목록 전체를 한 번에 parse하므로, 이미 디스크에 있는 옛 값을 여기서
+ * 옮겨 주지 않으면 해체를 한 번이라도 돌린 사용자의 보관함이 통째로 빈다.
  */
-export const BREAKDOWN_HOOK_TYPES = [
-  "negation",
-  "number",
-  "secret",
-  "rank",
-  "mindread",
-  "demo",
-  "zoomout",
-  "metaphor",
-  "credential",
-  "testimony",
-  "warning",
-  "challenge",
-  "contrast",
-  "story",
-  "declaration",
-  "confession",
-] as const;
-const BreakdownHookTypeSchema = z.enum(BREAKDOWN_HOOK_TYPES);
-export type BreakdownHookType = z.infer<typeof BreakdownHookTypeSchema>;
+export const LEGACY_BREAKDOWN_HOOK_CATEGORY: Record<string, HookCategory> = {
+  negation: "contrarian",
+  number: "authority",
+  secret: "curiosity",
+  rank: "curiosity",
+  mindread: "problem",
+  demo: "curiosity",
+  zoomout: "contrarian",
+  metaphor: "curiosity",
+  credential: "authority",
+  testimony: "authority",
+  warning: "problem",
+  challenge: "curiosity",
+  contrast: "contrarian",
+  story: "experience",
+  declaration: "authority",
+  confession: "experience",
+};
+
+/** 옛 값이면 옮기고, 아니면 그대로 흘려 5종 검증에 맡긴다. */
+export function toHookCategory(value: unknown): unknown {
+  return typeof value === "string" && value in LEGACY_BREAKDOWN_HOOK_CATEGORY
+    ? LEGACY_BREAKDOWN_HOOK_CATEGORY[value]
+    : value;
+}
+
+const BreakdownHookTypeSchema = z.preprocess(toHookCategory, HookCategorySchema);
 
 export const BreakdownBeatSchema = z
   .object({
@@ -96,6 +105,15 @@ export const HookBreakdownSchema = z.object({
   durationSec: z.number().positive(),
   cuts: z.array(z.number().nonnegative()),
   hookType: BreakdownHookTypeSchema,
+  /**
+   * 카탈로그 10종 중 이 영상이 쓴 스토리텔링 포맷. 이 필드가 생기기 전에 저장된
+   * 해체 결과에는 없다 — 다시 해체하면 채워진다. 카탈로그 밖의 값이 오면 그 필드만
+   * 버린다(해체 결과 전체를 잃지 않는다).
+   */
+  storyFormatId: z
+    .enum(STORY_FORMAT_IDS as [string, ...string[]])
+    .optional()
+    .catch(undefined),
   beats: z.array(BreakdownBeatSchema).min(MIN_BREAKDOWN_BEATS).max(MAX_BREAKDOWN_BEATS),
   generatedAt: z.string(),
 });

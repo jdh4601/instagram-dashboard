@@ -379,6 +379,7 @@ export async function runReelBreakdown(args: {
       durationSec,
       cuts,
       hookType: analysis.hookType,
+      storyFormatId: analysis.storyFormatId,
       beats,
       generatedAt: new Date().toISOString(),
     });

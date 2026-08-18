@@ -1,15 +1,17 @@
 import { z } from "zod";
 import {
-  BREAKDOWN_HOOK_TYPES,
+  HOOK_CATEGORIES,
   HOOK_CATEGORY_LABELS,
   MAX_BREAKDOWN_BEATS,
   MIN_BREAKDOWN_BEATS,
-  type BreakdownHookType,
+  toHookCategory,
   type Hook,
+  type HookCategory,
 } from "@/lib/schemas/hook";
+import { STORY_FORMAT_IDS } from "@/lib/analysis/storyFormats";
 import type { TranscriptLine } from "@/lib/schemas";
 import type { VisionImage, VisionModel } from "@/lib/llm/types";
-import { taxonomyForPrompt } from "@/lib/reelBreakdown/taxonomy";
+import { storyFormatsForPrompt, taxonomyForPrompt } from "@/lib/reelBreakdown/taxonomy";
 
 const RawBeatSchema = z
   .object({
@@ -26,7 +28,16 @@ const RawBeatSchema = z
 const ABSURD_BEAT_COUNT = 40;
 
 const RawBreakdownSchema = z.object({
-  hookType: z.enum(BREAKDOWN_HOOK_TYPES),
+  // 옛 16종 키로 답하는 모델이 있어도 5종으로 옮겨 받는다.
+  hookType: z.preprocess(toHookCategory, z.enum(HOOK_CATEGORIES)),
+  /**
+   * 전체 전개의 포맷. 여기까지 오면 다운로드·전사·프레임 추출이 이미 끝나 있어서,
+   * 포맷 하나를 빠뜨렸다고 그 작업을 버리지 않는다 — 없으면 리포트에서 그 칸만 비운다.
+   */
+  storyFormatId: z
+    .enum(STORY_FORMAT_IDS as [string, ...string[]])
+    .optional()
+    .catch(undefined),
   beats: z.array(RawBeatSchema).min(MIN_BREAKDOWN_BEATS).max(ABSURD_BEAT_COUNT),
 });
 
@@ -52,7 +63,8 @@ export function beatBudget(durationSec: number): { min: number; max: number } {
 }
 
 export interface RawBreakdown {
-  hookType: BreakdownHookType;
+  hookType: HookCategory;
+  storyFormatId?: string;
   beats: z.infer<typeof RawBeatSchema>[];
 }
 
@@ -65,8 +77,10 @@ const SYSTEM_PROMPT = `너는 숏폼 영상을 사실 기반으로 해체하는 
    "구간 개수" 지시를 따른다.
 2. 각 비트에 짧은 한국어 구조 이름, 화면의 사실적 장면 설명, 원문 대사, 자연스러운
    한국어 번역을 쓴다. 영상 속 화면 자막은 scene에 시각적 사실로만 적는다.
-3. 첫 구간을 아래 taxonomy 중 가장 가까운 하나로 분류한다. 사용자가 보관함에 붙인
-   분류는 참고 정보일 뿐이며, taxonomy 키를 대신하지 않는다.
+3. 첫 구간을 아래 훅 taxonomy 5종 중 가장 가까운 하나로 분류한다. 사용자가 보관함에
+   붙인 분류는 참고 정보일 뿐이며, taxonomy 키를 대신하지 않는다.
+4. 영상 전체의 전개를 아래 스토리텔링 포맷 10종 중 하나로 고른다(storyFormatId).
+   어느 것도 맞지 않으면 그 키를 생략한다 — 억지로 고르지 않는다.
 
 규칙:
 - 첫 비트는 0초에서 시작하고 마지막 비트는 영상 끝까지 덮어라.
@@ -100,15 +114,18 @@ export function buildBreakdownPrompt(
     `구간 개수: ${budget.min}~${budget.max}개 (넘기면 짧은 구간끼리 합쳐져 구조가 뭉개진다)`,
     `감지된 컷 전환: ${cuts.length > 0 ? cuts.join(", ") : "없음"}`,
     "",
-    "## 훅 taxonomy",
+    "## 훅 taxonomy (5종)",
     taxonomyForPrompt(),
+    "",
+    "## 스토리텔링 포맷 (10종)",
+    storyFormatsForPrompt(),
     "",
     "## 타임스탬프 자막",
     transcriptText(transcript),
     "",
     "이 메시지 뒤에 시간표가 붙은 프레임들이 순서대로 온다.",
     "다음 형태의 JSON으로만 답해라:",
-    '{"hookType":"negation","beats":[{"start":0,"end":4.1,"label":"훅","scene":"화자가 정면을 보며 말한다","original":"...","translation":"..."}]}',
+    '{"hookType":"contrarian","storyFormatId":"heros-journey","beats":[{"start":0,"end":4.1,"label":"훅","scene":"화자가 정면을 보며 말한다","original":"...","translation":"..."}]}',
   ].join("\n");
   return { system: SYSTEM_PROMPT, userText };
 }
