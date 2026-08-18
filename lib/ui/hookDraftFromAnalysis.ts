@@ -18,9 +18,11 @@ export const ANALYSIS_HOOK_CATEGORY: Record<HookType, HookCategory> = {
   other: "curiosity",
 };
 
-// 저장 스키마의 한도와 같은 값이다. 넘겨서 400을 받느니 여기서 줄여 담는다.
+// 훅 문장은 저장 스키마의 한도와 같은 값이다. 넘겨서 400을 받느니 여기서 줄여 담는다.
 const MAX_TEXT = 200;
-const MAX_NOTE = 1000;
+// 메모는 스키마 한도(1000)보다 훨씬 짧게 끊는다. 보관함 목록에서 훅 문장 아래
+// 한 줄로 붙는 자리라, 길면 훅보다 메모가 눈에 먼저 들어온다.
+const MAX_NOTE = 120;
 
 function clamp(value: string, max: number): string {
   const trimmed = value.trim();
@@ -44,15 +46,9 @@ export function buildHookDraftFromReel(reel: Reel, analysis: ReelAnalysis): Hook
   const text = clamp(hook.line, MAX_TEXT);
   if (!text) return null;
 
-  const note = clamp(
-    [
-      hook.template.trim() && `재사용 템플릿: ${hook.template.trim()}`,
-      hook.why.trim() && `왜 먹히는가: ${hook.why.trim()}`,
-    ]
-      .filter(Boolean)
-      .join("\n"),
-    MAX_NOTE,
-  );
+  // 메모는 "왜 먹히는가" 한 줄뿐이다. 재사용 템플릿은 분석 탭에 그대로 있고,
+  // 라벨을 붙이면 목록에서 훅 문장보다 메모가 길어진다.
+  const note = clamp(hook.why.replace(/\s+/g, " "), MAX_NOTE);
 
   return {
     text,

@@ -65,9 +65,29 @@ test("훅 문장·유형·원본 링크를 그대로 옮긴 초안을 만든다"
   expect(draft!.sourceUrl).toBe("https://www.instagram.com/reel/abc/");
   expect(draft!.thumbnailUrl).toBe("https://cdn.example.com/thumb.jpg");
   expect(draft!.views).toBe(12000);
-  // 템플릿과 이유를 잃으면 보관함에서 왜 담았는지 알 수 없다.
-  expect(draft!.note).toContain("[목표 달성한 사람]은 [흔한 행동]을 안 합니다");
-  expect(draft!.note).toContain("통념을 부정해 확인 욕구를 만든다");
+});
+
+test("메모는 왜 먹히는지 한 줄뿐이다", () => {
+  const draft = buildHookDraftFromReel(reel(), analysis());
+
+  // 보관함 목록은 한 줄로 훑는 화면이다. 라벨과 템플릿까지 넣으면 훅 문장보다
+  // 메모가 길어져 무엇을 담았는지 알아볼 수 없다.
+  expect(draft!.note).toBe("통념을 부정해 확인 욕구를 만든다");
+  expect(draft!.note).not.toContain("재사용 템플릿");
+  expect(draft!.note).not.toContain("왜 먹히는가");
+});
+
+test("여러 줄로 온 이유는 한 줄로 접는다", () => {
+  const draft = buildHookDraftFromReel(
+    reel(),
+    analysis({ why: "통념을 부정한다.\n그래서 확인하고 싶어진다." }),
+  );
+
+  expect(draft!.note).toBe("통념을 부정한다. 그래서 확인하고 싶어진다.");
+});
+
+test("이유가 비면 메모를 만들지 않는다", () => {
+  expect(buildHookDraftFromReel(reel(), analysis({ why: "  " }))!.note).toBeUndefined();
 });
 
 test("만들어진 초안은 저장 스키마를 그대로 통과한다", () => {
