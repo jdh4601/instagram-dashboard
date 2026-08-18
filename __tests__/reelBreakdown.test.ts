@@ -1,5 +1,6 @@
 import {
   alignBeatOriginals,
+  beatBudget,
   buildBreakdownPrompt,
   parseBreakdownAnalysis,
 } from "@/lib/reelBreakdown/analysis";
@@ -82,7 +83,7 @@ function response(overrides: Record<string, unknown> = {}): string {
   });
 }
 
-test("5~9개 비트의 완결된 JSON을 파싱한다", () => {
+test("예산 안에 들어오는 완결된 JSON은 그대로 파싱한다", () => {
   const parsed = parseBreakdownAnalysis(`설명\n${response()}\n끝`, 10);
 
   expect(parsed.hookType).toBe("negation");
@@ -158,4 +159,69 @@ test("대사가 없는 구간은 번역까지 비워 지어낸 대사가 남지 
 
   expect(aligned[0].original).toBe("(대사 없음)");
   expect(aligned[0].translation).toBe("(대사 없음)");
+});
+
+function beats(count: number, secondsEach: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    start: index * secondsEach,
+    end: (index + 1) * secondsEach,
+    label: index === 0 ? "훅" : `구간 ${index + 1}`,
+    scene: `장면 ${index + 1}`,
+    original: `line ${index + 1}`,
+    translation: `번역 ${index + 1}`,
+  }));
+}
+
+test("구간 개수 예산은 영상 길이에 비례한다", () => {
+  expect(beatBudget(30)).toEqual({ min: 3, max: 6 });
+  expect(beatBudget(60)).toEqual({ min: 4, max: 10 });
+  expect(beatBudget(90)).toEqual({ min: 6, max: 15 });
+  // 아주 짧은 릴스도 최소 6개는 허용하고, 아주 긴 영상도 상한을 넘지 않는다.
+  expect(beatBudget(8)).toEqual({ min: 3, max: 6 });
+  expect(beatBudget(600)).toEqual({ min: 20, max: 20 });
+});
+
+test("프롬프트는 영상 길이에 맞춘 구간 개수 범위를 알려준다", () => {
+  const prompt = buildBreakdownPrompt(hook, [{ startSec: 0, endSec: 2, text: "첫 문장" }], 60, []);
+
+  expect(prompt.userText).toContain("4~10개");
+});
+
+test("예산을 넘긴 구간은 실패시키지 않고 짧은 인접쌍부터 합친다", () => {
+  // 60초 영상의 상한은 10개다. 5초짜리 12개를 받아도 리포트를 만들어야 한다.
+  const parsed = parseBreakdownAnalysis(
+    JSON.stringify({ hookType: "negation", beats: beats(12, 5) }),
+    60,
+  );
+
+  expect(parsed.beats).toHaveLength(10);
+  // 시간축은 그대로 0초에서 영상 끝까지 덮는다.
+  expect(parsed.beats[0].start).toBe(0);
+  expect(parsed.beats.at(-1)!.end).toBe(60);
+  // 합쳐진 구간은 앞 구간의 이름을 쓰고 두 대사를 모두 남긴다.
+  const merged = parsed.beats.find((beat) => beat.end - beat.start === 10)!;
+  expect(merged.translation).toContain("번역 1");
+  expect(merged.translation).toContain("번역 2");
+  expect(merged.label).toBe("훅");
+});
+
+test("구간이 예산보다 적어도 통과시킨다", () => {
+  const parsed = parseBreakdownAnalysis(
+    JSON.stringify({ hookType: "negation", beats: beats(3, 20) }),
+    60,
+  );
+
+  expect(parsed.beats).toHaveLength(3);
+});
+
+test("구조가 깨진 응답은 Zod 원문이 아니라 한국어 문장으로 알린다", () => {
+  const single = JSON.stringify({ hookType: "negation", beats: beats(1, 60) });
+  expect(() => parseBreakdownAnalysis(single, 60)).toThrow(/구간이 너무 적어/);
+
+  const flood = JSON.stringify({ hookType: "negation", beats: beats(60, 1) });
+  expect(() => parseBreakdownAnalysis(flood, 60)).toThrow(/구간이 너무 많아/);
+
+  const broken = JSON.stringify({ hookType: "negation", beats: [{ start: 0 }, { start: 1 }] });
+  expect(() => parseBreakdownAnalysis(broken, 60)).toThrow(/해체 응답의 형식/);
+  expect(() => parseBreakdownAnalysis(broken, 60)).not.toThrow(/too_big|invalid_type|\[object/);
 });

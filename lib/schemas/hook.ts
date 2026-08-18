@@ -82,6 +82,13 @@ export const BreakdownBeatSchema = z
   .refine((beat) => beat.end > beat.start, { message: "구간 끝은 시작보다 뒤여야 합니다" });
 export type BreakdownBeat = z.infer<typeof BreakdownBeatSchema>;
 
+/**
+ * 구간 개수의 절대 경계. 실제 목표 개수는 영상 길이에 맞춰 정해지므로(beatBudget),
+ * 여기서는 "리포트가 성립하는 최소"와 "클립 인코딩이 감당할 최대"만 막는다.
+ */
+export const MIN_BREAKDOWN_BEATS = 2;
+export const MAX_BREAKDOWN_BEATS = 20;
+
 export const HookBreakdownSchema = z.object({
   reelUrl: httpUrl,
   /** 파일 시스템 디렉터리를 고르는 서버 발급 키. 요청 경로를 그대로 저장하지 않는다. */
@@ -89,7 +96,7 @@ export const HookBreakdownSchema = z.object({
   durationSec: z.number().positive(),
   cuts: z.array(z.number().nonnegative()),
   hookType: BreakdownHookTypeSchema,
-  beats: z.array(BreakdownBeatSchema).min(5).max(9),
+  beats: z.array(BreakdownBeatSchema).min(MIN_BREAKDOWN_BEATS).max(MAX_BREAKDOWN_BEATS),
   generatedAt: z.string(),
 });
 export type HookBreakdown = z.infer<typeof HookBreakdownSchema>;

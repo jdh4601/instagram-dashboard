@@ -2,6 +2,8 @@ import { z } from "zod";
 import {
   BREAKDOWN_HOOK_TYPES,
   HOOK_CATEGORY_LABELS,
+  MAX_BREAKDOWN_BEATS,
+  MIN_BREAKDOWN_BEATS,
   type BreakdownHookType,
   type Hook,
 } from "@/lib/schemas/hook";
@@ -20,10 +22,34 @@ const RawBeatSchema = z
   })
   .refine((beat) => beat.end > beat.start);
 
+/** 자막 줄을 그대로 뱉은 응답과 진짜 구조 분석을 가르는 선. */
+const ABSURD_BEAT_COUNT = 40;
+
 const RawBreakdownSchema = z.object({
   hookType: z.enum(BREAKDOWN_HOOK_TYPES),
-  beats: z.array(RawBeatSchema).min(5).max(9),
+  beats: z.array(RawBeatSchema).min(MIN_BREAKDOWN_BEATS).max(ABSURD_BEAT_COUNT),
 });
+
+/** 비트 하나가 덮는 대략적인 화면 시간. 상한을 영상 길이에 비례시키는 기준이다. */
+const SECONDS_PER_BEAT = 6;
+const MIN_BEAT_TARGET = 3;
+const MIN_BEAT_CEILING = 6;
+
+/**
+ * 구간 개수는 영상 길이가 정한다.
+ *
+ * 고정된 5~9는 20초 릴스에는 너무 잘고 90초 릴스에는 너무 성겨서, 모델이 자연스럽게
+ * 나눈 결과를 "검증 실패"로 만들었다. 다운로드·전사·프레임까지 끝낸 뒤 터지는 실패라
+ * 대가가 컸다. 길이에 맞춰 범위를 넓히고, 그래도 넘치면 합쳐서 살린다.
+ */
+export function beatBudget(durationSec: number): { min: number; max: number } {
+  const max = Math.min(
+    MAX_BREAKDOWN_BEATS,
+    Math.max(MIN_BEAT_CEILING, Math.ceil(durationSec / SECONDS_PER_BEAT)),
+  );
+  const min = Math.min(Math.max(MIN_BEAT_TARGET, Math.floor(durationSec / 15)), max);
+  return { min, max };
+}
 
 export interface RawBreakdown {
   hookType: BreakdownHookType;
@@ -35,7 +61,8 @@ const SYSTEM_PROMPT = `너는 숏폼 영상을 사실 기반으로 해체하는 
 붙은 프레임에서 실제로 확인되는 내용만 기록한다.
 
 해야 할 일:
-1. 영상을 처음부터 끝까지 이어지는 5~9개 구조 비트로 나눈다.
+1. 영상을 처음부터 끝까지 이어지는 구조 비트로 나눈다. 개수는 사용자 메시지의
+   "구간 개수" 지시를 따른다.
 2. 각 비트에 짧은 한국어 구조 이름, 화면의 사실적 장면 설명, 원문 대사, 자연스러운
    한국어 번역을 쓴다. 영상 속 화면 자막은 scene에 시각적 사실로만 적는다.
 3. 첫 구간을 아래 taxonomy 중 가장 가까운 하나로 분류한다. 사용자가 보관함에 붙인
@@ -64,11 +91,13 @@ export function buildBreakdownPrompt(
   durationSec: number,
   cuts: number[],
 ): { system: string; userText: string } {
+  const budget = beatBudget(durationSec);
   const userText = [
     `원본 릴스: ${hook.sourceUrl ?? "(없음)"}`,
     `사용자가 저장한 훅: ${hook.text}`,
     `사용자가 붙인 보관함 분류: ${HOOK_CATEGORY_LABELS[hook.category]}`,
     `영상 길이: ${durationSec.toFixed(1)}초`,
+    `구간 개수: ${budget.min}~${budget.max}개 (넘기면 짧은 구간끼리 합쳐져 구조가 뭉개진다)`,
     `감지된 컷 전환: ${cuts.length > 0 ? cuts.join(", ") : "없음"}`,
     "",
     "## 훅 taxonomy",
@@ -91,9 +120,77 @@ function extractJsonObject(text: string): string {
   return text.slice(start, end + 1);
 }
 
+type RawBeat = z.infer<typeof RawBeatSchema>;
+
+/**
+ * Zod 원문 대신 사람이 읽는 문장을 던진다.
+ *
+ * 해체 실패는 NDJSON error 이벤트로 화면에 그대로 뜬다. 여기서 새는 ZodError.message는
+ * 이슈 배열을 JSON으로 찍은 덩어리라 사용자가 무엇을 해야 할지 알 수 없다.
+ */
+function parseRawBreakdown(json: unknown): z.infer<typeof RawBreakdownSchema> {
+  const result = RawBreakdownSchema.safeParse(json);
+  if (result.success) return result.data;
+  const issue = result.error.issues[0];
+  const isBeatCount = issue.path.length === 1 && issue.path[0] === "beats";
+  if (isBeatCount && issue.code === "too_small") {
+    throw new Error(`해체 응답의 구간이 너무 적어 구조 리포트를 만들 수 없습니다`);
+  }
+  if (isBeatCount && issue.code === "too_big") {
+    throw new Error(
+      `해체 응답의 구간이 너무 많아(${ABSURD_BEAT_COUNT}개 초과) 구조 분석으로 볼 수 없습니다`,
+    );
+  }
+  const where = issue.path.length > 0 ? issue.path.join(".") : "응답 전체";
+  throw new Error(`해체 응답의 형식이 올바르지 않습니다 (${where})`);
+}
+
+function clampText(text: string, max: number): string {
+  return text.length <= max ? text : text.slice(0, max).trimEnd();
+}
+
+/** 앞 비트가 뒤 비트를 흡수한다. 구조 이름은 앞 것을 남기고 대사는 둘 다 잇는다. */
+function mergeBeats(first: RawBeat, second: RawBeat): RawBeat {
+  return {
+    ...first,
+    end: second.end,
+    scene: clampText(`${first.scene} / ${second.scene}`, 1200),
+    original: clampText(`${first.original} ${second.original}`, 4000),
+    translation: clampText(`${first.translation} ${second.translation}`, 4000),
+  };
+}
+
+/**
+ * 예산을 넘긴 구간을 실패가 아니라 병합으로 처리한다.
+ *
+ * 모델이 몇 개로 나누느냐는 취향에 가깝고, 여기까지 오면 다운로드·전사·프레임 추출이
+ * 이미 끝나 있다. 세는 개수 하나 때문에 그 작업을 버리는 대신, 가장 짧은 인접쌍부터
+ * 합쳐 상한에 맞춘다. 인접쌍만 합치므로 시간축의 연속성과 영상 전체 커버는 그대로다.
+ */
+export function fitBeatsToBudget(beats: RawBeat[], max: number): RawBeat[] {
+  let fitted = beats;
+  while (fitted.length > max) {
+    let target = 0;
+    let shortest = Number.POSITIVE_INFINITY;
+    for (let index = 0; index < fitted.length - 1; index += 1) {
+      const span = fitted[index + 1].end - fitted[index].start;
+      if (span < shortest) {
+        shortest = span;
+        target = index;
+      }
+    }
+    fitted = [
+      ...fitted.slice(0, target),
+      mergeBeats(fitted[target], fitted[target + 1]),
+      ...fitted.slice(target + 2),
+    ];
+  }
+  return fitted;
+}
+
 /** 시간축 오류는 클립 자르기 전에 잡아, 반쪽짜리 결과 폴더가 남지 않게 한다. */
 export function parseBreakdownAnalysis(text: string, durationSec: number): RawBreakdown {
-  const parsed = RawBreakdownSchema.parse(JSON.parse(extractJsonObject(text)));
+  const parsed = parseRawBreakdown(JSON.parse(extractJsonObject(text)));
   const beats = parsed.beats;
   if (beats[0].start > 0.5) throw new Error("해체 결과의 첫 구간이 영상 시작을 덮지 않습니다");
   for (let index = 0; index < beats.length; index += 1) {
@@ -113,14 +210,12 @@ export function parseBreakdownAnalysis(text: string, durationSec: number): RawBr
     throw new Error("해체 결과의 마지막 구간이 영상 끝을 덮지 않습니다");
   }
   // ffprobe의 소수점과 모델 반올림이 살짝 다를 수 있다. 실제 파일 끝을 넘지 않게 좁힌다.
-  return {
-    ...parsed,
-    beats: beats.map((beat, index) => ({
-      ...beat,
-      start: index === 0 ? 0 : beat.start,
-      end: Math.min(beat.end, durationSec),
-    })),
-  };
+  const normalized = beats.map((beat, index) => ({
+    ...beat,
+    start: index === 0 ? 0 : beat.start,
+    end: Math.min(beat.end, durationSec),
+  }));
+  return { ...parsed, beats: fitBeatsToBudget(normalized, beatBudget(durationSec).max) };
 }
 
 /** 대사가 없는 구간임을 화면과 저장 데이터에서 같은 문구로 드러낸다. */
