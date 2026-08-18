@@ -4,6 +4,10 @@ import { createJsonProfileRepository, type ProfileRepository } from "@/lib/store
 import { createJsonReelHistoryRepository, type ReelHistoryRepository } from "@/lib/store/reelHistoryRepository";
 import { createJsonApplicationRepository, type ApplicationRepository } from "@/lib/store/applicationRepository";
 import { createJsonHookRepository, type HookRepository } from "@/lib/store/hookRepository";
+import {
+  createJsonSavedStoryFormatRepository,
+  type SavedStoryFormatRepository,
+} from "@/lib/store/savedStoryFormatRepository";
 import { createJsonAdSpendRepository, type AdSpendRepository } from "@/lib/store/adSpendRepository";
 import { resolveRuntimeConfig } from "@/lib/runtime/config";
 import { createSqliteRepositories } from "@/lib/store/sqliteRepositories";
@@ -30,6 +34,7 @@ function getWorkspace(): WorkspaceRepositories {
           reelHistory: createJsonReelHistoryRepository(config.dataDir),
           applications: createJsonApplicationRepository(config.dataDir),
           hooks: createJsonHookRepository(config.dataDir),
+          storyFormats: createJsonSavedStoryFormatRepository(config.dataDir),
     };
   }
   return workspace;
@@ -57,6 +62,10 @@ export function getApplicationRepository(): ApplicationRepository {
 
 export function getHookRepository(): HookRepository {
   return getWorkspace().hooks;
+}
+
+export function getSavedStoryFormatRepository(): SavedStoryFormatRepository {
+  return getWorkspace().storyFormats;
 }
 
 /**

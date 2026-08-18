@@ -11,6 +11,7 @@ import {
 import { CopyButton, EmptyState, cn } from "@/components/ui";
 import { StorytellingReport } from "@/components/StorytellingReport";
 import { ImprovedStoryTab } from "@/components/ImprovedStoryTab";
+import { SaveHookButton, SaveStoryFormatButton } from "@/components/ReelLibrarySaveButtons";
 
 const TAB_ICONS: Record<ReelAnalysisTabId, typeof Mic> = {
   transcript: Mic,
@@ -145,8 +146,8 @@ export function ReelAnalysisPanel({ reel, analysis, onAnalyze, onTranscribe, onI
         ) : (
           <>
             {tab === "idea" && <IdeaTab analysis={analysis} />}
-            {tab === "hook" && <HookTab analysis={analysis} />}
-            {tab === "story" && <StoryTab analysis={analysis} />}
+            {tab === "hook" && <HookTab reel={reel} analysis={analysis} />}
+            {tab === "story" && <StoryTab reel={reel} analysis={analysis} />}
             {tab === "improved" && (
               <ImprovedStoryTab
                 improved={reel.improvedStory ?? null}
@@ -246,14 +247,18 @@ function IdeaTab({ analysis }: { analysis: ReelAnalysis }) {
   );
 }
 
-function HookTab({ analysis }: { analysis: ReelAnalysis }) {
+function HookTab({ reel, analysis }: { reel: Reel; analysis: ReelAnalysis }) {
   const { hook } = analysis;
   return (
     <div className="space-y-4">
+      {/* 유형과 저장 버튼을 한 줄에 둔다 — 담기 전에 어느 서랍으로 가는지 같이 보인다. */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-md bg-brand-50 px-2 py-1 text-xs font-medium text-brand-700">
           {HOOK_TYPE_LABELS[hook.type] ?? hook.type}
         </span>
+        <div className="ml-auto">
+          <SaveHookButton reel={reel} analysis={analysis} />
+        </div>
       </div>
       <Field label="실제 훅" value={hook.line} />
       <div className="space-y-1">
@@ -272,6 +277,13 @@ function HookTab({ analysis }: { analysis: ReelAnalysis }) {
   );
 }
 
-function StoryTab({ analysis }: { analysis: ReelAnalysis }) {
-  return <StorytellingReport story={analysis.story} principles={analysis.principles} />;
+function StoryTab({ reel, analysis }: { reel: Reel; analysis: ReelAnalysis }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <SaveStoryFormatButton reelId={reel.id} story={analysis.story} />
+      </div>
+      <StorytellingReport story={analysis.story} principles={analysis.principles} />
+    </div>
+  );
 }

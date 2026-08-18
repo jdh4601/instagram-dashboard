@@ -6,6 +6,7 @@ import {
   HookSchema,
   ReelMetricSnapshotSchema,
   ReelSchema,
+  SavedStoryFormatSchema,
 } from "@/lib/schemas";
 import type { WorkspaceRepositories } from "@/lib/store/workspace";
 
@@ -276,6 +277,40 @@ export function createPostgresRepositories(databaseUrl: string): WorkspaceReposi
     },
   };
 
+  // 저장한 스토리텔링 포맷도 훅과 같은 모양이다 — id가 유일 키(릴스 id), createdAt이 정렬 키.
+  const storyFormats: WorkspaceRepositories["storyFormats"] = {
+    async list() {
+      await ready;
+      const rows = await sql<PayloadRow[]>`
+        SELECT payload FROM instagram_dashboard_records
+        WHERE namespace = 'story-format'
+        ORDER BY sort_key, record_key
+      `;
+      return parseRows(rows, (value) => SavedStoryFormatSchema.parse(value));
+    },
+    async get(id) {
+      await ready;
+      const [row] = await sql<PayloadRow[]>`
+        SELECT payload FROM instagram_dashboard_records
+        WHERE namespace = 'story-format' AND record_key = ${id}
+      `;
+      return row ? SavedStoryFormatSchema.parse(row.payload) : null;
+    },
+    async upsert(saved) {
+      const validated = SavedStoryFormatSchema.parse(saved);
+      await upsertRecord("story-format", validated.id, null, validated.createdAt, validated);
+      return validated;
+    },
+    async remove(id) {
+      await ready;
+      const result = await sql`
+        DELETE FROM instagram_dashboard_records
+        WHERE namespace = 'story-format' AND record_key = ${id}
+      `;
+      return result.count > 0;
+    },
+  };
+
   return {
     reels,
     accounts,
@@ -283,6 +318,7 @@ export function createPostgresRepositories(databaseUrl: string): WorkspaceReposi
     reelHistory,
     applications,
     hooks,
+    storyFormats,
     close: async () => {
       await ready.catch(() => undefined);
       await sql.end({ timeout: 5 });

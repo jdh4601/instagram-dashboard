@@ -69,7 +69,7 @@ const FORMAT_CONFIDENCE = ["high", "medium", "low"] as const;
 const ConfidenceSchema = z.enum(FORMAT_CONFIDENCE);
 export type FormatConfidence = z.infer<typeof ConfidenceSchema>;
 
-const ReelStoryFormatSchema = z.object({
+export const ReelStoryFormatSchema = z.object({
   /** 카탈로그의 10개 포맷 중 하나 */
   formatId: z.enum(STORY_FORMAT_IDS as [string, ...string[]]),
   confidence: ConfidenceSchema,

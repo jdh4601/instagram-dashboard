@@ -191,6 +191,9 @@ export * from "@/lib/schemas/reelAnalysis";
 // 훅 보관함은 릴스 지표와 공유하는 필드가 없어 파일을 따로 둔다.
 export * from "./hook";
 
+// 스토리텔링 포맷 저장소. 훅 보관함과 같은 이유로 파일을 따로 둔다.
+export * from "@/lib/schemas/savedStoryFormat";
+
 // 수동으로 옮겨 적은 광고 지출. Ad Center 부스트는 Marketing API에 없어서
 // 이 기록이 게시물별 광고 성과의 유일한 출처다.
 export * from "@/lib/schemas/adSpend";

@@ -4,6 +4,7 @@ import type { HookRepository } from "@/lib/store/hookRepository";
 import type { ProfileRepository } from "@/lib/store/profileRepository";
 import type { ReelHistoryRepository } from "@/lib/store/reelHistoryRepository";
 import type { ReelRepository } from "@/lib/store/reelRepository";
+import type { SavedStoryFormatRepository } from "@/lib/store/savedStoryFormatRepository";
 
 /**
  * Stable storage seam used by the application.
@@ -21,5 +22,7 @@ export interface WorkspaceRepositories {
   applications: ApplicationRepository;
   /** 손으로 모은 훅 북마크와 링크에서 만든 선택적 릴스 해체 결과. */
   hooks: HookRepository;
+  /** 릴스 분석에서 담아 둔 스토리텔링 포맷 판정. 유형별 사례집이 된다. */
+  storyFormats: SavedStoryFormatRepository;
   close?: () => void | Promise<void>;
 }

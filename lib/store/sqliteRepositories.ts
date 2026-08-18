@@ -8,6 +8,7 @@ import {
   HookSchema,
   ReelMetricSnapshotSchema,
   ReelSchema,
+  SavedStoryFormatSchema,
   type AccountProfile,
   type AccountSnapshot,
   type Application,
@@ -275,6 +276,41 @@ export function createSqliteRepositories(databasePath: string): WorkspaceReposit
     },
   };
 
+  // 저장한 스토리텔링 포맷도 훅과 같은 모양이다 — id가 유일 키(릴스 id), createdAt이 정렬 키.
+  const storyFormats: WorkspaceRepositories["storyFormats"] = {
+    async list() {
+      return payloadRows(
+        listByNamespace,
+        (value) => SavedStoryFormatSchema.parse(value),
+        "story-format",
+      );
+    },
+    async get(id) {
+      return payloadRow(
+        getByKey,
+        (value) => SavedStoryFormatSchema.parse(value),
+        "story-format",
+        id,
+      );
+    },
+    async upsert(saved) {
+      const validated = SavedStoryFormatSchema.parse(saved);
+      inTransaction(db, () => {
+        upsert.run(
+          "story-format",
+          validated.id,
+          null,
+          validated.createdAt,
+          JSON.stringify(validated),
+        );
+      });
+      return validated;
+    },
+    async remove(id) {
+      return inTransaction(db, () => Number(removeByKey.run("story-format", id).changes) > 0);
+    },
+  };
+
   return {
     reels,
     accounts,
@@ -282,6 +318,7 @@ export function createSqliteRepositories(databasePath: string): WorkspaceReposit
     reelHistory,
     applications,
     hooks,
+    storyFormats,
     close: () => {
       hardenDatabaseFiles(databasePath);
       db.close();
