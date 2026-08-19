@@ -39,16 +39,29 @@ test("계정 전환 UI는 절대값 막대 대신 단계·분기와 전환율을
   expect(html).not.toContain("width:");
 });
 
+test("전환율 옆에 높음/보통/낮음 판정을 붙이지 않는다", () => {
+  // 벤치마크가 추정치라 판정이 숫자만큼 단정적으로 읽힌다. 수치와 증감만 남긴다.
+  const html = renderToStaticMarkup(<AccountFunnelCard funnel={funnel} />);
+
+  expect(html).not.toContain("높음");
+  expect(html).not.toContain("보통");
+  expect(html).not.toContain("낮음");
+});
+
 test("퍼널 데이터가 없으면 카드를 렌더링하지 않는다", () => {
   expect(renderToStaticMarkup(<AccountFunnelCard funnel={null} />)).toBe("");
 });
 
 // ── 신청 구간 ─────────────────────────────────────────────────────────
 
-test("신청 폼 미연동이면 신청 구간을 그리지 않는다", () => {
+test("신청 폼 미연동이면 0건이 아니라 미연동이라고 밝힌다", () => {
+  // 0은 "폼은 살아 있는데 신청이 없다"는 뜻이라 연결한 적 없는 계정에 띄우면 오해다.
   const html = renderToStaticMarkup(<AccountFunnelCard funnel={funnel} />);
 
-  expect(html).not.toContain("지원 신청");
+  expect(html).toContain("지원 신청");
+  expect(html).toContain("미연동");
+  expect(html).toContain("설정 → 지원 신청 폼(Walla)을 연결하면 채워집니다");
+  expect(html).not.toContain("0.00% 신청 전환");
 });
 
 test("연동돼 있으면 신청 수와 클릭 대비 전환율을 보여준다", () => {

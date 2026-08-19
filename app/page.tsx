@@ -31,6 +31,20 @@ const TOKEN_WARN_DAYS = 50;
 // 만료 시각을 아는 토큰은 남은 기간으로 판단한다. 갱신에 쓸 여유를 열흘 둔다.
 const TOKEN_EXPIRY_WARN_DAYS = 10;
 
+/**
+ * /api/applications 응답 → 신청 목록. 미연동이면 null이다.
+ *
+ * 빈 배열로 뭉개면 buildAccountFunnel이 "신청 0건"으로 집계해 연결한 적 없는 폼이
+ * 전환율 0%로 그려진다. connected가 거짓일 때만 null로 내린다.
+ */
+function readApplications(payload: {
+  applications?: Application[];
+  connected?: boolean;
+}): Application[] | null {
+  if (payload.connected === false) return null;
+  return payload.applications ?? [];
+}
+
 export default function Page() {
   const [reels, setReels] = useState<Reel[]>([]);
   const [snapshots, setSnapshots] = useState<AccountSnapshot[]>([]);
@@ -97,7 +111,7 @@ export default function Page() {
       setReels(reelsRes.reels);
       setSnapshots(snapsRes.snapshots);
       setProfile(profileRes.profile);
-      setApplications(applicationsRes.applications ?? []);
+      setApplications(readApplications(applicationsRes));
       // 서버가 방금 기록한 것과 같은 시각이다. /api/settings를 다시 부르지 않고 반영한다.
       setLastSyncedAt(new Date().toISOString());
       setToast(buildSyncToast(data));
@@ -140,7 +154,7 @@ export default function Page() {
       if (snapshotsResult.status === "fulfilled") setSnapshots(snapshotsResult.value.snapshots ?? []);
       if (profileResult.status === "fulfilled") setProfile(profileResult.value.profile ?? null);
       if (applicationsResult.status === "fulfilled") {
-        setApplications(applicationsResult.value.applications ?? []);
+        setApplications(readApplications(applicationsResult.value));
       }
       if (settingsResult.status === "fulfilled") {
         const issuedAt = settingsResult.value.instagramTokenIssuedAt;

@@ -6,16 +6,8 @@ import {
   UserPlus,
   UserRoundSearch,
 } from "lucide-react";
-import {
-  ACCOUNT_FUNNEL_BENCHMARKS,
-  type AccountFunnelMetricKey,
-} from "@/config/benchmarks";
 import type { AccountFunnel } from "@/lib/analysis/accountFunnel";
-import {
-  ACCOUNT_FUNNEL_WINDOW_DAYS,
-  accountFunnelVerdicts,
-} from "@/lib/analysis/accountFunnel";
-import type { Band } from "@/lib/analysis/diagnosis";
+import { ACCOUNT_FUNNEL_WINDOW_DAYS } from "@/lib/analysis/accountFunnel";
 import { fmtCount, fmtPct } from "@/lib/ui/format";
 import { Card, CardBody, CardHeader } from "@/components/ui";
 
@@ -23,22 +15,13 @@ interface Props {
   funnel: AccountFunnel | null;
 }
 
-const VERDICT_LABEL: Record<Band, string> = {
-  weak: "낮음",
-  ok: "보통",
-  strong: "높음",
-};
-
-const VERDICT_CLASS: Record<Band, string> = {
-  weak: "text-band-weak",
-  ok: "text-band-ok",
-  strong: "text-band-strong",
-};
-
+/**
+ * 전환율 옆 높음/보통/낮음 판정은 걷어냈다. 기준으로 삼은 업계 벤치마크가 출처가
+ * 확인되지 않은 추정치라, 판정이 옆의 실측 수치만큼 단정적으로 읽히는 게 문제였다.
+ * 판정 자체는 lib(accountFunnelVerdicts)에 남아 진단·리포트가 계속 쓴다.
+ */
 export function AccountFunnelCard({ funnel }: Props) {
   if (funnel === null) return null;
-
-  const verdicts = accountFunnelVerdicts(funnel);
 
   return (
     <Card className="overflow-hidden">
@@ -73,8 +56,6 @@ export function AccountFunnelCard({ funnel }: Props) {
                 rate={funnel.viewRate}
                 delta={funnel.deltas.viewRate}
                 since={funnel.previousDate}
-                verdict={verdicts.viewRate}
-                benchmarkKey="viewRate"
                 align="right"
               />
             </div>
@@ -90,8 +71,6 @@ export function AccountFunnelCard({ funnel }: Props) {
               rate={funnel.followRate}
               delta={funnel.deltas.followRate}
               since={funnel.previousDate}
-              verdict={verdicts.followRate}
-              benchmarkKey="followRate"
             />
             <Outcome
               label="링크 클릭"
@@ -100,8 +79,6 @@ export function AccountFunnelCard({ funnel }: Props) {
               rate={funnel.linkClickRate}
               delta={funnel.deltas.linkClickRate}
               since={funnel.previousDate}
-              verdict={verdicts.linkClickRate}
-              benchmarkKey="linkClickRate"
             />
           </div>
 
@@ -113,13 +90,14 @@ export function AccountFunnelCard({ funnel }: Props) {
 }
 
 /**
- * 링크 클릭 다음 구간. Graph 밖 데이터(신청 폼)라 연동했을 때만 나타난다.
+ * 링크 클릭 다음 구간. Graph 밖 데이터(신청 폼)라 Walla를 연결해야 채워진다.
  *
- * 폼을 붙이지 않은 사용자에게 빈 칸을 보여 주면 측정 실패처럼 읽히므로, 미연동이면
- * 단계 자체를 그리지 않는다.
+ * 미연동을 0건으로 그리지 않는다. 0은 "폼은 살아 있는데 아무도 신청하지 않았다"는
+ * 뜻이라, 연결한 적 없는 계정에 띄우면 멀쩡한 폼이 죽은 것처럼 읽히고 원인을
+ * 설정에서 찾을 단서도 없다. 단계는 남기되 미연동임을 그 자리에 밝힌다.
  */
 function ApplicationStep({ funnel }: { funnel: AccountFunnel }) {
-  if (funnel.applications === null) return null;
+  if (funnel.applications === null) return <UnlinkedApplicationStep />;
 
   const bio = funnel.bioApplications ?? 0;
   // 분자는 바이오 유입만이다. 총 신청과 다르면 그 사실을 숫자 옆에 밝혀야
@@ -150,6 +128,38 @@ function ApplicationStep({ funnel }: { funnel: AccountFunnel }) {
           />
           <p className="text-right text-[11px] leading-relaxed text-neutral-500">
             {mixed ? `바이오 ${fmtCount(bio)}건이 링크 클릭 대비 전환율의 분자다` : "바이오 링크 클릭 대비"}
+          </p>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** 신청 폼을 붙이지 않았을 때의 마지막 단계. 수치 자리에 상태를 적는다. */
+function UnlinkedApplicationStep() {
+  return (
+    <>
+      <div className="relative flex h-12 items-center justify-center">
+        <span
+          className="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-neutral-300"
+          aria-hidden="true"
+        />
+        <span className="relative inline-flex items-center gap-1 rounded-full border border-border-subtle bg-surface px-2.5 py-1 text-[11px] font-medium text-neutral-500">
+          <ArrowDown size={11} aria-hidden="true" />
+          신청 전환율 미측정
+        </span>
+      </div>
+
+      <div className="rounded-xl border border-dashed border-border-subtle bg-surface-muted/40 p-3.5">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <MetricIdentity
+            label="지원 신청"
+            value="미연동"
+            icon={<FileCheck2 size={15} aria-hidden="true" />}
+            muted
+          />
+          <p className="text-right text-[11px] leading-relaxed text-neutral-500">
+            설정 → 지원 신청 폼(Walla)을 연결하면 채워집니다
           </p>
         </div>
       </div>
@@ -193,8 +203,6 @@ function Outcome({
   rate,
   delta,
   since,
-  verdict,
-  benchmarkKey,
 }: {
   label: string;
   value: string;
@@ -202,21 +210,12 @@ function Outcome({
   rate: number | null;
   delta: number | null;
   since: string | null;
-  verdict: Band | null;
-  benchmarkKey: AccountFunnelMetricKey;
 }) {
   return (
     <div className="group border-b border-border-subtle p-3.5 transition-colors last:border-b-0 hover:bg-surface sm:border-b-0">
       <MetricIdentity label={label} value={value} icon={icon} />
       <div className="mt-3 border-t border-border-subtle pt-2.5">
-        <ConversionReadout
-          context="방문 대비"
-          rate={rate}
-          delta={delta}
-          since={since}
-          verdict={verdict}
-          benchmarkKey={benchmarkKey}
-        />
+        <ConversionReadout context="방문 대비" rate={rate} delta={delta} since={since} />
       </div>
     </div>
   );
@@ -226,19 +225,32 @@ function MetricIdentity({
   icon,
   label,
   value,
+  muted = false,
 }: {
   icon: ReactNode;
   label: string;
   value: string;
+  /** 수치가 아니라 상태(미연동 등)를 적을 때. 실측값과 같은 무게로 읽히지 않게 죽인다. */
+  muted?: boolean;
 }) {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-700">
+      <span
+        className={`inline-flex size-8 shrink-0 items-center justify-center rounded-lg ${
+          muted ? "bg-neutral-100 text-neutral-400" : "bg-brand-100 text-brand-700"
+        }`}
+      >
         {icon}
       </span>
       <div>
         <p className="text-xs text-neutral-500">{label}</p>
-        <p className="text-xl font-bold tabular-nums text-neutral-900">{value}</p>
+        <p
+          className={`text-xl font-bold tabular-nums ${
+            muted ? "text-neutral-400" : "text-neutral-900"
+          }`}
+        >
+          {value}
+        </p>
       </div>
     </div>
   );
@@ -249,16 +261,12 @@ function ConversionReadout({
   rate,
   delta,
   since,
-  verdict,
-  benchmarkKey,
   align = "left",
 }: {
   context: string;
   rate: number | null;
   delta: number | null;
   since: string | null;
-  verdict: Band | null;
-  benchmarkKey: AccountFunnelMetricKey;
   align?: "left" | "right";
 }) {
   return (
@@ -273,29 +281,8 @@ function ConversionReadout({
           {rate === null ? "측정 안 됨" : fmtPct(rate)}
         </span>
         <RateDelta delta={delta} since={since} />
-        <VerdictLabel verdict={verdict} benchmarkKey={benchmarkKey} />
       </div>
     </div>
-  );
-}
-
-function VerdictLabel({
-  verdict,
-  benchmarkKey,
-}: {
-  verdict: Band | null;
-  benchmarkKey: AccountFunnelMetricKey;
-}) {
-  if (verdict === null) return null;
-
-  const { weakBelow, strongAbove } = ACCOUNT_FUNNEL_BENCHMARKS[benchmarkKey];
-  return (
-    <span
-      className={`text-[11px] font-medium ${VERDICT_CLASS[verdict]}`}
-      title={`일반적인 인스타그램 업계 벤치마크 추정치 기준 (평균 ${weakBelow}~${strongAbove}%, 정확한 출처가 확인된 값은 아님)`}
-    >
-      {VERDICT_LABEL[verdict]}
-    </span>
   );
 }
 
