@@ -9,6 +9,8 @@ import type { ChatModel } from "@/lib/llm/types";
 export interface ResolvedChatModel {
   provider: ChatProviderId;
   label: string;
+  /** 실제로 쓰는 모델 이름. CLI에서 고르지 않았으면 빈 값(= CLI 자신의 기본 모델). */
+  modelName: string;
   model: ChatModel;
 }
 
@@ -23,10 +25,12 @@ export async function getChatModel(): Promise<ResolvedChatModel> {
   const provider = settings.chatProvider;
 
   if (isCliProvider(provider)) {
+    const cliModel = settings.cliProviders[provider].model?.trim() ?? "";
     return {
       provider,
       label: CLI_PRESETS[provider].label,
-      model: createLocalCliChatModel({ providerId: provider }),
+      modelName: cliModel,
+      model: createLocalCliChatModel({ providerId: provider, model: cliModel }),
     };
   }
 
@@ -46,6 +50,7 @@ export async function getChatModel(): Promise<ResolvedChatModel> {
   return {
     provider,
     label: preset.label,
+    modelName: model,
     model:
       apiProvider === "anthropic"
         ? createAnthropicChatModel({ apiKey, model })

@@ -1,5 +1,5 @@
 import { spawn as nodeSpawn } from "node:child_process";
-import { CLI_PRESETS, type CliProviderId } from "@/lib/llm/cliProviders";
+import { buildCliArgs, CLI_PRESETS, type CliProviderId } from "@/lib/llm/cliProviders";
 import type { ChatModel, ChatStreamArgs, ChatTurn } from "@/lib/llm/types";
 
 /** CLI는 첫 토큰까지도 오래 걸릴 수 있어 넉넉하게 잡되, 무한정 매달리지는 않는다. */
@@ -35,6 +35,8 @@ type SpawnLike = (command: string, args: string[], options: object) => ChildLike
 
 interface Options {
   providerId: CliProviderId;
+  /** 프리셋의 models 목록에 있는 이름만 실제 인자가 된다. 비우면 CLI 기본 모델. */
+  model?: string;
   timeoutMs?: number;
   spawn?: SpawnLike;
   /** 테스트 주입용. 기본값은 이 프로세스의 환경이다. */
@@ -95,12 +97,13 @@ function buildCliPrompt(system: string, turns: ChatTurn[]): string {
  */
 export function createLocalCliChatModel(opts: Options): ChatModel {
   const preset = CLI_PRESETS[opts.providerId];
+  const args = buildCliArgs(opts.providerId, opts.model);
   const spawnFn: SpawnLike = opts.spawn ?? (nodeSpawn as unknown as SpawnLike);
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
   return {
     async *stream({ system, turns, signal }: ChatStreamArgs) {
-      const child = spawnFn(preset.command, preset.args, {
+      const child = spawnFn(preset.command, args, {
         shell: false,
         stdio: ["pipe", "pipe", "pipe"],
         env: cliEnvironment(opts.env ?? process.env),

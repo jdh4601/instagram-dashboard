@@ -7,6 +7,7 @@ import { ChatMessages } from "@/components/chat/ChatMessages";
 import { ChatComposer } from "@/components/chat/ChatComposer";
 import { ChatSuggestions } from "@/components/chat/ChatSuggestions";
 import { ChatHistory } from "@/components/chat/ChatHistory";
+import { ChatProviderPicker } from "@/components/chat/ChatProviderPicker";
 import { readPanelExpanded, writePanelExpanded } from "@/lib/ui/panelPreference";
 
 const ICON_BUTTON =
@@ -98,12 +99,9 @@ export function ChatPanel({ reelId = null }: ChatPanelProps = {}) {
           ) : (
             <div className="flex min-w-0 items-center gap-2">
               <Sparkles size={16} className="shrink-0 text-brand-600" aria-hidden />
+              {/* 제공자·모델은 바로 아래 드롭다운이 보여 준다. 여기서 한 번 더
+                  적으면 같은 값이 두 곳에 겹친다. */}
               <span className="truncate text-sm font-semibold text-neutral-800">계정 진단 AI</span>
-              {chat.providerLabel && (
-                <span className="hidden truncate text-xs text-neutral-400 sm:inline">
-                  {chat.providerLabel}
-                </span>
-              )}
             </div>
           )}
 
@@ -139,6 +137,16 @@ export function ChatPanel({ reelId = null }: ChatPanelProps = {}) {
             </button>
           </div>
         </header>
+
+        {!showHistory && (
+          <ChatProviderPicker
+            options={chat.options}
+            provider={chat.provider}
+            modelName={chat.modelName}
+            busy={chat.switching || chat.sending}
+            onChange={chat.switchProvider}
+          />
+        )}
 
         {!chat.loading && !chat.available && !showHistory && (
           <p className="border-b border-band-ok-border bg-band-ok-soft px-4 py-2.5 text-xs leading-relaxed text-band-ok">

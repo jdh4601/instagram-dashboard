@@ -8,6 +8,10 @@ import { buildAccountContext, renderAccountContext } from "@/lib/chat/context";
 import { selectContextReels } from "@/lib/chat/reelMention";
 import { buildChatSystemPrompt, selectContextTurns } from "@/lib/chat/prompt";
 import { getChatModel } from "@/lib/llm/chat";
+import { buildChatProviderOptions } from "@/lib/chat/providerOptions";
+import { detectAvailableClis } from "@/lib/llm/chat/cliDetect";
+import { getSettingsStore } from "@/lib/settings";
+import { PROVIDER_IDS, type ProviderId } from "@/lib/llm/providers";
 import type { ChatTurn } from "@/lib/llm/types";
 
 const BodySchema = z.object({
@@ -20,23 +24,42 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다";
 }
 
+/** 패널 드롭다운이 그릴 목록. 제공자가 아직 준비되지 않았을 때도 필요하다 — 그 상태를
+ *  벗어나는 유일한 방법이 이 목록에서 다른 제공자를 고르는 것이기 때문이다. */
+async function providerChoices() {
+  const masked = await getSettingsStore().masked();
+  return {
+    // 준비되지 않은 제공자라도 드롭다운은 지금 무엇이 골라져 있는지 보여야 한다.
+    selected: masked.chatProvider,
+    options: buildChatProviderOptions({
+      cli: await detectAvailableClis(),
+      configured: Object.fromEntries(
+        PROVIDER_IDS.map((id) => [id, masked.providers[id].configured]),
+      ) as Record<ProviderId, boolean>,
+    }),
+  };
+}
+
 export async function GET() {
   const unavailable = notFoundIfRemote();
   if (unavailable) return unavailable;
 
   const store = getChatStore();
-  const [messages, conversations, activeId] = await Promise.all([
+  const [messages, conversations, activeId, choices] = await Promise.all([
     store.get(),
     store.list(),
     store.activeId(),
+    providerChoices(),
   ]);
 
   try {
-    const { provider, label } = await getChatModel();
+    const { provider, label, modelName } = await getChatModel();
     return NextResponse.json({
       available: true,
       provider,
       label,
+      modelName,
+      options: choices.options,
       messages,
       conversations,
       activeId,
@@ -47,6 +70,8 @@ export async function GET() {
     return NextResponse.json({
       available: false,
       reason: errorMessage(error),
+      provider: choices.selected,
+      options: choices.options,
       messages,
       conversations,
       activeId,

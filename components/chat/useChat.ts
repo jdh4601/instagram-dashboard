@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { readNdjson } from "@/lib/ui/ndjsonStream";
+import type { ChatProviderOption } from "@/lib/chat/providerOptions";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -37,6 +38,14 @@ interface ChatState {
   /** 쓸 수 없을 때의 이유 (설정 안내에 그대로 노출). */
   reason: string | null;
   providerLabel: string | null;
+  /** 지금 골라진 제공자 id. 드롭다운의 값이다. */
+  provider: string | null;
+  /** 지금 쓰는 모델. 빈 값이면 CLI·제공자 기본 모델을 쓴다는 뜻이다. */
+  modelName: string;
+  /** 드롭다운에 채울 제공자 목록. 서버만 아는 감지·키 등록 상태가 실려 있다. */
+  options: ChatProviderOption[];
+  /** 제공자를 바꾸는 중. 그동안 드롭다운을 잠근다. */
+  switching: boolean;
   error: string | null;
 }
 
@@ -51,6 +60,10 @@ const INITIAL: ChatState = {
   available: false,
   reason: null,
   providerLabel: null,
+  provider: null,
+  modelName: "",
+  options: [],
+  switching: false,
   error: null,
 };
 
@@ -61,6 +74,8 @@ export interface UseChat extends ChatState {
   startNew(): Promise<void>;
   open(id: string): Promise<void>;
   remove(id: string): Promise<void>;
+  /** 제공자(또는 모델)를 바꾸고 서버가 해석한 결과를 그대로 받아 앉힌다. */
+  switchProvider(provider: string, model?: string): Promise<void>;
 }
 
 function errorText(error: unknown): string {
@@ -102,6 +117,9 @@ export function useChat(options: UseChatOptions = {}): UseChat {
           available: Boolean(body.available),
           reason: body.reason ?? null,
           providerLabel: body.label ?? null,
+          provider: body.provider ?? null,
+          modelName: body.modelName ?? "",
+          options: body.options ?? [],
         }));
       })
       .catch(() => {
@@ -251,6 +269,34 @@ export function useChat(options: UseChatOptions = {}): UseChat {
     [stop],
   );
 
+  const switchProvider = useCallback(
+    async (provider: string, model?: string) => {
+      setState((prev) => ({ ...prev, switching: true, error: null }));
+      try {
+        const res = await fetch("/api/chat/provider", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(model === undefined ? { provider } : { provider, model }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error ?? "제공자를 바꾸지 못했습니다");
+        setState((prev) => ({
+          ...prev,
+          switching: false,
+          // 서버가 해석한 결과를 그대로 쓴다. 화면에서 라벨을 따라 만들면 어긋난다.
+          provider: body.provider ?? prev.provider,
+          available: Boolean(body.available),
+          reason: body.reason ?? null,
+          providerLabel: body.label ?? null,
+          modelName: body.modelName ?? "",
+        }));
+      } catch (error) {
+        setState((prev) => ({ ...prev, switching: false, error: errorText(error) }));
+      }
+    },
+    [],
+  );
+
   const startNew = useCallback(
     () => switchTo("/api/chat/conversations", "POST"),
     [switchTo],
@@ -266,5 +312,5 @@ export function useChat(options: UseChatOptions = {}): UseChat {
     [switchTo],
   );
 
-  return { ...state, send, stop, startNew, open, remove };
+  return { ...state, send, stop, startNew, open, remove, switchProvider };
 }

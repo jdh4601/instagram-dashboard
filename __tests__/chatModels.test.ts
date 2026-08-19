@@ -313,3 +313,50 @@ test("소비자가 중단하면 자식 프로세스를 종료한다", async () =
   await expect(promise).rejects.toThrow();
   expect(child.killed).toBe(true);
 });
+
+test("CLI 어댑터는 고른 모델을 인자로 넘긴다", async () => {
+  const child = fakeChild();
+  let capturedArgs: string[] = [];
+
+  const model = createLocalCliChatModel({
+    providerId: "codex-cli",
+    model: "gpt-5.5",
+    spawn: (_command, args) => {
+      capturedArgs = args;
+      return child;
+    },
+  });
+
+  const promise = collect(model);
+  setTimeout(() => {
+    child.stdout.push("답변");
+    child.stdout.push(null);
+    child.emit("close", 0);
+  }, 0);
+  await promise;
+
+  expect(capturedArgs).toEqual(["exec", "--sandbox", "read-only", "-m", "gpt-5.5", "-"]);
+});
+
+test("CLI 어댑터는 모델을 고르지 않으면 프리셋 인자만 쓴다", async () => {
+  const child = fakeChild();
+  let capturedArgs: string[] = [];
+
+  const model = createLocalCliChatModel({
+    providerId: "claude-cli",
+    spawn: (_command, args) => {
+      capturedArgs = args;
+      return child;
+    },
+  });
+
+  const promise = collect(model);
+  setTimeout(() => {
+    child.stdout.push("답변");
+    child.stdout.push(null);
+    child.emit("close", 0);
+  }, 0);
+  await promise;
+
+  expect(capturedArgs).toEqual(["-p", "--output-format", "text"]);
+});

@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { PROVIDER_IDS, PROVIDER_PRESETS, type ProviderId } from "@/lib/llm/providers";
-import type { ChatProviderId } from "@/lib/llm/cliProviders";
+import { CLI_PROVIDER_IDS, type ChatProviderId, type CliProviderId } from "@/lib/llm/cliProviders";
 import { maskApiKey } from "@/lib/settings/mask";
 import { withFileLock, writeJsonAtomic } from "@/lib/store/jsonFile";
 
@@ -33,6 +33,16 @@ const ProvidersSchema = z.object({
   gemini: ProviderConfigSchema,
 });
 
+// 로컬 CLI에는 키가 없다. 고를 수 있는 것은 어느 모델로 돌릴지뿐이고, 빈 값은
+// "CLI 자신의 기본 모델"을 뜻한다.
+const CliProviderConfigSchema = z.object({ model: z.string().optional() });
+
+const CliProvidersSchema = z.object({
+  "claude-cli": CliProviderConfigSchema,
+  "codex-cli": CliProviderConfigSchema,
+  "gemini-cli": CliProviderConfigSchema,
+});
+
 const InstagramSchema = z.object({ accessToken: z.string().optional() });
 
 // 지원 신청을 받는 외부 폼(Walla). 클릭 다음 구간은 Graph가 주지 않아
@@ -56,6 +66,7 @@ const StoredSettingsSchema = z.object({
   textProvider: ProviderEnum.optional(),
   chatProvider: ChatProviderEnum.optional(),
   providers: ProvidersSchema,
+  cliProviders: CliProvidersSchema.optional(),
   instagram: InstagramSchema.optional(),
   instagramTokenIssuedAt: z.string().optional(),
   instagramTokenExpiresAt: z.string().optional(),
@@ -76,6 +87,8 @@ interface Settings {
    */
   chatProviderExplicit?: ChatProviderId;
   providers: z.infer<typeof ProvidersSchema>;
+  /** CLI별로 고른 모델. 값이 없거나 빈 문자열이면 CLI 기본 모델을 쓴다. */
+  cliProviders: z.infer<typeof CliProvidersSchema>;
   instagram?: z.infer<typeof InstagramSchema>;
   /** Instagram 토큰이 새로 저장/변경된 시각(ISO). 장기 토큰은 60일에 만료된다. */
   instagramTokenIssuedAt?: string;
@@ -102,6 +115,13 @@ export const SettingsInputSchema = z.object({
       gemini: ProviderConfigSchema.optional(),
     })
     .optional(),
+  cliProviders: z
+    .object({
+      "claude-cli": CliProviderConfigSchema.optional(),
+      "codex-cli": CliProviderConfigSchema.optional(),
+      "gemini-cli": CliProviderConfigSchema.optional(),
+    })
+    .optional(),
   instagram: InstagramSchema.optional(),
   walla: WallaSchema.optional(),
   metaAds: MetaAdsSchema.optional(),
@@ -117,6 +137,7 @@ interface MaskedSettings {
   textProvider: ProviderId;
   chatProvider: ChatProviderId;
   providers: Record<ProviderId, MaskedProvider>;
+  cliProviders: Record<CliProviderId, { model: string }>;
   instagram: {
     configured: boolean;
     maskedKey: string | null;
@@ -139,11 +160,16 @@ interface MaskedSettings {
   };
 }
 
+function emptyCliProviders(): z.infer<typeof CliProvidersSchema> {
+  return { "claude-cli": {}, "codex-cli": {}, "gemini-cli": {} };
+}
+
 function defaultSettings(): Settings {
   return {
     textProvider: "anthropic",
     chatProvider: "anthropic",
     providers: { anthropic: {}, openai: {}, kimi: {}, gemini: {} },
+    cliProviders: emptyCliProviders(),
   };
 }
 
@@ -158,6 +184,8 @@ function normalize(raw: z.infer<typeof StoredSettingsSchema>): Settings {
     chatProvider: raw.chatProvider ?? textProvider,
     chatProviderExplicit: raw.chatProvider,
     providers: raw.providers,
+    // CLI 모델 선택이 생기기 전에 저장된 파일에는 이 항목이 없다.
+    cliProviders: raw.cliProviders ?? emptyCliProviders(),
     instagram: raw.instagram,
     instagramTokenIssuedAt: raw.instagramTokenIssuedAt,
     instagramTokenExpiresAt: raw.instagramTokenExpiresAt,
@@ -199,6 +227,7 @@ export function createSettingsStore(dataDir: string): SettingsStore {
       textProvider: settings.textProvider,
       chatProvider: settings.chatProviderExplicit,
       providers: settings.providers,
+      cliProviders: settings.cliProviders,
       instagram: settings.instagram,
       instagramTokenIssuedAt: settings.instagramTokenIssuedAt,
       instagramTokenExpiresAt: settings.instagramTokenExpiresAt,
@@ -222,6 +251,7 @@ export function createSettingsStore(dataDir: string): SettingsStore {
         chatProvider: nextChatExplicit ?? nextTextProvider,
         chatProviderExplicit: nextChatExplicit,
         providers: { ...cur.providers },
+        cliProviders: { ...cur.cliProviders },
         instagram: { ...cur.instagram },
         instagramTokenIssuedAt: cur.instagramTokenIssuedAt,
         instagramTokenExpiresAt: cur.instagramTokenExpiresAt,
@@ -256,6 +286,14 @@ export function createSettingsStore(dataDir: string): SettingsStore {
           next.instagramTokenIssuedAt = new Date().toISOString();
           next.instagramTokenExpiresAt = undefined;
         }
+      }
+      for (const id of CLI_PROVIDER_IDS) {
+        const inc = incoming.cliProviders?.[id];
+        if (!inc) continue;
+        // API 키와 달리 빈 값은 "안 고침"이 아니라 "CLI 기본 모델로 되돌림"이다.
+        // 여기에 키와 같은 규약을 쓰면 기본값으로 돌아갈 방법이 없어진다.
+        next.cliProviders[id] =
+          inc.model !== undefined ? { model: inc.model.trim() } : cur.cliProviders[id];
       }
       for (const id of PROVIDER_IDS) {
         const inc = incoming.providers?.[id];
@@ -325,11 +363,16 @@ export function createSettingsStore(dataDir: string): SettingsStore {
         model: c.model ?? PROVIDER_PRESETS[id].defaultModel,
       };
     }
+    const cliProviders = {} as Record<CliProviderId, { model: string }>;
+    for (const id of CLI_PROVIDER_IDS) {
+      cliProviders[id] = { model: s.cliProviders[id].model ?? "" };
+    }
     const igToken = s.instagram?.accessToken;
     return {
       textProvider: s.textProvider,
       chatProvider: s.chatProvider,
       providers,
+      cliProviders,
       instagram: {
         configured: Boolean(igToken),
         maskedKey: igToken ? maskApiKey(igToken) : null,

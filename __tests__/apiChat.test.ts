@@ -28,8 +28,21 @@ vi.mock("@/lib/runtime/config", async () => {
 vi.mock("@/lib/llm/chat", () => ({
   getChatModel: async () => {
     if (resolveError) throw resolveError;
-    return { provider: "anthropic", label: "Anthropic (Claude)", model: chatModel };
+    return {
+      provider: "anthropic",
+      label: "Anthropic (Claude)",
+      modelName: "claude-opus-4-8",
+      model: chatModel,
+    };
   },
+}));
+
+vi.mock("@/lib/llm/chat/cliDetect", () => ({
+  detectAvailableClis: async () => ({
+    "claude-cli": true,
+    "codex-cli": false,
+    "gemini-cli": true,
+  }),
 }));
 
 const reels: Reel[] = [
@@ -321,4 +334,46 @@ test("로컬 실행이 아니면 챗봇을 노출하지 않는다", async () => 
 
   expect((await GET()).status).toBe(404);
   expect((await POST(post({ message: "안녕" }))).status).toBe(404);
+});
+
+test("GET은 패널 드롭다운에 채울 제공자 선택지를 함께 준다", async () => {
+  const body = await (await GET()).json();
+
+  expect(body.modelName).toBe("claude-opus-4-8");
+  expect(body.options.map((o: { id: string }) => o.id)).toEqual([
+    "claude-cli",
+    "codex-cli",
+    "anthropic",
+    "openai",
+    "kimi",
+    "gemini",
+  ]);
+});
+
+test("GET의 선택지는 설치되지 않은 CLI를 고를 수 없다고 표시한다", async () => {
+  const body = await (await GET()).json();
+  const byId = (id: string) => body.options.find((o: { id: string }) => o.id === id);
+
+  expect(byId("claude-cli").ready).toBe(true);
+  expect(byId("codex-cli").ready).toBe(false);
+  expect(byId("codex-cli").hint).toContain("codex");
+});
+
+test("제공자를 못 쓰는 상태에서도 선택지는 내려준다", async () => {
+  // 선택지가 없으면 사용자가 화면에서 쓸 수 있는 제공자로 갈아탈 방법이 없다.
+  resolveError = new Error("API 키가 설정되지 않았습니다");
+
+  const body = await (await GET()).json();
+
+  expect(body.available).toBe(false);
+  expect(body.options.length).toBeGreaterThan(0);
+});
+
+test("제공자를 못 쓰는 상태에서도 지금 골라진 제공자를 알려 준다", async () => {
+  resolveError = new Error("API 키가 설정되지 않았습니다");
+
+  const body = await (await GET()).json();
+
+  // 드롭다운이 무엇이 골라져 있는지 못 그리면 사용자는 빈 칸을 보게 된다.
+  expect(body.provider).toBe("anthropic");
 });
