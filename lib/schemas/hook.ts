@@ -89,7 +89,6 @@ export const BreakdownBeatSchema = z
     posterFile: z.string().regex(/^\d{4}\.jpg$/),
   })
   .refine((beat) => beat.end > beat.start, { message: "구간 끝은 시작보다 뒤여야 합니다" });
-export type BreakdownBeat = z.infer<typeof BreakdownBeatSchema>;
 
 /**
  * 구간 개수의 절대 경계. 실제 목표 개수는 영상 길이에 맞춰 정해지므로(beatBudget),

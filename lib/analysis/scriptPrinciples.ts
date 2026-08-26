@@ -167,7 +167,3 @@ export const SCRIPT_PRINCIPLES: readonly ScriptPrincipleSpec[] = [
     goodExample: "효과가 있었습니다. 몇 달을 반복했죠. 그러던 어느 날, 숫자가 움직였습니다.",
   },
 ];
-
-export function getScriptPrinciple(id: string): ScriptPrincipleSpec | null {
-  return SCRIPT_PRINCIPLES.find((spec) => spec.id === id) ?? null;
-}
