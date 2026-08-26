@@ -1,6 +1,6 @@
 import { HOOK_TYPES, PRINCIPLE_IDS, PRINCIPLE_LABELS } from "@/lib/schemas/reelAnalysis";
 import { HOOK_TYPE_CATALOG, getHookTypeSpec } from "@/lib/analysis/hookCatalog";
-import { SCRIPT_PRINCIPLES, getScriptPrinciple } from "@/lib/analysis/scriptPrinciples";
+import { SCRIPT_PRINCIPLES } from "@/lib/analysis/scriptPrinciples";
 import { STORY_FORMATS } from "@/lib/analysis/storyFormats";
 
 // 카탈로그의 목적은 "빠짐없이 보여 주는 것"이다. 항목 하나가 비면 화면에 구멍이
@@ -49,11 +49,6 @@ test("원리마다 정의·작동 이유·실행 방법·나쁜 예/좋은 예�
     expect(spec.badExample.length).toBeGreaterThan(5);
     expect(spec.goodExample.length).toBeGreaterThan(5);
   }
-});
-
-test("원리를 id로 찾고, 모르는 id는 null로 돌려준다", () => {
-  expect(getScriptPrinciple("rhythm")?.label).toBe("리듬과 완급");
-  expect(getScriptPrinciple("nope")).toBeNull();
 });
 
 test("스토리텔링 포맷 10종은 기존 상수를 그대로 쓴다", () => {

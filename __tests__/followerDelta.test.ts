@@ -1,4 +1,4 @@
-import { sortByDate, latestFollowerDelta, followerTrendMode } from "@/lib/analysis/followerTrend";
+import { sortByDate, latestFollowerDelta } from "@/lib/analysis/followerTrend";
 import type { AccountSnapshot } from "@/lib/schemas";
 
 const snaps: AccountSnapshot[] = [
@@ -19,12 +19,4 @@ test("latestFollowerDelta는 최신−직전 팔로워 차이", () => {
 test("스냅샷 2개 미만이면 null", () => {
   expect(latestFollowerDelta([snaps[0]])).toBeNull();
   expect(latestFollowerDelta([])).toBeNull();
-});
-
-// 2포인트 직선은 +N 증가를 과장 → 카드로 보여준다. 3포인트부터 차트.
-test("followerTrendMode: 데이터 수에 따라 표시 모드 결정", () => {
-  expect(followerTrendMode([])).toBe("empty");
-  expect(followerTrendMode([snaps[0]])).toBe("card");
-  expect(followerTrendMode([snaps[0], snaps[1]])).toBe("card");
-  expect(followerTrendMode(snaps)).toBe("chart");
 });

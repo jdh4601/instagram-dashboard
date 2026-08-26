@@ -20,13 +20,6 @@ export interface InstagramPreview {
   caption: string | null;
 }
 
-const EMPTY_PREVIEW: InstagramPreview = {
-  thumbnailUrl: null,
-  handle: null,
-  displayName: null,
-  caption: null,
-};
-
 /**
  * 서버가 이 주소로 직접 요청을 보낸다. 사용자가 넣은 문자열을 그대로 fetch하면
  * 사내망이나 로컬호스트를 겨누는 통로가 되므로, 호스트와 경로를 둘 다 고정한다.

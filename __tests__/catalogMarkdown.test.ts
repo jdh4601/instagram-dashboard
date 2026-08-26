@@ -5,7 +5,7 @@ import {
   beatHeading,
 } from "@/lib/analysis/catalogMarkdown";
 import { getHookTypeSpec } from "@/lib/analysis/hookCatalog";
-import { getScriptPrinciple } from "@/lib/analysis/scriptPrinciples";
+import { SCRIPT_PRINCIPLES } from "@/lib/analysis/scriptPrinciples";
 import { getStoryFormat } from "@/lib/analysis/storyFormats";
 
 function hookType(id: string) {
@@ -15,7 +15,7 @@ function hookType(id: string) {
 }
 
 function principle(id: string) {
-  const spec = getScriptPrinciple(id);
+  const spec = SCRIPT_PRINCIPLES.find((item) => item.id === id);
   if (!spec) throw new Error(`없는 원리: ${id}`);
   return spec;
 }

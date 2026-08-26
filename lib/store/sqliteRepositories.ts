@@ -9,11 +9,7 @@ import {
   ReelMetricSnapshotSchema,
   ReelSchema,
   SavedStoryFormatSchema,
-  type AccountProfile,
-  type AccountSnapshot,
   type Application,
-  type Reel,
-  type ReelMetricSnapshot,
 } from "@/lib/schemas";
 import type { WorkspaceRepositories } from "@/lib/store/workspace";
 

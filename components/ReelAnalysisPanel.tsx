@@ -5,7 +5,6 @@ import type { Reel, ReelAnalysis } from "@/lib/schemas";
 import {
   REEL_ANALYSIS_TABS,
   DEFAULT_TAB_ID,
-  tabNeedsLlmAnalysis,
   type ReelAnalysisTabId,
 } from "@/lib/ui/reelAnalysisTabs";
 import { CopyButton, EmptyState, cn } from "@/components/ui";

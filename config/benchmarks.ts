@@ -77,7 +77,6 @@ export const ACCOUNT_FUNNEL_BENCHMARKS: Record<AccountFunnelMetricKey, Threshold
   linkClickRate: { weakBelow: 1, strongAbove: 3, weight: 1, label: "링크 클릭률" },
 };
 
-export const DROP_THRESHOLD_PCT_PER_SEC = 8; // 잔존곡선 급락 플래그 기준 (%p/초)
 export const HOOK_WINDOW_SEC = 3;            // 0~3초 훅 이탈은 별도 보고
 export const BASELINE_MIN_REELS = 5;         // 개인화 베이스라인 전환 최소 릴스 수
 

@@ -28,7 +28,6 @@ export const SavedStoryFormatSourceSchema = z.object({
   thumbnailUrl: httpUrl.optional(),
   views: z.number().nonnegative().optional(),
 });
-export type SavedStoryFormatSource = z.infer<typeof SavedStoryFormatSourceSchema>;
 
 export const SavedStoryFormatSchema = z.object({
   /** 릴스 id를 그대로 쓴다 — 같은 릴스를 두 번 저장하면 새 줄이 아니라 갱신이어야 한다. */
@@ -48,4 +47,3 @@ export type SavedStoryFormat = z.infer<typeof SavedStoryFormatSchema>;
  * 것과 저장된 것이 갈라지지 않고, 클라이언트가 지어낸 비트가 저장소에 들어오지 않는다.
  */
 export const SaveStoryFormatRequestSchema = z.object({ reelId: z.string().min(1) });
-export type SaveStoryFormatRequest = z.infer<typeof SaveStoryFormatRequestSchema>;

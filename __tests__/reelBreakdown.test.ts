@@ -5,7 +5,6 @@ import {
   parseBreakdownAnalysis,
 } from "@/lib/reelBreakdown/analysis";
 import {
-  __private__,
   normalizeInstagramReelUrl,
   parseInstagramEmbedVideoUrl,
   parseSceneCuts,
@@ -48,11 +47,6 @@ test("embed HTML의 이중 이스케이프된 Instagram CDN 영상 주소를 복
       String.raw`\"video_url\":\"https:\\\/\\\/example.com\\\/bad.mp4\"`,
     ),
   ).toThrow(/CDN/);
-});
-
-test("포스터 프레임은 외부 스킬과 같은 2초 간격 규칙을 쓴다", () => {
-  expect(__private__.frameNumberAt(0)).toBe("0001.jpg");
-  expect(__private__.frameNumberAt(4.1)).toBe("0003.jpg");
 });
 
 test("프롬프트는 사용자가 붙인 분류와 16개 taxonomy를 함께 준다", () => {

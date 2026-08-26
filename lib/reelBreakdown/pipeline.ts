@@ -154,10 +154,6 @@ export function parseSceneCuts(stderr: string): number[] {
   );
 }
 
-function frameNumberAt(seconds: number): string {
-  return `${Math.round(seconds / FRAME_INTERVAL_SECONDS) + 1}`.padStart(4, "0") + ".jpg";
-}
-
 async function nearestFrame(framesDir: string, seconds: number): Promise<string> {
   const ideal = Math.round(seconds / FRAME_INTERVAL_SECONDS) + 1;
   for (const index of [ideal, ideal - 1, ideal + 1, 1]) {
@@ -394,4 +390,3 @@ export async function runReelBreakdown(args: {
 }
 
 /** 외부 스킬의 프레임 선택 규칙을 단위 테스트에서 확인할 수 있게 노출한다. */
-export const __private__ = { frameNumberAt };
