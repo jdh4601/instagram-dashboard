@@ -1,26 +1,17 @@
 "use client";
-import type { Reel, ReelMetricSnapshot } from "@/lib/schemas";
+import type { Reel } from "@/lib/schemas";
 import type { AnalyzeResult } from "@/lib/analysis/analyze";
 import type { ReelKpiDeltas } from "@/lib/analysis/reelKpiDeltas";
-import { AiGenerationPanel } from "@/components/AiGenerationPanel";
-import { BottleneckBanner } from "@/components/BottleneckBanner";
-import { DiagnosisCards } from "@/components/DiagnosisCards";
-import { DurationInput } from "@/components/DurationInput";
-import { InsightList } from "@/components/InsightList";
 import { MetricBars } from "@/components/MetricBars";
 import { ReelAnalysisPanel } from "@/components/ReelAnalysisPanel";
 import { ReelConversionFunnel } from "@/components/ReelConversionFunnel";
 import { ReelDerivedMetrics } from "@/components/ReelDerivedMetrics";
-import { ReelMetricTrend } from "@/components/ReelMetricTrend";
 import { ReelPerformanceDashboard } from "@/components/ReelPerformanceDashboard";
 import { ReelVideoPlayer } from "@/components/ReelVideoPlayer";
-import { SolutionsPanel } from "@/components/SolutionsPanel";
-import { SrtUploadCard } from "@/components/SrtUploadCard";
 
 interface Props {
   reel: Reel;
   analysis: AnalyzeResult;
-  metricHistory: ReelMetricSnapshot[];
   kpiDeltas?: ReelKpiDeltas;
   onChange: () => void;
 }
@@ -29,7 +20,7 @@ interface Props {
  * 릴스 상세. 캐러셀은 CarouselDetail이 따로 맡는다 — 영상 잔존을 전제로 한 진단과
  * 자막·훅 생성이 여기 다 걸려 있어 한 컴포넌트에 두면 종류 분기만 남는다.
  */
-export function ReelDetail({ reel, analysis, metricHistory, kpiDeltas, onChange }: Props) {
+export function ReelDetail({ reel, analysis, kpiDeltas, onChange }: Props) {
   return (
     <>
       {/* 영상은 왼쪽, 분석은 오른쪽. 자막을 보면서 화면을 되짚을 수 있어야 한다. */}
@@ -46,35 +37,6 @@ export function ReelDetail({ reel, analysis, metricHistory, kpiDeltas, onChange 
 
       <ReelPerformanceDashboard reel={reel} deltas={kpiDeltas} />
 
-      {/* 진단 → 처방 → 실행 → 근거/상세 순으로 스토리를 전개한다. */}
-      <BottleneckBanner
-        bottleneck={analysis.diagnosis.bottleneck}
-        delta={analysis.bottleneckDelta}
-        insufficientSample={analysis.diagnosis.insufficientSample}
-        reach={analysis.diagnosis.reach}
-      />
-      <DiagnosisCards
-        strengths={analysis.diagnosis.strengths}
-        weaknesses={analysis.diagnosis.weaknesses}
-        mediaLabel="릴스"
-        insufficientSample={analysis.diagnosis.insufficientSample}
-      />
-      <SolutionsPanel prescriptions={analysis.prescriptions} />
-      <AiGenerationPanel reelId={reel.id} />
-      <InsightList title="이 릴스의 핵심 인사이트" insights={analysis.reelInsights} />
-      <ReelMetricTrend history={metricHistory} />
-      <SrtUploadCard
-        reelId={reel.id}
-        analysis={analysis.transcript}
-        insights={reel.transcriptInsights}
-        onChange={onChange}
-      />
-      <DurationInput
-        reelId={reel.id}
-        durationSec={reel.durationSec}
-        avgWatchTimeSec={reel.avgWatchTimeSec}
-        onChange={onChange}
-      />
       <MetricBars verdicts={analysis.diagnosis.verdicts} baselineActive={analysis.baselineActive} />
       <ReelDerivedMetrics reel={reel} />
       <ReelConversionFunnel reel={reel} />
