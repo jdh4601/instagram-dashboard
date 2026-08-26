@@ -23,10 +23,6 @@ export interface AdFetchResult {
 
 let cached: { at: number; value: AdFetchResult } | null = null;
 
-export function clearAdPerformanceCache(): void {
-  cached = null;
-}
-
 async function load(): Promise<AdFetchResult> {
   const connection = await getAdsConnection();
   if (!connection) return { performance: [], configured: false, error: null };

@@ -3,12 +3,20 @@ vi.mock("@/lib/ads", () => ({
 }));
 
 import type { MockedFunction } from "vitest";
-import { fetchAdPerformance, clearAdPerformanceCache, AD_CACHE_TTL_MS } from "@/lib/ads/cache";
-import { getAdsConnection } from "@/lib/ads";
-import { AdsRequestError } from "@/lib/ads/client";
 import type { AdPerformance } from "@/lib/ads/map";
 
-const mockConnection = getAdsConnection as MockedFunction<typeof getAdsConnection>;
+/**
+ * 광고 성과 캐시는 모듈 수준 변수라 테스트끼리 새어 나간다. 프로덕션이 쓰지 않는
+ * 초기화 함수를 두는 대신, 테스트마다 모듈 레지스트리를 비우고 다시 들여와
+ * 캐시가 빈 상태에서 시작하게 만든다.
+ *
+ * 리셋하면 mock 함수도 AdsRequestError 클래스도 새 인스턴스가 되므로, 세 모듈을
+ * 같은 시점에 함께 받아 와야 instanceof 판정이 어긋나지 않는다.
+ */
+let fetchAdPerformance: typeof import("@/lib/ads/cache").fetchAdPerformance;
+let AD_CACHE_TTL_MS: number;
+let AdsRequestError: typeof import("@/lib/ads/client").AdsRequestError;
+let mockConnection: MockedFunction<typeof import("@/lib/ads").getAdsConnection>;
 
 function perf(mediaId: string, spend = 1000): AdPerformance {
   return { mediaId, adCount: 1, spend, reach: 100, impressions: 200, clicks: 5 };
@@ -24,9 +32,16 @@ function connectionReturning(rows: AdPerformance[]) {
   return listAdPerformance;
 }
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  clearAdPerformanceCache();
+beforeEach(async () => {
+  vi.resetModules();
+
+  const ads = await import("@/lib/ads");
+  mockConnection = ads.getAdsConnection as MockedFunction<typeof ads.getAdsConnection>;
+  mockConnection.mockReset();
+
+  ({ AdsRequestError } = await import("@/lib/ads/client"));
+  ({ fetchAdPerformance, AD_CACHE_TTL_MS } = await import("@/lib/ads/cache"));
+
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-08-17T00:00:00Z"));
 });
@@ -56,6 +71,7 @@ describe("fetchAdPerformance", () => {
     expect(result.error).toBeNull();
   });
 
+  // 모듈을 새로 들여왔으니 캐시는 비어 있다. 첫 호출이 곧 캐시를 채우는 호출이다.
   it("TTL 안에서는 API를 다시 부르지 않는다", async () => {
     const list = connectionReturning([perf("m1")]);
 
