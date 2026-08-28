@@ -27,6 +27,11 @@ vi.mock("@/lib/walla/sync", () => ({
 vi.mock("@/lib/settings", () => ({
   getSettingsStore: vi.fn(() => ({ markSynced: mockMarkSynced })),
 }));
+// 토큰 갱신은 만료가 임박했을 때만 네트워크를 탄다. 기본은 "아직 아님"으로 두고,
+// 실패를 확인하는 테스트에서만 결과를 바꾼다.
+vi.mock("@/lib/instagram/tokenRefresh", () => ({
+  refreshInstagramTokenIfDue: vi.fn(async () => ({ status: "skipped", reason: "not-due" })),
+}));
 // 광고도 선택 연동이다. 기본은 미연동으로 두고, 필요한 테스트에서만 켠다.
 vi.mock("@/lib/ads/cache", () => ({
   fetchAdPerformance: vi.fn(),
@@ -37,6 +42,7 @@ import { POST } from "@/app/api/sync/route";
 import { syncFromGraph } from "@/lib/graph/sync";
 import { syncApplicationsIfConfigured } from "@/lib/walla/sync";
 import { fetchAdPerformance } from "@/lib/ads/cache";
+import { refreshInstagramTokenIfDue } from "@/lib/instagram/tokenRefresh";
 
 const mockFetchAds = fetchAdPerformance as MockedFunction<typeof fetchAdPerformance>;
 const mockSync = syncFromGraph as MockedFunction<typeof syncFromGraph>;
@@ -303,4 +309,22 @@ test("광고 조회가 예외를 던져도 동기화는 성공하되 사유를 �
   expect(body.syncedReels).toBe(2);
   expect(body.ads).toEqual({ configured: false, count: 0 });
   expect(body.errors).toContain("광고 연동을 확인하지 못했습니다");
+});
+
+test("토큰 갱신 실패는 동기화를 막지 않고 사유만 남긴다", async () => {
+  (refreshInstagramTokenIfDue as MockedFunction<typeof refreshInstagramTokenIfDue>).mockResolvedValueOnce({
+    status: "failed",
+    error: "Instagram 토큰이 이미 만료돼 갱신할 수 없습니다. /settings에서 다시 연결하세요.",
+  });
+  mockSync.mockResolvedValue(okResult);
+  mockFetchAds.mockResolvedValue({ configured: false, performance: [], error: null });
+
+  const res = await POST(syncRequest());
+
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body.syncedReels).toBe(2);
+  expect(body.errors).toContain(
+    "Instagram 토큰이 이미 만료돼 갱신할 수 없습니다. /settings에서 다시 연결하세요.",
+  );
 });

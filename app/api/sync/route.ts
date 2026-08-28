@@ -12,6 +12,7 @@ import { getWallaConnection } from "@/lib/walla";
 import { syncApplicationsIfConfigured } from "@/lib/walla/sync";
 import { assertJsonRequest } from "@/lib/api/guard";
 import { getSettingsStore } from "@/lib/settings";
+import { refreshInstagramTokenIfDue } from "@/lib/instagram/tokenRefresh";
 import { fetchAdPerformance } from "@/lib/ads/cache";
 
 const NDJSON = "application/x-ndjson";
@@ -45,6 +46,11 @@ async function refreshAds(): Promise<AdsSyncResult> {
 
 async function runSync(onProgress?: (progress: SyncProgress) => void) {
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+  // 크론이 걸려 있지 않은 설치본에서는 이 버튼이 토큰을 갱신할 유일한 기회다.
+  // 만료가 임박했을 때만 실제로 호출하므로 평소에는 비용이 없다.
+  const tokenRefresh = await refreshInstagramTokenIfDue();
+
   const client = await getInstagramClient();
   const result = await syncFromGraph(
     client,
@@ -71,6 +77,7 @@ async function runSync(onProgress?: (progress: SyncProgress) => void) {
   await getSettingsStore().markSynced(new Date().toISOString());
 
   const errors = [...result.errors];
+  if (tokenRefresh.status === "failed") errors.push(tokenRefresh.error);
   if (applications.error) errors.push(applications.error);
   if (ads.error) errors.push(ads.error);
 

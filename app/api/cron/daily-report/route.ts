@@ -7,6 +7,7 @@ import {
   getReelHistoryRepository,
 } from "@/lib/store";
 import { getInstagramClient } from "@/lib/graph";
+import { refreshInstagramTokenIfDue } from "@/lib/instagram/tokenRefresh";
 import { syncFromGraph } from "@/lib/graph/sync";
 import { generateAndSendDailyReport } from "@/lib/report/generateAndSendDailyReport";
 import { createReportSender } from "@/lib/email/sendReport";
@@ -54,6 +55,10 @@ async function handle(request: Request): Promise<NextResponse> {
   }
 
   try {
+    // 리포트보다 먼저 토큰 수명을 늘려 둔다. 만료된 채로 하루가 지나면 그날치
+    // 동기화가 통째로 비고, 되살릴 방법이 수동 재발급밖에 남지 않는다.
+    const tokenRefresh = await refreshInstagramTokenIfDue();
+
     const send = createReportSender({
       apiKey: process.env.RESEND_API_KEY,
       from: process.env.REPORT_EMAIL_FROM,
@@ -89,6 +94,7 @@ async function handle(request: Request): Promise<NextResponse> {
       followerCount: report.metrics.followerCount,
       followerDelta: report.metrics.followerDelta,
       reelsAnalyzed: report.metrics.reelsAnalyzed,
+      tokenRefresh,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "일일 리포트 생성 실패";

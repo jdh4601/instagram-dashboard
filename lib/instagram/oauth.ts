@@ -3,6 +3,7 @@ import { z } from "zod";
 const INSTAGRAM_AUTHORIZE_URL = "https://www.instagram.com/oauth/authorize";
 const INSTAGRAM_TOKEN_URL = "https://api.instagram.com/oauth/access_token";
 const INSTAGRAM_LONG_LIVED_TOKEN_URL = "https://graph.instagram.com/access_token";
+const INSTAGRAM_REFRESH_TOKEN_URL = "https://graph.instagram.com/refresh_access_token";
 export const INSTAGRAM_OAUTH_STATE_COOKIE = "instagram_oauth_state";
 
 const INSTAGRAM_OAUTH_SCOPES = [
@@ -135,5 +136,28 @@ export async function exchangeInstagramAuthorizationCode(
     throw new Error(`Instagram long-lived token exchange failed (${longResponse.status}).`);
   }
   const parsed = LongLivedTokenSchema.parse(longBody);
+  return { accessToken: parsed.access_token, expiresIn: parsed.expires_in ?? null };
+}
+
+/**
+ * 장기 토큰의 수명을 60일 더 연장한다.
+ *
+ * 갱신은 **아직 살아 있는** 토큰에만 동작한다. 한 번 만료되면 이 호출로는 되살릴 수
+ * 없고 사용자가 /settings에서 다시 연결해야 한다. 오류 메시지에 요청 URL을 싣지
+ * 않는 이유는 URL 쿼리에 토큰이 그대로 들어 있기 때문이다.
+ */
+export async function refreshInstagramLongLivedToken(
+  accessToken: string,
+  fetcher: typeof fetch = fetch,
+): Promise<{ accessToken: string; expiresIn: number | null }> {
+  const url = new URL(INSTAGRAM_REFRESH_TOKEN_URL);
+  url.searchParams.set("grant_type", "ig_refresh_token");
+  url.searchParams.set("access_token", accessToken);
+  const response = await fetcher(url, { cache: "no-store" });
+  const body = await readProviderJson(response);
+  if (!response.ok) {
+    throw new Error(`Instagram token refresh failed (${response.status}).`);
+  }
+  const parsed = LongLivedTokenSchema.parse(body);
   return { accessToken: parsed.access_token, expiresIn: parsed.expires_in ?? null };
 }

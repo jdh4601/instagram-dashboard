@@ -6,9 +6,14 @@ vi.mock("@/lib/email/sendReport", () => ({
 vi.mock("@/lib/report/generateAndSendDailyReport", () => ({
   generateAndSendDailyReport: vi.fn(),
 }));
+// 실제 설정 파일을 읽거나 Meta에 요청하지 않도록 토큰 갱신도 대역으로 바꾼다.
+vi.mock("@/lib/instagram/tokenRefresh", () => ({
+  refreshInstagramTokenIfDue: vi.fn(async () => ({ status: "skipped", reason: "not-due" })),
+}));
 
 import { GET, POST } from "@/app/api/cron/daily-report/route";
 import { generateAndSendDailyReport } from "@/lib/report/generateAndSendDailyReport";
+import { refreshInstagramTokenIfDue } from "@/lib/instagram/tokenRefresh";
 
 const mockGenerate = generateAndSendDailyReport as unknown as Mock;
 
@@ -63,6 +68,21 @@ describe("POST /api/cron/daily-report 인증", () => {
     expect(body.ok).toBe(true);
     expect(body.date).toBe("2026-07-23");
     expect(mockGenerate).toHaveBeenCalledTimes(1);
+  });
+
+  // 만료 전에 토큰을 늘려 두는 것이 이 크론의 두 번째 임무다.
+  test("리포트를 만들기 전에 토큰 갱신을 먼저 시도한다", async () => {
+    const mockRefresh = refreshInstagramTokenIfDue as unknown as Mock;
+    mockRefresh.mockClear();
+
+    const res = await POST(cronRequest({ "x-cron-secret": SECRET }));
+
+    expect(res.status).toBe(200);
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
+    expect(mockRefresh.mock.invocationCallOrder[0]).toBeLessThan(
+      mockGenerate.mock.invocationCallOrder[0],
+    );
+    expect(await res.json()).toHaveProperty("tokenRefresh.status", "skipped");
   });
 
   test("CRON_SECRET 미설정이면 500", async () => {

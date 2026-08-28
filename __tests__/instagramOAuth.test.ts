@@ -2,6 +2,7 @@ import {
   buildInstagramAuthorizationUrl,
   exchangeInstagramAuthorizationCode,
   getInstagramOAuthStatus,
+  refreshInstagramLongLivedToken,
   resolveInstagramOAuthConfig,
 } from "@/lib/instagram/oauth";
 
@@ -68,4 +69,40 @@ test("authorization code를 단기 토큰 뒤 장기 토큰으로 교환한다",
   expect(firstBody.get("client_secret")).toBe(config.appSecret);
   expect(firstBody.get("code")).toBe("auth-code");
   expect(String(fetcher.mock.calls[1][0])).toContain("ig_exchange_token");
+});
+
+test("장기 토큰을 ig_refresh_token으로 갱신한다", async () => {
+  const fetcher = vi
+    .fn()
+    .mockResolvedValue(
+      new Response(JSON.stringify({ access_token: "renewed-token", expires_in: 5_184_000 }), {
+        status: 200,
+      }),
+    );
+
+  await expect(refreshInstagramLongLivedToken("old-token", fetcher)).resolves.toEqual({
+    accessToken: "renewed-token",
+    expiresIn: 5_184_000,
+  });
+  const url = new URL(String(fetcher.mock.calls[0][0]));
+  expect(`${url.origin}${url.pathname}`).toBe("https://graph.instagram.com/refresh_access_token");
+  expect(url.searchParams.get("grant_type")).toBe("ig_refresh_token");
+  expect(url.searchParams.get("access_token")).toBe("old-token");
+});
+
+test("갱신 실패는 토큰을 노출하지 않는 오류가 된다", async () => {
+  const fetcher = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify({ error: { message: "Session has expired", code: 190 } }), {
+      status: 400,
+    }),
+  );
+
+  const error: unknown = await refreshInstagramLongLivedToken("secret-token", fetcher).then(
+    () => null,
+    (err: unknown) => err,
+  );
+  expect(error).toBeInstanceOf(Error);
+  // URL 쿼리에 토큰이 들어가므로, 오류 메시지가 URL을 실어 나르면 로그로 새어 나간다.
+  expect((error as Error).message).toContain("400");
+  expect((error as Error).message).not.toContain("secret-token");
 });
