@@ -6,7 +6,7 @@ import type { AdPerformance } from "@/lib/ads/map";
 const RANGE = { since: "2026-07-16", until: "2026-08-15" };
 
 function client(impl: () => Promise<AdPerformance[]>): AdsClient {
-  return { listAdAccounts: async () => [], listAdPerformance: impl };
+  return { listAdAccounts: async () => [], listAdPerformance: impl, listAdUnits: async () => [] };
 }
 
 function perf(mediaId: string, spend: number, adCount = 1): AdPerformance {

@@ -11,10 +11,20 @@ export interface GraphAd {
   id: string;
   name?: string;
   effective_status?: string;
+  created_time?: string;
+  adset_id?: string;
+  campaign_id?: string;
   creative?: {
     effective_instagram_media_id?: string;
     instagram_permalink_url?: string;
+    thumbnail_url?: string;
   };
+}
+
+/** insights가 돌려주는 행동 묶음 한 줄 */
+export interface GraphAction {
+  action_type?: string;
+  value?: string;
 }
 
 /** /{act}/insights?level=ad 한 줄 */
@@ -26,7 +36,13 @@ export interface GraphAdInsight {
   frequency?: string;
   cpm?: string;
   clicks?: string;
-  actions?: Array<{ action_type?: string; value?: string }>;
+  actions?: GraphAction[];
+  /** 3초 이상 재생. actions와 별도 필드로 온다. */
+  video_play_actions?: GraphAction[];
+  /** 15초 또는 끝까지 재생. 동영상 조회 목표의 결과가 이 값이다. */
+  video_thruplay_watched_actions?: GraphAction[];
+  /** Meta가 직접 계산한 행동별 단가. 우리가 다시 나누지 않고 이걸 쓴다. */
+  cost_per_action_type?: GraphAction[];
 }
 
 /**

@@ -4,6 +4,12 @@ import {
   type GraphAd,
   type GraphAdInsight,
 } from "@/lib/ads/map";
+import {
+  buildAdUnits,
+  type AdUnit,
+  type GraphAdSet,
+  type GraphCampaign,
+} from "@/lib/ads/adUnit";
 
 const DEFAULT_BASE = "https://graph.facebook.com";
 const VERSION = "v23.0";
@@ -14,6 +20,19 @@ const MAX_PAGES = 10;
 
 const AD_FIELDS = "id,name,effective_status,creative{effective_instagram_media_id,instagram_permalink_url}";
 const INSIGHT_FIELDS = "ad_id,spend,reach,impressions,frequency,cpm,clicks,actions";
+
+// 광고 단위 화면은 상태·목표·예산·기간까지 필요해서 요청 필드가 더 넓다. 효율표가
+// 쓰는 위 필드를 넓히지 않고 따로 두는 이유는, 게시물 단위 합산이 쓰지 않는 값을
+// 받느라 그쪽 응답까지 무거워지지 않게 하려는 것이다.
+const AD_UNIT_FIELDS =
+  "id,name,effective_status,created_time,adset_id,campaign_id," +
+  "creative{effective_instagram_media_id,instagram_permalink_url,thumbnail_url}";
+const ADSET_FIELDS =
+  "id,optimization_goal,daily_budget,lifetime_budget,start_time,end_time,effective_status";
+const CAMPAIGN_FIELDS = "id,name,objective,daily_budget,lifetime_budget";
+const AD_UNIT_INSIGHT_FIELDS =
+  "ad_id,spend,reach,impressions,frequency,cpm,clicks,actions," +
+  "video_play_actions,video_thruplay_watched_actions,cost_per_action_type";
 
 export interface AdAccount {
   id: string;
@@ -48,6 +67,8 @@ export interface AdsClient {
   listAdAccounts(): Promise<AdAccount[]>;
   /** 기간 내 게시물별 광고 성과. 인스타 게시물에 붙지 않은 광고는 빠진다. */
   listAdPerformance(adAccountId: string, range: { since: string; until: string }): Promise<AdPerformance[]>;
+  /** 기간 내 광고 한 건씩. 게시물에 붙지 않은 광고도 그대로 남는다. */
+  listAdUnits(adAccountId: string, range: { since: string; until: string }): Promise<AdUnit[]>;
 }
 
 export function createAdsClient(opts: Options): AdsClient {
@@ -130,6 +151,31 @@ export function createAdsClient(opts: Options): AdsClient {
         }),
       ]);
       return buildAdPerformance(ads, insights);
+    },
+
+    async listAdUnits(adAccountId, range) {
+      const timeRange = JSON.stringify({ since: range.since, until: range.until });
+      // 통화까지 함께 받는다. 예산이 계정 통화의 최소 단위로 오기 때문에, 통화를
+      // 모르면 원화 2,000원과 달러 20.00달러를 구분할 수 없다.
+      const [account, ads, adsets, campaigns, insights] = await Promise.all([
+        request(adAccountId, { fields: "currency" }) as Promise<{ currency?: string }>,
+        collect<GraphAd>(`${adAccountId}/ads`, { fields: AD_UNIT_FIELDS }),
+        collect<GraphAdSet>(`${adAccountId}/adsets`, { fields: ADSET_FIELDS }),
+        collect<GraphCampaign>(`${adAccountId}/campaigns`, { fields: CAMPAIGN_FIELDS }),
+        collect<GraphAdInsight>(`${adAccountId}/insights`, {
+          level: "ad",
+          fields: AD_UNIT_INSIGHT_FIELDS,
+          time_range: timeRange,
+        }),
+      ]);
+
+      return buildAdUnits({
+        ads,
+        adsets,
+        campaigns,
+        insights,
+        currency: account.currency ?? "KRW",
+      });
     },
   };
 }
