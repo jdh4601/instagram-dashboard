@@ -10,10 +10,8 @@ vi.mock("@/lib/settings", () => ({
   getSettingsStore: () => ({ get: async () => stored }),
 }));
 
-let spawned: { command: string; args: string[] } | null = null;
 vi.mock("node:child_process", () => ({
-  spawn: (command: string, args: string[]) => {
-    spawned = { command, args };
+  spawn: () => {
     throw new Error("테스트는 실제로 CLI를 띄우지 않는다");
   },
 }));
@@ -21,7 +19,6 @@ vi.mock("node:child_process", () => ({
 const { getChatModel } = await import("@/lib/llm/chat");
 
 beforeEach(() => {
-  spawned = null;
   stored = {
     chatProvider: "codex-cli",
     cliProviders: { "claude-cli": {}, "codex-cli": {}, "gemini-cli": {} },

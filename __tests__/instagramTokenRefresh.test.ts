@@ -116,7 +116,7 @@ test("만료 시각을 모르면 갱신해서 만료 시각을 기록한다", as
 
 // Meta는 발급 24시간이 지나지 않은 토큰의 갱신을 거부한다.
 test("만료 시각을 몰라도 발급 24시간 이내면 갱신하지 않는다", async () => {
-  const { store, saved } = fakeStore({ accessToken: "stored", issuedAt: inDays(-0.5) });
+  const { store } = fakeStore({ accessToken: "stored", issuedAt: inDays(-0.5) });
   const fetcher = vi.fn();
 
   await expect(refreshInstagramTokenIfDue({ store, now: NOW, fetcher, env: {} })).resolves.toEqual({
