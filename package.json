@@ -41,15 +41,15 @@
   },
   "homepage": "https://github.com/jdh4601/instagram-dashboard#readme",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.120.0",
-    "lucide-react": "^1.33.0",
-    "next": "16.3.1",
-    "openai": "^7.5.0",
+    "@anthropic-ai/sdk": "^0.122.0",
+    "lucide-react": "^1.34.0",
+    "next": "16.3.3",
+    "openai": "^7.8.0",
     "postgres": "^3.4.9",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "recharts": "^3.10.1",
-    "resend": "^6.21.0",
+    "resend": "^6.24.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
