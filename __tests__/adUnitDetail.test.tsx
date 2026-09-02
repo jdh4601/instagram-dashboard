@@ -9,6 +9,7 @@ function unit(over: Partial<AdUnit> = {}): AdUnit {
     name: 'Post: "Ep 4. 매주 하나 만들고, 한 명에게 보여주기"',
     status: "ACTIVE",
     createdAt: "2026-08-30T10:21:23+0900",
+    thumbnailUrl: "https://cdninstagram.example/reel-frame.jpg",
     spend: 3427,
     impressions: 698,
     reach: 600,
@@ -107,4 +108,11 @@ test("참여를 모르면 0이 아니라 빈 칸으로 둔다", () => {
   );
 
   expect(html).not.toContain("참여 0");
+});
+
+// 목록에서만 보이고 상세에서 사라지면 어느 광고를 열었는지 다시 확인할 수 없다.
+test("상세에도 어느 릴스인지 알 수 있게 썸네일을 둔다", () => {
+  const html = renderToStaticMarkup(<AdUnitDetail unit={unit()} post={post()} />);
+
+  expect(html).toContain("https://cdninstagram.example/reel-frame.jpg");
 });

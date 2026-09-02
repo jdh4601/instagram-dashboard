@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { ImageOff } from "lucide-react";
 import type { AdUnit } from "@/lib/ads/adUnit";
+import { AdUnitThumbnail } from "@/components/AdUnitThumbnail";
 import { adUnitStatus, goalLabel, NONE } from "@/lib/ui/adUnitLabels";
 import { Badge, EmptyState } from "@/components/ui";
 import { fmtCount, fmtWon } from "@/lib/ui/format";
@@ -66,7 +66,7 @@ function Row({ unit }: { unit: AdUnit }) {
           href={`/ads/${unit.adId}`}
           className="flex items-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
         >
-          <Thumbnail url={unit.thumbnailUrl} />
+          <AdUnitThumbnail url={unit.thumbnailUrl} />
           <span className="min-w-0">
             <span className="flex items-center gap-2">
               <Badge band={status.band}>{status.label}</Badge>
@@ -101,19 +101,6 @@ function Row({ unit }: { unit: AdUnit }) {
       </td>
     </tr>
   );
-}
-
-function Thumbnail({ url }: { url?: string }) {
-  if (!url) {
-    return (
-      <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-neutral-300">
-        <ImageOff size={16} aria-hidden />
-      </span>
-    );
-  }
-  // 광고 썸네일은 Meta CDN의 서명 URL이라 Next 이미지 최적화를 태우지 않는다.
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src={url} alt="" className="size-11 shrink-0 rounded-lg object-cover" />;
 }
 
 function fmtDate(iso: string): string {

@@ -136,6 +136,12 @@ export interface GraphClient {
    */
   getMediaUrl?(mediaId: string): Promise<string | null>;
   /**
+   * 미디어 한 건의 썸네일 주소. 광고 목록이 어느 릴스인지 보여 주려고 쓴다 —
+   * Meta가 주는 크리에이티브 썸네일은 페이지 로고인 경우가 있어 믿을 수 없다.
+   * 영상은 thumbnail_url이, 이미지는 media_url이 그 자리를 맡는다.
+   */
+  getMediaThumbnail?(mediaId: string): Promise<string | null>;
+  /**
    * 캐러셀 낱장 목록. media_url과 마찬가지로 서명이 만료되므로 저장해 두지 않고
    * 상세 화면을 열 때마다 다시 물어본다.
    */
@@ -372,6 +378,14 @@ export function createGraphClient(opts: Options): GraphClient {
     async getMediaUrl(mediaId) {
       const json = (await request(mediaId, { fields: "media_url" })) as { media_url?: string };
       return json.media_url ?? null;
+    },
+
+    async getMediaThumbnail(mediaId) {
+      const json = (await request(mediaId, { fields: "thumbnail_url,media_url" })) as {
+        thumbnail_url?: string;
+        media_url?: string;
+      };
+      return json.thumbnail_url ?? json.media_url ?? null;
     },
 
     async getCarouselChildren(mediaId) {

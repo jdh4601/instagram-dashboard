@@ -1,6 +1,8 @@
 import { getAdsConnection } from "@/lib/ads";
 import { AdsRequestError, type AdsClient } from "@/lib/ads/client";
 import { adLookbackRange } from "@/lib/ads/window";
+import { resolveAdUnitThumbnails } from "@/lib/ads/thumbnail";
+import { getInstagramClient } from "@/lib/graph";
 import type { AdPerformance } from "@/lib/ads/map";
 import type { AdUnit } from "@/lib/ads/adUnit";
 
@@ -86,11 +88,31 @@ export async function fetchAdPerformance(opts: { force?: boolean } = {}): Promis
   return { performance: result.value, configured: result.configured, error: result.error };
 }
 
+/**
+ * 광고 썸네일을 인스타그램에서 받아 온다.
+ *
+ * Meta의 크리에이티브 썸네일이 페이지 로고인 경우가 있어(실측) 어느 릴스인지 알 수
+ * 없다. 인스타그램 토큰이 없거나 실패하면 Meta가 준 이미지로 물러난다 — 썸네일은
+ * 곁가지라 이것 때문에 광고 목록 전체가 못 뜨면 안 된다.
+ */
+async function withThumbnails(units: AdUnit[]): Promise<AdUnit[]> {
+  if (units.length === 0) return units;
+  try {
+    const graph = await getInstagramClient();
+    const fetchThumbnail = graph.getMediaThumbnail;
+    if (!fetchThumbnail) return units;
+    return await resolveAdUnitThumbnails(units, (mediaId) => fetchThumbnail(mediaId));
+  } catch {
+    return units;
+  }
+}
+
 /** 광고 한 건씩. 목록과 상세가 같은 캐시를 나눠 써서 상세를 열 때 계정을 다시 받지 않는다. */
 export async function fetchAdUnits(opts: { force?: boolean } = {}): Promise<AdUnitFetchResult> {
   const result = await cachedFetch(
     unitSlot,
-    (client, adAccountId) => client.listAdUnits(adAccountId, adLookbackRange()),
+    async (client, adAccountId) =>
+      withThumbnails(await client.listAdUnits(adAccountId, adLookbackRange())),
     opts.force ?? false,
   );
   return { units: result.value, configured: result.configured, error: result.error };

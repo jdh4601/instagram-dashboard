@@ -8,6 +8,7 @@ function unit(over: Partial<AdUnit> = {}): AdUnit {
     name: 'Post: "Ep 4. 매주 하나 만들고, 한 명에게 보여주기"',
     status: "ACTIVE",
     createdAt: "2026-08-30T10:21:23+0900",
+    thumbnailUrl: "https://cdninstagram.example/reel-frame.jpg",
     spend: 3427,
     impressions: 698,
     reach: 600,
@@ -66,4 +67,16 @@ test("결과는 목표와 함께 적는다", () => {
   const html = renderToStaticMarkup(<AdUnitList units={[unit()]} />);
 
   expect(html).toContain("동영상 조회");
+});
+
+test("행마다 그 릴스의 썸네일을 건다", () => {
+  const html = renderToStaticMarkup(<AdUnitList units={[unit()]} />);
+
+  expect(html).toContain("https://cdninstagram.example/reel-frame.jpg");
+});
+
+test("썸네일이 없으면 빈 자리를 대신 그린다", () => {
+  const html = renderToStaticMarkup(<AdUnitList units={[unit({ thumbnailUrl: undefined })]} />);
+
+  expect(html).not.toContain("<img");
 });

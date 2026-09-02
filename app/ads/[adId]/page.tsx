@@ -60,12 +60,8 @@ export default function AdUnitPage({ params }: { params: Promise<{ adId: string 
           hint={error ?? "이 광고를 찾지 못했습니다."}
         />
       ) : (
-        <>
-          <header>
-            <h1 className="text-lg font-semibold text-neutral-900">{data.unit.name}</h1>
-          </header>
-          <AdUnitDetail unit={data.unit} post={data.post ?? null} />
-        </>
+        // 광고 이름은 소재 카드가 썸네일과 함께 이고 있어 헤더에 또 적지 않는다.
+        <AdUnitDetail unit={data.unit} post={data.post ?? null} />
       )}
     </main>
   );

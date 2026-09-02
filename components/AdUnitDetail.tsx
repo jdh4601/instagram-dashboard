@@ -4,6 +4,7 @@ import type { AdUnit } from "@/lib/ads/adUnit";
 import type { Reel } from "@/lib/schemas";
 import { adUnitStatus, goalLabel, NONE } from "@/lib/ui/adUnitLabels";
 import { detailPathForMedia } from "@/lib/ui/navigation";
+import { AdUnitThumbnail } from "@/components/AdUnitThumbnail";
 import { fmtCount, fmtWon } from "@/lib/ui/format";
 import { Badge, Card, CardBody, CardHeader, EmptyState, Stat } from "@/components/ui";
 
@@ -17,6 +18,7 @@ export function AdUnitDetail({ unit, post }: Props) {
   return (
     <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
       <div className="space-y-4">
+        <Creative unit={unit} />
         <Performance unit={unit} />
         <ActivityCard unit={unit} />
       </div>
@@ -25,6 +27,35 @@ export function AdUnitDetail({ unit, post }: Props) {
         <OriginalContent unit={unit} post={post} />
       </div>
     </div>
+  );
+}
+
+/** 어느 소재를 태운 광고인지 한눈에 보여 주는 자리. */
+function Creative({ unit }: { unit: AdUnit }) {
+  const status = adUnitStatus(unit);
+
+  return (
+    <Card>
+      <CardBody>
+        <div className="flex items-center gap-4">
+          <AdUnitThumbnail url={unit.thumbnailUrl} size="lg" />
+          <div className="min-w-0 space-y-1.5">
+            <Badge band={status.band}>{status.label}</Badge>
+            <p className="line-clamp-2 font-medium text-neutral-900">{unit.name}</p>
+            {unit.permalink && (
+              <a
+                href={unit.permalink}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-block text-xs text-brand-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+              >
+                인스타그램에서 보기
+              </a>
+            )}
+          </div>
+        </div>
+      </CardBody>
+    </Card>
   );
 }
 
