@@ -130,11 +130,13 @@ test("합계 줄은 지출과 단가를 다시 계산해 얹는다", () => {
   expect(html).toContain("100,000원");
 });
 
-test("광고 효율 탭이 사이드바에 있고 /ads에서 켜진다", () => {
+test("광고 탭이 사이드바에 있고 목록과 상세 모두에서 켜진다", () => {
   const item = NAV_ITEMS.find((nav) => nav.href === "/ads");
 
-  expect(item?.label).toBe("광고 효율");
+  expect(item?.label).toBe("광고");
   expect(isNavItemActive("/ads", item!)).toBe(true);
+  // 광고 상세에서 탭이 꺼지면 어디에 있는지 알 수 없다.
+  expect(isNavItemActive("/ads/120253915877380651", item!)).toBe(true);
   // 대시보드 탭이 함께 켜지면 화면과 사이드바가 어긋난다
   expect(isNavItemActive("/ads", NAV_ITEMS.find((nav) => nav.href === "/")!)).toBe(false);
 });
