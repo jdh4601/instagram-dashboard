@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { Activity, Info, Megaphone } from "lucide-react";
+import { Activity, Gauge, Info, Megaphone } from "lucide-react";
 import type { AdUnit } from "@/lib/ads/adUnit";
 import type { Reel } from "@/lib/schemas";
+import { adUnitMetrics } from "@/lib/analysis/adUnitMetrics";
 import { adUnitStatus, goalLabel, NONE } from "@/lib/ui/adUnitLabels";
 import { detailPathForMedia } from "@/lib/ui/navigation";
 import { AdUnitThumbnail } from "@/components/AdUnitThumbnail";
-import { fmtCount, fmtWon } from "@/lib/ui/format";
+import { fmtCount, fmtPct, fmtWon } from "@/lib/ui/format";
 import { Badge, Card, CardBody, CardHeader, EmptyState, Stat } from "@/components/ui";
 
 interface Props {
@@ -20,6 +21,7 @@ export function AdUnitDetail({ unit, post }: Props) {
       <div className="space-y-4">
         <Creative unit={unit} />
         <Performance unit={unit} />
+        <Efficiency unit={unit} />
         <ActivityCard unit={unit} />
       </div>
       <div className="space-y-4">
@@ -99,6 +101,53 @@ function Performance({ unit }: { unit: AdUnit }) {
       </CardBody>
     </Card>
   );
+}
+
+/**
+ * 지출·노출·도달·클릭을 서로 나눈 값.
+ *
+ * 성과 카드가 "얼마를 써서 무엇을 얼마나 얻었나"를 말한다면, 이 카드는 "그 값이 싼가
+ * 비싼가"를 말한다. 광고를 계속 돌릴지 갈아엎을지는 뒤쪽 물음으로 정해진다.
+ *
+ * 아직 안 도는 광고에는 아예 그리지 않는다. 성과 카드가 이미 그 사실을 말하고 있어서,
+ * 빈 칸 여섯 개를 더 쌓아 봐야 화면만 길어진다.
+ */
+function Efficiency({ unit }: { unit: AdUnit }) {
+  if (!unit.hasDelivery) return null;
+  const metrics = adUnitMetrics(unit);
+
+  return (
+    <Card>
+      <CardHeader title="효율" icon={<Gauge size={16} className="text-brand-500" />} />
+      <CardBody>
+        <div className="grid grid-cols-2 gap-3">
+          <Stat labelQualifier="노출 1,000회당" label="CPM" value={won(metrics.cpm)} />
+          <Stat labelQualifier="클릭 한 번당" label="CPC" value={won(metrics.cpc)} />
+          <Stat labelQualifier="노출 대비" label="클릭률" value={pct(metrics.ctr)} />
+          <Stat labelQualifier="한 사람이 본 횟수" label="빈도" value={times(metrics.frequency)} />
+          <Stat labelQualifier="도달 대비" label="참여율" value={pct(metrics.engagementRate)} />
+          <Stat
+            labelQualifier="참여 한 건당"
+            label="참여 비용"
+            value={won(metrics.costPerEngagement)}
+          />
+        </div>
+      </CardBody>
+    </Card>
+  );
+}
+
+/** 계산하지 못한 자리는 0이 아니라 빈 칸이다. 0으로 적으면 "0원에 샀다"로 읽힌다. */
+function won(value: number | null): string {
+  return value === null ? NONE : fmtWon(value);
+}
+
+function pct(value: number | null): string {
+  return value === null ? NONE : fmtPct(value);
+}
+
+function times(value: number | null): string {
+  return value === null ? NONE : `${value.toFixed(1)}회`;
 }
 
 /**

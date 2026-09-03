@@ -80,3 +80,31 @@ test("썸네일이 없으면 빈 자리를 대신 그린다", () => {
 
   expect(html).not.toContain("<img");
 });
+
+// 열을 더하면 좁은 화면에서 표가 더 흐른다. 지출을 노출로 나눈 값이니 지출 칸에 얹는다.
+test("지출 칸에 CPM을 함께 적는다", () => {
+  const html = renderToStaticMarkup(<AdUnitList units={[unit()]} />);
+
+  expect(html).toContain("3,427원"); // 지출
+  expect(html).toContain("CPM 4,910원");
+});
+
+test("아직 안 도는 광고에는 CPM을 적지 않는다", () => {
+  const html = renderToStaticMarkup(
+    <AdUnitList
+      units={[
+        unit({
+          hasDelivery: false,
+          spend: 0,
+          impressions: 0,
+          reach: 0,
+          clicks: 0,
+          results: null,
+          costPerResult: null,
+        }),
+      ]}
+    />,
+  );
+
+  expect(html).not.toContain("CPM");
+});

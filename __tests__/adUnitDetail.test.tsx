@@ -116,3 +116,48 @@ test("상세에도 어느 릴스인지 알 수 있게 썸네일을 둔다", () =
 
   expect(html).toContain("https://cdninstagram.example/reel-frame.jpg");
 });
+
+test("효율 지표를 성과 옆에 함께 놓는다", () => {
+  const html = renderToStaticMarkup(<AdUnitDetail unit={unit()} post={null} />);
+
+  expect(html).toContain("효율");
+  expect(html).toContain("4,910원"); // CPM = 3427/698*1000
+  expect(html).toContain("40원"); // 클릭당 비용 = 3427/85
+  expect(html).toContain("12.18%"); // 클릭률 = 85/698
+  expect(html).toContain("1.2회"); // 빈도 = 698/600
+  expect(html).toContain("8.00%"); // 참여율 = 48/600
+  expect(html).toContain("71원"); // 참여당 비용 = 3427/48
+});
+
+// 성과 카드가 이미 "아직 집행 성과가 없습니다"를 말한다. 빈 칸만 여섯 개 더 쌓으면
+// 화면이 길어지기만 하고 말하는 것은 없다.
+test("아직 안 도는 광고에는 효율 카드를 아예 그리지 않는다", () => {
+  const html = renderToStaticMarkup(
+    <AdUnitDetail
+      unit={unit({
+        status: "PENDING_REVIEW",
+        hasDelivery: false,
+        spend: 0,
+        impressions: 0,
+        reach: 0,
+        clicks: 0,
+        results: null,
+        costPerResult: null,
+        activity: [],
+        engagements: null,
+      })}
+      post={null}
+    />,
+  );
+
+  expect(html).not.toContain("효율");
+});
+
+test("참여를 모르면 참여율과 참여 단가만 빈 칸으로 둔다", () => {
+  const html = renderToStaticMarkup(
+    <AdUnitDetail unit={unit({ engagements: null })} post={null} />,
+  );
+
+  expect(html).toContain("4,910원"); // CPM은 그대로 나온다
+  expect(html).not.toContain("8.00%"); // 참여율은 계산할 수 없다
+});

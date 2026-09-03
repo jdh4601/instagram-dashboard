@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { AdUnit } from "@/lib/ads/adUnit";
+import { adUnitMetrics } from "@/lib/analysis/adUnitMetrics";
 import { AdUnitThumbnail } from "@/components/AdUnitThumbnail";
 import { adUnitStatus, goalLabel, NONE } from "@/lib/ui/adUnitLabels";
 import { Badge, EmptyState } from "@/components/ui";
@@ -59,6 +60,15 @@ function Row({ unit }: { unit: AdUnit }) {
   // 아직 성과가 한 줄도 안 온 광고는 숫자 자리를 비워 둔다.
   const metric = (value: number) => (unit.hasDelivery ? fmtCount(value) : NONE);
 
+  // 지출을 노출로 나눈 값이라 지출 칸에 얹는다. 열을 하나 더 내면 좁은 화면에서
+  // 표가 그만큼 더 흐르는데, CPM 하나 보자고 치를 값은 아니다.
+  const cpm = unit.hasDelivery ? adUnitMetrics(unit).cpm : null;
+  const notes: string[] = [];
+  if (cpm !== null) notes.push(`CPM ${fmtWon(cpm)}`);
+  if (unit.budget) {
+    notes.push(`예산 ${fmtWon(unit.budget.amount)}${unit.budget.kind === "DAILY" ? " / 일" : ""}`);
+  }
+
   return (
     <tr className="border-b border-border-subtle last:border-0 hover:bg-surface-muted">
       <td className="px-3 py-2">
@@ -92,11 +102,8 @@ function Row({ unit }: { unit: AdUnit }) {
         <span className="block tabular-nums text-neutral-700">
           {unit.hasDelivery ? fmtWon(unit.spend) : NONE}
         </span>
-        {unit.budget && (
-          <span className="block text-xs text-neutral-400">
-            예산 {fmtWon(unit.budget.amount)}
-            {unit.budget.kind === "DAILY" ? " / 일" : ""}
-          </span>
+        {notes.length > 0 && (
+          <span className="block text-xs text-neutral-400">{notes.join(" · ")}</span>
         )}
       </td>
     </tr>
